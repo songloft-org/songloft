@@ -1,0 +1,16 @@
+version: "2"
+sql:
+  - engine: sqlite
+    queries: internal/database/queries
+    schema: internal/database/migrations
+    gen:
+      go:
+        package: sqlc
+        out: internal/database/sqlc
+        sql_package: database/sql
+        emit_interface: true
+        emit_json_tags: false
+        emit_empty_slices: true
+        emit_pointers_for_null_types: false
+        emit_prepared_queries: false
+        omit_unused_structs: false

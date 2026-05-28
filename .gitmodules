@@ -1,0 +1,24 @@
+[submodule "pkg/tag"]
+	path = pkg/tag
+	url = https://github.com/hanxi/tag.git
+[submodule "mimusic-player"]
+	path = mimusic-player
+	url = https://github.com/mimusic-org/mimusic-player.git
+[submodule "jsplugins"]
+	path = jsplugins
+	url = https://github.com/mimusic-org/jsplugins.git
+[submodule "plugin-toolchain"]
+	path = plugin-toolchain
+	url = https://github.com/mimusic-org/plugin-toolchain.git
+[submodule "jsplugins-src/mimusic-jsplugin-xiaomi"]
+	path = jsplugins-src/mimusic-jsplugin-xiaomi
+	url = https://github.com/mimusic-org/mimusic-jsplugin-xiaomi.git
+[submodule "jsplugins-src/mimusic-jsplugin-lxmusic"]
+	path = jsplugins-src/mimusic-jsplugin-lxmusic
+	url = https://github.com/mimusic-org/mimusic-jsplugin-lxmusic.git
+[submodule "jsplugins-src/jsplugin-musicsdk"]
+	path = jsplugins-src/jsplugin-musicsdk
+	url = https://github.com/mimusic-org/jsplugin-musicsdk.git
+[submodule "jsplugins-src/mimusic-jsplugin-lxmusic-api"]
+	path = jsplugins-src/mimusic-jsplugin-lxmusic-api
+	url = https://github.com/mimusic-org/mimusic-jsplugin-lxmusic-api.git

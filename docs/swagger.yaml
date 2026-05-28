@@ -1,0 +1,3035 @@
+basePath: /api/v1
+definitions:
+  handlers.AutoConvertRequest:
+    properties:
+      enabled:
+        description: 是否启用自动转换
+        example: true
+        type: boolean
+    type: object
+  handlers.ScanRequest:
+    properties:
+      reimport:
+        type: boolean
+    type: object
+  handlers.pluginHealthResponse:
+    properties:
+      plugins:
+        items:
+          $ref: '#/definitions/source.PluginHealthSnapshot'
+        type: array
+    type: object
+  models.BatchDeletePlaylistsRequest:
+    properties:
+      ids:
+        description: 要删除的歌单 ID 列表
+        example:
+        - 1
+        items:
+          type: integer
+        type: array
+    type: object
+  models.BatchDeletePlaylistsResponse:
+    properties:
+      deleted:
+        description: 实际删除的数量
+        example: 3
+        type: integer
+    type: object
+  models.BatchDeleteSongsRequest:
+    properties:
+      ids:
+        description: 要删除的歌曲 ID 列表
+        example:
+        - 1
+        items:
+          type: integer
+        type: array
+    type: object
+  models.BatchDeleteSongsResponse:
+    properties:
+      deleted:
+        description: 实际删除的数量
+        example: 3
+        type: integer
+    type: object
+  models.Config:
+    properties:
+      id:
+        description: 配置ID
+        example: 1
+        type: integer
+      key:
+        description: 配置键
+        example: music_path
+        type: string
+      updated_at:
+        description: 更新时间
+        example: "2024-01-01T12:00:00Z"
+        type: string
+      value:
+        description: 配置值（JSON格式）
+        example: '{"path":"/music"}'
+        type: string
+    type: object
+  models.CreateConfigRequest:
+    properties:
+      key:
+        description: 配置键
+        example: music_path
+        type: string
+      value:
+        description: 配置值（JSON 格式）
+        example: '{"path":"/music"}'
+        type: string
+    required:
+    - key
+    - value
+    type: object
+  models.ErrorResponse:
+    properties:
+      detail:
+        description: 详细错误信息（可选）
+        example: 详细错误信息
+        type: string
+      error:
+        description: 错误信息
+        example: 操作失败
+        type: string
+    type: object
+  models.LoginRequest:
+    properties:
+      password:
+        description: 密码
+        example: admin
+        type: string
+      username:
+        description: 用户名
+        example: admin
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  models.LoginResponse:
+    properties:
+      access_token:
+        description: Access Token
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      expires_in:
+        description: Access Token 过期时间（秒）
+        example: 604800
+        type: integer
+      refresh_token:
+        description: Refresh Token
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      token_type:
+        description: Token 类型
+        example: Bearer
+        type: string
+    type: object
+  models.Playlist:
+    properties:
+      cover_url:
+        description: 封面图片 URL
+        example: https://example.com/playlist.jpg
+        type: string
+      created_at:
+        description: 创建时间
+        example: "2024-01-01T12:00:00Z"
+        type: string
+      description:
+        description: 歌单描述
+        example: 收藏的经典歌曲
+        type: string
+      id:
+        description: 歌单 ID
+        example: 1
+        type: integer
+      labels:
+        description: 歌单标签，如 ["built_in"]
+        example:
+        - '["built_in"]'
+        items:
+          type: string
+        type: array
+      name:
+        description: 歌单名称
+        example: 我的最爱
+        type: string
+      song_count:
+        description: 歌曲数量
+        example: 10
+        type: integer
+      type:
+        description: 歌单类型：normal/radio
+        enum:
+        - normal
+        - radio
+        example: normal
+        type: string
+      updated_at:
+        description: 最后更新时间
+        example: "2024-01-01T12:00:00Z"
+        type: string
+    type: object
+  models.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        description: 刷新令牌
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    required:
+    - refresh_token
+    type: object
+  models.RevokeTokenRequest:
+    properties:
+      reason:
+        description: 撤销原因
+        example: 用户主动登出
+        type: string
+    type: object
+  models.Song:
+    properties:
+      added_at:
+        description: 添加时间
+        example: "2024-01-01T12:00:00Z"
+        type: string
+      album:
+        description: 专辑名称
+        example: 十一月的萧邦
+        type: string
+      artist:
+        description: 艺术家/歌手
+        example: 周杰伦
+        type: string
+      bit_rate:
+        description: 比特率（kbps）
+        example: 320
+        type: integer
+      cover_url:
+        description: 封面图片URL
+        example: https://example.com/cover.jpg
+        type: string
+      dedup_key:
+        description: 去重 key(由插件定义,典型形态 "<platform>:<platform_id>");与 PluginEntryPath
+          组成 UNIQUE
+        type: string
+      duration:
+        description: 播放时长（秒）
+        example: 253.5
+        type: number
+      file_path:
+        description: 本地文件路径
+        example: /music/周杰伦/夜曲.mp3
+        type: string
+      file_size:
+        description: 文件大小（字节）
+        example: 10485760
+        type: integer
+      format:
+        description: 音频格式
+        example: mp3
+        type: string
+      id:
+        description: 歌曲ID
+        example: 1
+        type: integer
+      is_live:
+        description: 是否为直播流
+        example: false
+        type: boolean
+      lyric_url:
+        description: 歌词端点 URL(客户端唯一可见字段,指向 /api/v1/songs/{id}/lyric)
+        type: string
+      plugin_entry_path:
+        description: 音源插件 entryPath(网络歌曲)
+        example: lxmusic
+        type: string
+      sample_rate:
+        description: 采样率（Hz）
+        example: 44100
+        type: integer
+      source_data:
+        description: 音源元数据 JSON(给插件 music/url 接口用,opaque)
+        type: string
+      title:
+        description: 标题
+        example: 夜曲
+        type: string
+      type:
+        description: 歌曲类型：local/remote/radio
+        enum:
+        - local
+        - remote
+        - radio
+        example: local
+        type: string
+      updated_at:
+        description: 最后更新时间
+        example: "2024-01-01T12:00:00Z"
+        type: string
+      url:
+        description: 网络地址
+        example: https://example.com/song.mp3
+        type: string
+    type: object
+  models.SuccessResponse:
+    properties:
+      message:
+        description: 成功信息
+        example: 操作成功
+        type: string
+    type: object
+  models.TokenInfo:
+    properties:
+      client_info:
+        description: 客户端信息
+        example: Mozilla/5.0 AppleWebKit/605.1.15
+        type: string
+      created_at:
+        description: 创建时间
+        example: "2024-01-01T12:00:00Z"
+        type: string
+      expires_at:
+        description: 过期时间
+        example: "2024-01-08T12:00:00Z"
+        type: string
+      revoked_at:
+        description: 撤销时间
+        example: "2024-01-01T12:00:00Z"
+        type: string
+      revoked_by:
+        description: 撤销者
+        example: user
+        type: string
+      revoked_reason:
+        description: 撤销原因
+        example: 用户主动登出
+        type: string
+      token_id:
+        description: 令牌 ID
+        example: abc123
+        type: string
+      token_type:
+        description: 令牌类型
+        enum:
+        - access
+        - refresh
+        example: access
+        type: string
+    type: object
+  models.UpdateConfigRequest:
+    properties:
+      value:
+        description: 配置值（JSON 格式）
+        example: '{"path":"/new_music"}'
+        type: string
+    required:
+    - value
+    type: object
+  models.UpgradeProgress:
+    properties:
+      current_step:
+        description: 当前步骤描述
+        example: 正在下载新版本...
+        type: string
+      error:
+        description: 错误信息（如有）
+        example: 下载失败
+        type: string
+      progress:
+        description: 进度百分比 (0-100)
+        example: 50
+        type: integer
+      status:
+        description: 状态
+        enum:
+        - idle
+        - downloading
+        - testing
+        - replacing
+        - restarting
+        - completed
+        - failed
+        example: downloading
+        type: string
+    type: object
+  services.CacheConfig:
+    properties:
+      max_size:
+        description: 最大缓存大小（字节），0 表示无限制
+        type: integer
+    type: object
+  services.CacheStats:
+    properties:
+      file_count:
+        description: 文件数量
+        type: integer
+      max_size:
+        description: 最大缓存大小（字节），0 表示无限制
+        type: integer
+      total_size:
+        description: 总大小（字节）
+        type: integer
+    type: object
+  services.ConvertProgress:
+    properties:
+      converted_songs:
+        description: 已转换数
+        type: integer
+      current_song:
+        description: 当前正在处理的歌曲
+        type: string
+      end_time:
+        description: 结束时间
+        type: string
+      error:
+        description: 致命错误
+        type: string
+      errors:
+        description: 错误明细
+        items:
+          type: string
+        type: array
+      failed_songs:
+        description: 失败数
+        type: integer
+      playlist_id:
+        description: 歌单 ID
+        type: integer
+      processed_songs:
+        description: 已处理数(成功+跳过+失败)
+        type: integer
+      skipped_songs:
+        description: 跳过数(本地歌曲、已转过)
+        type: integer
+      start_time:
+        description: 开始时间
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/services.ConvertStatus'
+        description: 当前状态
+      total_songs:
+        description: 待转换总数
+        type: integer
+      waiting:
+        description: 是否处于风控限速等待中
+        type: boolean
+    type: object
+  services.ConvertStatus:
+    enum:
+    - idle
+    - running
+    - completed
+    - failed
+    - cancelling
+    - cancelled
+    type: string
+    x-enum-comments:
+      ConvertStatusCancelled: 已取消
+      ConvertStatusCancelling: 取消中
+      ConvertStatusCompleted: 已完成
+      ConvertStatusFailed: 失败
+      ConvertStatusIdle: 空闲
+      ConvertStatusRunning: 转换中
+    x-enum-descriptions:
+    - 空闲
+    - 转换中
+    - 已完成
+    - 失败
+    - 取消中
+    - 已取消
+    x-enum-varnames:
+    - ConvertStatusIdle
+    - ConvertStatusRunning
+    - ConvertStatusCompleted
+    - ConvertStatusFailed
+    - ConvertStatusCancelling
+    - ConvertStatusCancelled
+  services.RefreshResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
+  services.ScanProgress:
+    properties:
+      cleaned_files:
+        description: 清理的过期文件数
+        type: integer
+      current_file:
+        description: 当前处理的文件
+        type: string
+      end_time:
+        description: 结束时间
+        type: string
+      error:
+        description: 错误信息
+        type: string
+      failed_files:
+        description: 失败的文件数
+        type: integer
+      imported_files:
+        description: 已导入文件数
+        type: integer
+      scanned_files:
+        description: 已扫描文件数
+        type: integer
+      skipped_files:
+        description: 跳过的文件数（已存在）
+        type: integer
+      start_time:
+        description: 开始时间
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/services.ScanStatus'
+        description: 当前状态
+      total_files:
+        description: 总文件数
+        type: integer
+    type: object
+  services.ScanStatus:
+    enum:
+    - idle
+    - scanning
+    - importing
+    - creating_playlists
+    - completed
+    - failed
+    - cancelling
+    - cancelled
+    type: string
+    x-enum-comments:
+      ScanStatusCancelled: 已取消
+      ScanStatusCancelling: 取消中
+      ScanStatusCompleted: 已完成
+      ScanStatusCreatingPlaylists: 自动创建歌单中
+      ScanStatusFailed: 失败
+      ScanStatusIdle: 空闲
+      ScanStatusImporting: 导入中
+      ScanStatusScanning: 扫描文件中
+    x-enum-descriptions:
+    - 空闲
+    - 扫描文件中
+    - 导入中
+    - 自动创建歌单中
+    - 已完成
+    - 失败
+    - 取消中
+    - 已取消
+    x-enum-varnames:
+    - ScanStatusIdle
+    - ScanStatusScanning
+    - ScanStatusImporting
+    - ScanStatusCreatingPlaylists
+    - ScanStatusCompleted
+    - ScanStatusFailed
+    - ScanStatusCancelling
+    - ScanStatusCancelled
+  source.HealthClass:
+    enum:
+    - green
+    - yellow
+    - red
+    type: string
+    x-enum-comments:
+      HealthGreen: 成功率 ≥ green_threshold 且 samples ≥ min_samples
+      HealthRed: 成功率 < red_threshold 且 samples ≥ min_samples
+      HealthYellow: 介于 green 与 red 之间;或 samples 不足
+    x-enum-descriptions:
+    - 成功率 ≥ green_threshold 且 samples ≥ min_samples
+    - 介于 green 与 red 之间;或 samples 不足
+    - 成功率 < red_threshold 且 samples ≥ min_samples
+    x-enum-varnames:
+    - HealthGreen
+    - HealthYellow
+    - HealthRed
+  source.Outcome:
+    properties:
+      latency_ns:
+        description: 纳秒;swagger 显式声明避免 time.Duration 解析失败
+        type: integer
+      plugin_entry_path:
+        type: string
+      reason:
+        type: string
+      result:
+        $ref: '#/definitions/source.OutcomeResult'
+      size_bytes:
+        type: integer
+      timestamp:
+        type: string
+    type: object
+  source.OutcomeResult:
+    enum:
+    - success
+    - network_fail
+    - probe_fail
+    - validation_fail
+    - plugin_invocation_fail
+    type: string
+    x-enum-comments:
+      OutcomeNetworkFail: HTTP 错误、超时、读流中断
+      OutcomePluginInvocationFail: 插件 music/url 返回错误或非 200
+      OutcomeProbeFail: ffprobe / tag.ReadFrom 失败
+      OutcomeValidationFail: 校验未通过(过短、码率过低等)
+    x-enum-descriptions:
+    - ""
+    - HTTP 错误、超时、读流中断
+    - ffprobe / tag.ReadFrom 失败
+    - 校验未通过(过短、码率过低等)
+    - 插件 music/url 返回错误或非 200
+    x-enum-varnames:
+    - OutcomeSuccess
+    - OutcomeNetworkFail
+    - OutcomeProbeFail
+    - OutcomeValidationFail
+    - OutcomePluginInvocationFail
+  source.PluginHealthSnapshot:
+    properties:
+      class:
+        $ref: '#/definitions/source.HealthClass'
+      last_failures:
+        description: 最近 N 次失败,便于排查
+        items:
+          $ref: '#/definitions/source.Outcome'
+        type: array
+      plugin_entry_path:
+        type: string
+      samples:
+        type: integer
+      success_rate:
+        type: number
+    type: object
+host: localhost:58091
+info:
+  contact:
+    email: im.hanxi@gmail.com
+    name: API Support
+    url: https://github.com/mimusic-org/mimusic
+  description: 轻量级音乐服务器 API 文档，支持本地音乐管理、网络歌曲、电台和歌单功能
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  title: MiMusic API
+  version: 1.4.1
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 用户登录获取访问令牌
+      parameters:
+      - description: 登录请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功
+          schema:
+            $ref: '#/definitions/models.LoginResponse'
+        "400":
+          description: 请求数据错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: 用户名或密码错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: 用户登录
+      tags:
+      - 认证管理
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: 用户登出，撤销当前访问令牌
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登出成功
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 用户登出
+      tags:
+      - 认证管理
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: 使用刷新令牌获取新的访问令牌
+      parameters:
+      - description: 刷新令牌请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 刷新成功
+          schema:
+            $ref: '#/definitions/services.RefreshResponse'
+        "400":
+          description: 请求数据错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: 刷新令牌无效
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: 刷新令牌
+      tags:
+      - 认证管理
+  /auth/tokens:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前用户的所有活跃令牌列表
+      parameters:
+      - description: 令牌类型
+        enum:
+        - access
+        - refresh
+        in: query
+        name: type
+        type: string
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 令牌列表
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 列出活跃令牌
+      tags:
+      - 认证管理
+  /auth/tokens/{token_id}:
+    delete:
+      consumes:
+      - application/json
+      description: 撤销指定的令牌
+      parameters:
+      - description: 令牌ID
+        in: path
+        name: token_id
+        required: true
+        type: string
+      - description: 撤销令牌请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RevokeTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 撤销成功
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: 请求数据错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 撤销令牌
+      tags:
+      - 认证管理
+    get:
+      consumes:
+      - application/json
+      description: 获取指定令牌的详细信息
+      parameters:
+      - description: 令牌ID
+        in: path
+        name: token_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 令牌信息
+          schema:
+            $ref: '#/definitions/models.TokenInfo'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: 令牌不存在
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取令牌信息
+      tags:
+      - 认证管理
+  /cache-manage/clean:
+    post:
+      consumes:
+      - application/json
+      description: 删除服务端所有已缓存的音乐文件,清理后需要重新下载
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 清理成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 清理失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 清理全部音乐缓存
+      tags:
+      - 缓存管理
+  /cache-manage/config:
+    get:
+      consumes:
+      - application/json
+      description: 获取服务端音乐缓存的配置信息,包括最大缓存大小限制
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 缓存配置
+          schema:
+            $ref: '#/definitions/services.CacheConfig'
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取缓存配置
+      tags:
+      - 缓存管理
+    put:
+      consumes:
+      - application/json
+      description: 更新服务端音乐缓存的配置,如最大缓存大小。更新后会自动触发 LRU 淘汰检查。
+      parameters:
+      - description: 缓存配置
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.CacheConfig'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新后的缓存配置
+          schema:
+            $ref: '#/definitions/services.CacheConfig'
+        "400":
+          description: 请求参数无效
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 更新失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新缓存配置
+      tags:
+      - 缓存管理
+  /cache-manage/stats:
+    get:
+      consumes:
+      - application/json
+      description: 获取服务端音乐缓存的统计信息,包括总大小、文件数量和最大缓存限制
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 缓存统计信息
+          schema:
+            $ref: '#/definitions/services.CacheStats'
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取缓存统计信息
+      tags:
+      - 缓存管理
+  /configs:
+    get:
+      consumes:
+      - application/json
+      description: 获取配置列表，支持关键词搜索和分页
+      parameters:
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回配置列表
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取配置列表
+      tags:
+      - 配置管理
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的配置
+      parameters:
+      - description: 配置信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 创建成功
+          schema:
+            $ref: '#/definitions/models.Config'
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 创建失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建配置
+      tags:
+      - 配置管理
+  /configs/{key}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据配置键删除配置
+      parameters:
+      - description: 配置键
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 无效的配置键
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 删除失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除配置
+      tags:
+      - 配置管理
+    get:
+      consumes:
+      - application/json
+      description: 根据配置键获取详细信息
+      parameters:
+      - description: 配置键
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回配置详情
+          schema:
+            $ref: '#/definitions/models.Config'
+        "404":
+          description: 配置不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取单个配置详情
+      tags:
+      - 配置管理
+    put:
+      consumes:
+      - application/json
+      description: 更新配置信息
+      parameters:
+      - description: 配置键
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: 配置信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            $ref: '#/definitions/models.Config'
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 配置不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新配置
+      tags:
+      - 配置管理
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: 检查应用是否正常运行
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回健康状态
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 检查应用健康状态
+      tags:
+      - 系统管理
+  /jsplugins:
+    get:
+      consumes:
+      - application/json
+      description: 获取 JS 插件列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: JS插件列表
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 列出所有 JS 插件
+      tags:
+      - JS插件管理
+  /jsplugins/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据插件ID删除 JS 插件
+      parameters:
+      - description: 插件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: 插件不存在
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除 JS 插件
+      tags:
+      - JS插件管理
+    get:
+      consumes:
+      - application/json
+      description: 根据插件ID获取 JS 插件的详细信息
+      parameters:
+      - description: 插件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: JS插件信息
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: 插件不存在
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取 JS 插件详情
+      tags:
+      - JS插件管理
+    put:
+      consumes:
+      - multipart/form-data
+      description: 上传新的 JS 插件文件以更新现有插件
+      parameters:
+      - description: 插件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: JS插件文件 (.jsplugin.zip)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求数据错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: 插件不存在
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 更新 JS 插件
+      tags:
+      - JS插件管理
+  /jsplugins/{id}/check-update:
+    get:
+      consumes:
+      - application/json
+      description: 检查指定 JS 插件的远程更新
+      parameters:
+      - description: 插件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新信息
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: 插件不存在
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 检查 JS 插件更新
+      tags:
+      - JS插件管理
+  /jsplugins/{id}/disable:
+    post:
+      consumes:
+      - application/json
+      description: 禁用指定的 JS 插件
+      parameters:
+      - description: 插件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 禁用成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: 插件不存在
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 禁用 JS 插件
+      tags:
+      - JS插件管理
+  /jsplugins/{id}/enable:
+    post:
+      consumes:
+      - application/json
+      description: 启用指定的 JS 插件
+      parameters:
+      - description: 插件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 启用成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: 插件不存在
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 启用 JS 插件
+      tags:
+      - JS插件管理
+  /jsplugins/{id}/update:
+    post:
+      consumes:
+      - application/json
+      description: 从远程下载并更新指定的 JS 插件
+      parameters:
+      - description: 插件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: 插件不存在
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 下载并更新 JS 插件
+      tags:
+      - JS插件管理
+  /jsplugins/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传新的 JS 插件文件（.jsplugin.zip 压缩包）
+      parameters:
+      - description: JS插件文件 (.jsplugin.zip)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 上传成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求数据错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 上传安装 JS 插件
+      tags:
+      - JS插件管理
+  /playlists:
+    get:
+      consumes:
+      - application/json
+      description: 获取歌单列表，支持按类型过滤和分页
+      parameters:
+      - description: 歌单类型
+        enum:
+        - normal
+        - radio
+        in: query
+        name: type
+        type: string
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回歌单列表
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取歌单列表
+      tags:
+      - 歌单管理
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的歌单
+      parameters:
+      - description: 歌单信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.Playlist'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 创建成功
+          schema:
+            $ref: '#/definitions/models.Playlist'
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 创建失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建歌单
+      tags:
+      - 歌单管理
+  /playlists/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据歌单ID删除歌单
+      parameters:
+      - description: 歌单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 无效的歌单ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 删除失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除歌单
+      tags:
+      - 歌单管理
+    get:
+      consumes:
+      - application/json
+      description: 根据歌单ID获取详细信息
+      parameters:
+      - description: 歌单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回歌单详情
+          schema:
+            $ref: '#/definitions/models.Playlist'
+        "400":
+          description: 无效的歌单ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 歌单不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取单个歌单详情
+      tags:
+      - 歌单管理
+    put:
+      consumes:
+      - application/json
+      description: 更新歌单信息
+      parameters:
+      - description: 歌单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 歌单信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.Playlist'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            $ref: '#/definitions/models.Playlist'
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 更新失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新歌单
+      tags:
+      - 歌单管理
+  /playlists/{id}/convert-progress:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定歌单的网络歌曲→本地歌曲转换进度,无运行任务时返回 idle 状态
+      parameters:
+      - description: 歌单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 转换进度信息
+          schema:
+            $ref: '#/definitions/services.ConvertProgress'
+        "400":
+          description: 无效的歌单ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取歌单转换进度
+      tags:
+      - 歌单转换
+  /playlists/{id}/convert-progress/cancel:
+    post:
+      consumes:
+      - application/json
+      description: 取消指定歌单的网络歌曲→本地歌曲转换任务,返回 cancelled 字段表示是否成功取消
+      parameters:
+      - description: 歌单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 取消结果,cancelled 为 true 表示成功取消
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: 无效的歌单ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 取消歌单转换
+      tags:
+      - 歌单转换
+  /playlists/{id}/convert-to-local:
+    post:
+      consumes:
+      - application/json
+      description: 异步将歌单内所有网络歌曲下载到本地音乐库（按 music_path/{歌单名}/{艺术家 - 标题} 命名），立即返回，可通过进度接口查询状态。同一歌单同时只允许一个任务运行。
+      parameters:
+      - description: 歌单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: 转换任务已启动
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 无效的歌单ID 或 歌单中没有需要转换的网络歌曲
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: 该歌单已有转换任务在运行
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 启动转换失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 启动歌单转换为本地歌单
+      tags:
+      - 歌单转换
+  /playlists/{id}/cover:
+    get:
+      description: 返回歌单封面图片文件
+      parameters:
+      - description: 歌单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - image/jpeg
+      responses:
+        "200":
+          description: 封面图片
+          schema:
+            type: file
+        "404":
+          description: 封面不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 读取失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取歌单封面
+      tags:
+      - 歌单管理
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传本地图片作为歌单封面
+      parameters:
+      - description: 歌单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 封面图片文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 上传成功
+          schema:
+            $ref: '#/definitions/models.Playlist'
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 上传失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 上传歌单封面
+      tags:
+      - 歌单管理
+  /playlists/{id}/songs:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定歌单中的歌曲，支持分页
+      parameters:
+      - description: 歌单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回歌曲列表
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 无效的歌单 ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 获取失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取歌单中的歌曲
+      tags:
+      - 歌单管理
+    post:
+      consumes:
+      - application/json
+      description: 将多首歌曲添加到指定歌单，跳过已存在的歌曲
+      parameters:
+      - description: 歌单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 歌曲 ID 列表
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            song_ids:
+              items:
+                format: int64
+                type: integer
+              type: array
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 添加成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 添加失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 批量添加歌曲到歌单
+      tags:
+      - 歌单管理
+  /playlists/{id}/songs/{songId}:
+    delete:
+      consumes:
+      - application/json
+      description: 从指定歌单移除歌曲
+      parameters:
+      - description: 歌单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 歌曲 ID
+        in: path
+        name: songId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 移除成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 移除失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 从歌单移除歌曲
+      tags:
+      - 歌单管理
+  /playlists/{id}/songs/reorder:
+    put:
+      consumes:
+      - application/json
+      description: 重新排序歌单中的歌曲
+      parameters:
+      - description: 歌单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 歌曲 ID 列表
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            song_ids:
+              items:
+                format: int64
+                type: integer
+              type: array
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 排序成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 排序失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 重新排序歌单中的歌曲
+      tags:
+      - 歌单管理
+  /playlists/{id}/touch:
+    post:
+      consumes:
+      - application/json
+      description: 仅更新歌单的 updated_at 字段，用于记录最后播放时间
+      parameters:
+      - description: 歌单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 无效的歌单ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 更新失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新歌单最后播放时间
+      tags:
+      - 歌单管理
+  /playlists/batch-delete:
+    post:
+      consumes:
+      - application/json
+      description: 根据歌单 ID 列表批量删除歌单，内置歌单会被跳过
+      parameters:
+      - description: 批量删除请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.BatchDeletePlaylistsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/models.BatchDeletePlaylistsResponse'
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 删除失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 批量删除歌单
+      tags:
+      - 歌单管理
+  /playlists/reorder:
+    put:
+      consumes:
+      - application/json
+      description: 重新排序歌单列表
+      parameters:
+      - description: 歌单 ID 列表
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            playlist_ids:
+              items:
+                format: int64
+                type: integer
+              type: array
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 排序成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 排序失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 重新排序歌单列表
+      tags:
+      - 歌单管理
+  /plugins/health:
+    get:
+      description: 返回各音乐源插件的下载成功率、健康度分类(green/yellow/red)与最近 5 条失败原因。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.pluginHealthResponse'
+      security:
+      - BearerAuth: []
+      summary: 音源健康度
+      tags:
+      - JS插件管理
+  /proxy:
+    get:
+      description: 代理外部资源（图片、音频、视频流等），解决浏览器 CORS 限制。支持流式转发、Range 请求透传、Content-Type
+        透传和域名白名单校验
+      parameters:
+      - description: 目标资源的 URL（URL 编码）
+        in: query
+        name: url
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: 代理的资源内容
+          schema:
+            type: file
+        "206":
+          description: 部分内容（Range 请求）
+          schema:
+            type: file
+        "400":
+          description: 缺少 url 参数或 URL 无效
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: 域名不在白名单中
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "502":
+          description: 上游请求失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 代理外部资源
+      tags:
+      - 资源代理
+  /scan:
+    post:
+      consumes:
+      - application/json
+      description: 异步扫描音乐目录并导入新发现的音乐文件到数据库，立即返回，可通过进度接口查询状态
+      parameters:
+      - description: 扫描请求参数
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/handlers.ScanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 扫描任务已启动
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: 扫描正在进行中
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 启动扫描失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 扫描并导入本地音乐
+      tags:
+      - 扫描管理
+  /scan/cancel:
+    post:
+      consumes:
+      - application/json
+      description: 取消正在进行的扫描任务
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 取消成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 没有正在进行的扫描任务
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 取消扫描
+      tags:
+      - 扫描管理
+  /scan/dir-names:
+    get:
+      consumes:
+      - application/json
+      description: 递归收集音乐目录下所有唯一的目录名称，按字母排序返回，用于排除目录名称的自动补全
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 目录名称列表
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 收集目录名称失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取所有目录名称
+      tags:
+      - 扫描管理
+  /scan/directories:
+    get:
+      consumes:
+      - application/json
+      description: 返回指定路径下的一级子目录列表，用于目录树懒加载。path 为空时返回音乐根目录下的子目录
+      parameters:
+      - description: 目录路径（为空时使用音乐根目录）
+        in: query
+        name: path
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 子目录列表
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 无效的路径
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 读取目录失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取子目录列表
+      tags:
+      - 扫描管理
+  /scan/progress:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前扫描任务的进度信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 扫描进度信息
+          schema:
+            $ref: '#/definitions/services.ScanProgress'
+      security:
+      - BearerAuth: []
+      summary: 获取扫描进度
+      tags:
+      - 扫描管理
+  /settings/auto-convert:
+    get:
+      consumes:
+      - application/json
+      description: 获取“网络歌曲缓存完成后自动转为本地”开关的当前状态
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回 enabled 字段表示开关状态
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取自动转换开关
+      tags:
+      - 歌单转换
+    put:
+      consumes:
+      - application/json
+      description: 开启或关闭“网络歌曲缓存完成后自动转为本地”功能。开启后,任何 remote 类型歌曲缓存下载完成时,会异步在其所在的所有普通歌单中触发转换。
+      parameters:
+      - description: 开关请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AutoConvertRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回 enabled 字段表示更新后的开关状态
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: 请求格式错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 保存配置失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新自动转换开关
+      tags:
+      - 歌单转换
+  /songs:
+    get:
+      consumes:
+      - application/json
+      description: 获取歌曲列表，支持按类型过滤、关键词搜索和分页
+      parameters:
+      - description: 歌曲类型
+        enum:
+        - local
+        - remote
+        - radio
+        in: query
+        name: type
+        type: string
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回歌曲列表
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取歌曲列表
+      tags:
+      - 歌曲管理
+  /songs/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据歌曲ID删除歌曲
+      parameters:
+      - description: 歌曲ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 无效的歌曲ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 删除失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除歌曲
+      tags:
+      - 歌曲管理
+    get:
+      consumes:
+      - application/json
+      description: 根据歌曲ID获取详细信息
+      parameters:
+      - description: 歌曲ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回歌曲详情
+          schema:
+            $ref: '#/definitions/models.Song'
+        "400":
+          description: 无效的歌曲ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 歌曲不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取单个歌曲详情
+      tags:
+      - 歌曲管理
+    put:
+      consumes:
+      - application/json
+      description: 更新歌曲信息（仅支持网络歌曲和电台）
+      parameters:
+      - description: 歌曲ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 歌曲信息
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            album:
+              type: string
+            artist:
+              type: string
+            cover_url:
+              type: string
+            title:
+              type: string
+            url:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            $ref: '#/definitions/models.Song'
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 歌曲不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 更新失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新歌曲信息
+      tags:
+      - 歌曲管理
+  /songs/{id}/cover:
+    get:
+      description: 根据歌曲 ID 获取封面图片，支持本地歌曲的封面文件
+      parameters:
+      - description: 歌曲 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - image/jpeg
+      responses:
+        "200":
+          description: 封面图片
+          schema:
+            type: file
+        "400":
+          description: 无效的歌曲 ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 歌曲或封面不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取歌曲封面图片
+      tags:
+      - 歌曲管理
+  /songs/{id}/lyric:
+    get:
+      description: 根据 song.ID 返回 LyricPayload JSON，含 lyric/tlyric/rlyric/lxlyric。
+      parameters:
+      - description: 歌曲 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: LyricPayload
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 歌曲或歌词不存在
+          schema:
+            type: string
+        "502":
+          description: 歌词获取失败
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: 获取歌曲歌词
+      tags:
+      - 歌曲管理
+  /songs/{id}/lyrics:
+    put:
+      consumes:
+      - application/json
+      description: 更新指定歌曲的歌词内容和来源。url 来源传 lyric_remote_url,其它来源传 lyric/tlyric/rlyric/lxlyric
+        四字段
+      parameters:
+      - description: 歌曲 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 歌词信息
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            lxlyric:
+              type: string
+            lyric:
+              type: string
+            lyric_remote_url:
+              type: string
+            lyric_source:
+              type: string
+            rlyric:
+              type: string
+            tlyric:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 歌曲不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 更新失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新歌曲歌词
+      tags:
+      - 歌曲管理
+  /songs/{id}/play:
+    get:
+      description: 按 song.ID 流式返回音频。内部根据 song.type 分发到本地文件 / 缓存下载 / 直链下载 / 电台 302。
+      parameters:
+      - description: 歌曲 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: 音频文件
+          schema:
+            type: file
+        "302":
+          description: 电台流重定向
+          schema:
+            type: string
+        "404":
+          description: 歌曲不存在
+          schema:
+            type: string
+        "502":
+          description: 音源不可用
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: 流式播放歌曲
+      tags:
+      - 歌曲管理
+  /songs/batch-delete:
+    post:
+      consumes:
+      - application/json
+      description: 根据歌曲 ID 列表批量删除歌曲
+      parameters:
+      - description: 批量删除请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.BatchDeleteSongsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/models.BatchDeleteSongsResponse'
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 删除失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 批量删除歌曲
+      tags:
+      - 歌曲管理
+  /songs/clean:
+    post:
+      consumes:
+      - application/json
+      description: 清理本地歌曲中文件已不存在或位于排除目录中的记录，同时删除关联的封面文件
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 清理成功
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 清理失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 清理无效的本地歌曲
+      tags:
+      - 歌曲管理
+  /songs/radio:
+    post:
+      consumes:
+      - application/json
+      description: 批量添加电台/广播到数据库
+      parameters:
+      - description: 电台/广播列表
+        in: body
+        name: request
+        required: true
+        schema:
+          items:
+            properties:
+              cover_url:
+                type: string
+              title:
+                type: string
+              url:
+                type: string
+            type: object
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 添加成功
+          schema:
+            properties:
+              count:
+                type: integer
+              songs:
+                items:
+                  $ref: '#/definitions/models.Song'
+                type: array
+            type: object
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 添加失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 批量添加电台/广播
+      tags:
+      - 歌曲管理
+  /songs/remote:
+    post:
+      consumes:
+      - application/json
+      description: 批量添加网络歌曲到数据库
+      parameters:
+      - description: 网络歌曲列表
+        in: body
+        name: request
+        required: true
+        schema:
+          items:
+            properties:
+              album:
+                type: string
+              artist:
+                type: string
+              cache_hash:
+                type: string
+              cover_url:
+                type: string
+              duration:
+                type: number
+              title:
+                type: string
+              url:
+                type: string
+            type: object
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 添加成功
+          schema:
+            properties:
+              count:
+                type: integer
+              songs:
+                items:
+                  $ref: '#/definitions/models.Song'
+                type: array
+            type: object
+        "400":
+          description: 请求数据错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 添加失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 批量添加网络歌曲
+      tags:
+      - 歌曲管理
+  /upgrade/check:
+    get:
+      consumes:
+      - application/json
+      description: 检查是否有可用的新版本
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回更新检查结果
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 非 Docker 环境不支持升级
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 检查更新失败
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 检查更新
+      tags:
+      - 系统升级
+  /upgrade/progress:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前升级任务的进度信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回升级进度
+          schema:
+            $ref: '#/definitions/models.UpgradeProgress'
+        "403":
+          description: 非 Docker 环境不支持升级
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取升级进度
+      tags:
+      - 系统升级
+  /upgrade/reset:
+    post:
+      consumes:
+      - application/json
+      description: 将二进制文件回退到 Docker 镜像中的原始版本，然后重启服务
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 回退已开始
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "403":
+          description: 非 Docker 环境不支持回退
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 回退到底包版本
+      tags:
+      - 系统升级
+  /upgrade/start:
+    post:
+      consumes:
+      - application/json
+      description: 开始升级到指定版本
+      parameters:
+      - description: '升级请求 {version_type: stable|dev}'
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 升级已开始
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: 非 Docker 环境不支持升级
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 升级失败
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 开始升级
+      tags:
+      - 系统升级
+  /upgrade/versions:
+    get:
+      consumes:
+      - application/json
+      description: 获取正式版和测试版的版本信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回版本信息
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 非 Docker 环境不支持升级
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 获取版本信息失败
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取可用版本信息
+      tags:
+      - 系统升级
+  /version:
+    get:
+      consumes:
+      - application/json
+      description: 获取应用的版本信息，包括版本号、Git提交哈希和构建时间
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回版本信息
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 获取应用版本信息
+      tags:
+      - 系统管理
+securityDefinitions:
+  BearerAuth:
+    description: 输入 "Bearer {token}" 进行认证
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -1,0 +1,1777 @@
+package jsruntime
+
+import (
+	"bytes"
+	"compress/flate"
+	"compress/zlib"
+	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/md5"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"encoding/pem"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"modernc.org/quickjs"
+)
+
+// sharedTransport 供 doHTTPRequest 使用的共享 Transport
+// 使用默认 TLS 配置（与 WASM 版本行为一致），不强制 TLS 版本或 HTTP 协议
+var sharedTransport = &http.Transport{
+	MaxIdleConns:        100,
+	MaxIdleConnsPerHost: 10,
+	IdleConnTimeout:     90 * time.Second,
+}
+
+// sharedHTTPClient 供 doHTTPRequest 使用的共享 HTTP 客户端
+// 相比 http.DefaultClient 提供：合理超时、连接池管理、idle 连接自动回收
+var sharedHTTPClient = &http.Client{
+	Timeout:   30 * time.Second,
+	Transport: sharedTransport,
+}
+
+// noRedirectHTTPClient 不跟随重定向的 HTTP 客户端
+// 当请求头包含 X-Fetch-No-Redirect 时使用，让 JS 侧手动处理重定向链
+var noRedirectHTTPClient = &http.Client{
+	Timeout:   30 * time.Second,
+	Transport: sharedTransport,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
+
+// 默认 JS 执行超时时间
+const defaultJSTimeout = 30 * time.Second
+
+// BridgeCallback 是插件层注册的桥接回调函数类型
+// 当 JS 调用 __go_bridge(action, data) 时，由此回调处理
+type BridgeCallback func(action, data string) (string, error)
+
+// asyncResult 是后台 goroutine 完成异步任务后投递给主事件循环的结果。
+//
+// ID 与 JS 侧 __asyncCallbacks 注册表的 key 对应，形如 "fetch:42"，前缀部分
+// 同时被 JS 侧 __resolveAsync 用于决定如何包装 payload（fetch 包装成 Response
+// 对象、bridge 透传字符串等）。
+//
+// OK == true 时 Data 为载荷（fetch 的完整响应 JSON 字符串、或 bridge 调用结果）；
+// OK == false 时 Data 为错误信息。
+type asyncResult struct {
+	ID   string // 如 "fetch:42"
+	Type string // 如 "fetch"，对应 __resolveAsync 的 type 参数
+	OK   bool
+	Data string
+}
+
+// JSEnv 代表一个 JS 运行时环境
+type JSEnv struct {
+	vm             *quickjs.VM
+	envID          string
+	pluginID       int64
+	created        time.Time
+	mu             sync.Mutex         // 串行化所有 VM 访问（quickjs 非线程安全）
+	events         chan JSEventResult // 每环境事件缓冲
+	sourceCode     string             // 保存初始化代码，用于字节码编译
+	bridgeCallback BridgeCallback     // 插件层桥接回调（__go_bridge 的处理函数）
+	// 真异步基础设施：__go_fetch / __go_bridge_async 等耗时桥接调用
+	// 通过此通道把结果回送给主事件循环（ExecuteJS 内部）。
+	asyncResults chan asyncResult
+	// asyncSignal 是单容量缓冲通道，goroutine 完成异步任务后非阻塞 send 一次，
+	// 用于唤醒 ExecuteJS 的 select。容量 1 足够：多次唤醒会被合并，事件循环
+	// 醒来后会一次性 drain asyncResults。
+	asyncSignal chan struct{}
+	// asyncSeq 单调递增，作为 asyncResult.ID 的序号部分。
+	asyncSeq atomic.Uint64
+	// asyncInflight 记录当前正在飞行的异步任务数；ExecuteJS 事件循环根据
+	// 此计数判断是否仍需等待新结果。
+	asyncInflight atomic.Int32
+}
+
+// JSEventResult 封装收集到的 JS 事件
+type JSEventResult struct {
+	EnvID string
+	Name  string
+	Data  string
+}
+
+// ExecuteResult 封装 ExecuteJS 的返回结果
+type ExecuteResult struct {
+	Result string
+	Events []JSEventResult
+}
+
+// ParallelCall 描述一次并行 JS 调用
+type ParallelCall struct {
+	EnvID          string
+	Code           string
+	TimeoutMs      int64
+	WaitEventNames []string
+}
+
+// ParallelResult 单个并行调用的结果
+type ParallelResult struct {
+	Index  int
+	Result *ExecuteResult
+	Err    error
+}
+
+// JSEnvManager 管理多个 JS 运行时环境（进程内）
+type JSEnvManager struct {
+	mu           sync.Mutex
+	envs         map[string]*JSEnv
+	pluginEnvs   map[int64]map[string]bool // plugin_id -> set of env_ids
+	shutdownCh   chan struct{}             // 关闭信号：让 ExecuteJSAndWaitEvents 等阻塞操作提前返回
+	shutdownOnce sync.Once
+}
+
+// NewJSEnvManager 创建 JS 运行时管理器（进程内，无需外部二进制）
+func NewJSEnvManager() *JSEnvManager {
+	mgr := &JSEnvManager{
+		envs:       make(map[string]*JSEnv),
+		pluginEnvs: make(map[int64]map[string]bool),
+		shutdownCh: make(chan struct{}),
+	}
+	slog.Info("JSEnvManager 已启动（进程内 quickjs）")
+	return mgr
+}
+
+// SignalShutdown 通知所有正在阻塞的 JS 操作尽快退出。
+// 必须在 Close 之前调用：让 ExecuteJSAndWaitEvents 的 polling loop 提前返回，
+// 释放 env.mu，避免 Close 在 env.mu.Lock 上死等（典型场景：批量加载音源时按下 Ctrl+C）。
+// 幂等，可重复调用。
+func (m *JSEnvManager) SignalShutdown() {
+	m.shutdownOnce.Do(func() {
+		close(m.shutdownCh)
+		slog.Info("JSEnvManager: shutdown signaled")
+	})
+}
+
+// CreateEnv 创建一个新的 JS 运行时环境
+func (m *JSEnvManager) CreateEnv(envID, initCode string, pluginID int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, exists := m.envs[envID]; exists {
+		return fmt.Errorf("env %s already exists", envID)
+	}
+
+	vm, err := quickjs.NewVM()
+	if err != nil {
+		return fmt.Errorf("create quickjs VM for env %s: %w", envID, err)
+	}
+
+	// 设置栈溢出检测阈值为合理值，防止 jsjiami 混淆代码死循环
+	SetMaxStackSize(vm)
+
+	env := &JSEnv{
+		vm:           vm,
+		envID:        envID,
+		pluginID:     pluginID,
+		created:      time.Now(),
+		events:       make(chan JSEventResult, 64),
+		sourceCode:   initCode,
+		asyncResults: make(chan asyncResult, 256),
+		asyncSignal:  make(chan struct{}, 1),
+	}
+
+	// 注册 Go 桥接函数
+	if err := registerBridgeFunctions(vm, env); err != nil {
+		vm.Close()
+		return fmt.Errorf("register bridge functions for env %s: %w", envID, err)
+	}
+
+	// 注入 JS polyfill 代码
+	if v, err := vm.EvalValue(polyfillJS, quickjs.EvalGlobal); err != nil {
+		vm.Close()
+		return fmt.Errorf("inject polyfills for env %s: %w", envID, err)
+	} else {
+		v.Free()
+	}
+
+	// 执行初始化代码
+	if initCode != "" {
+		if v, err := vm.EvalValue(initCode, quickjs.EvalGlobal); err != nil {
+			vm.Close()
+			return fmt.Errorf("init code for env %s: %w", envID, err)
+		} else {
+			v.Free()
+		}
+	}
+
+	// 记录归属关系
+	m.envs[envID] = env
+	if m.pluginEnvs[pluginID] == nil {
+		m.pluginEnvs[pluginID] = make(map[string]bool)
+	}
+	m.pluginEnvs[pluginID][envID] = true
+
+	slog.Info("JS 环境已创建", "envID", envID, "pluginID", pluginID)
+	return nil
+}
+
+// CreateEnvWithBytecode 创建 JS 环境，先执行 bootstrap 源码，再加载预编译字节码
+// 用于重启后从 .jsc 缓存加载插件，避免将二进制字节码当作 JS 源码解析
+func (m *JSEnvManager) CreateEnvWithBytecode(envID, bootstrapCode string, bytecode []byte, pluginID int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, exists := m.envs[envID]; exists {
+		return fmt.Errorf("env %s already exists", envID)
+	}
+
+	vm, err := quickjs.NewVM()
+	if err != nil {
+		return fmt.Errorf("create quickjs VM for env %s: %w", envID, err)
+	}
+
+	SetMaxStackSize(vm)
+
+	env := &JSEnv{
+		vm:           vm,
+		envID:        envID,
+		pluginID:     pluginID,
+		created:      time.Now(),
+		events:       make(chan JSEventResult, 64),
+		asyncResults: make(chan asyncResult, 256),
+		// 字节码模式无源码可编译，sourceCode 留空
+	}
+
+	// 注册 Go 桥接函数
+	if err := registerBridgeFunctions(vm, env); err != nil {
+		vm.Close()
+		return fmt.Errorf("register bridge functions for env %s: %w", envID, err)
+	}
+
+	// 注入 JS polyfill 代码
+	if v, err := vm.EvalValue(polyfillJS, quickjs.EvalGlobal); err != nil {
+		vm.Close()
+		return fmt.Errorf("inject polyfills for env %s: %w", envID, err)
+	} else {
+		v.Free()
+	}
+
+	// 执行 bootstrap 源码（bridge 函数定义等）
+	if bootstrapCode != "" {
+		if v, err := vm.EvalValue(bootstrapCode, quickjs.EvalGlobal); err != nil {
+			vm.Close()
+			return fmt.Errorf("bootstrap code for env %s: %w", envID, err)
+		} else {
+			v.Free()
+		}
+	}
+
+	// 加载预编译字节码
+	if v, err := vm.EvalBytecodeValue(bytecode); err != nil {
+		vm.Close()
+		return fmt.Errorf("eval bytecode for env %s: %w", envID, err)
+	} else {
+		v.Free()
+	}
+
+	// 记录归属关系
+	m.envs[envID] = env
+	if m.pluginEnvs[pluginID] == nil {
+		m.pluginEnvs[pluginID] = make(map[string]bool)
+	}
+	m.pluginEnvs[pluginID][envID] = true
+
+	slog.Info("JS 环境已创建（字节码模式）", "envID", envID, "pluginID", pluginID)
+	return nil
+}
+
+// ExecuteJS 在指定环境中执行 JS 代码，等待所有由其触发的 Promise 链 settled 后返回。
+//
+// 真异步事件循环：
+//
+//  1. 持锁 eval(code)，得到 val。
+//  2. 快速路径：val 非 thenable 且无 in-flight 异步任务 → 直接返回（健康探针、
+//     1+1、ProcessTimers 等内部调用都走这条）。
+//  3. 慢速路径：把 val 挂到 globalThis.__execjs_pending，附加 .then 链把结果
+//     回填到 globalThis.__execjs_done/value/error。然后进入事件循环：
+//     pumpAsyncResults → ExecutePendingJobs → processExpiredTimers → 检查
+//     done flag。未完成则释放 env.mu，select { asyncSignal | timer-tick |
+//     wall-clock | shutdown }，被唤醒后重新加锁继续。
+//
+// 设计保证：
+//   - 真异步 await 期间 env.mu 被释放，HealthProbe / 定时器 / 同插件其他请求可抢锁。
+//   - 调用方仍是同步语义（拿到最终值或错误），不需要改 service.go 的 handleHTTPRequest 契约。
+//   - 超时由 wall-clock 控制；vm.SetEvalTimeout 作为 JS 内死循环兜底。
+func (m *JSEnvManager) ExecuteJS(envID, code string, timeoutMs int64) (*ExecuteResult, error) {
+	env, err := m.getEnv(envID)
+	if err != nil {
+		return nil, err
+	}
+
+	timeout := defaultJSTimeout
+	if timeoutMs > 0 {
+		timeout = time.Duration(timeoutMs) * time.Millisecond
+	}
+	deadline := time.Now().Add(timeout)
+
+	env.mu.Lock()
+	vm := env.vm
+	vm.SetEvalTimeout(timeout)
+	slog.Debug("ExecuteJS: eval start", "envID", envID, "codeLen", len(code))
+
+	val, evalErr := vm.EvalValue(code, quickjs.EvalGlobal)
+	ExecutePendingJobs(vm)
+
+	if evalErr != nil {
+		events := drainEnvEvents(env)
+		env.mu.Unlock()
+		slog.Info("ExecuteJS: eval error", "envID", envID, "error", evalErr, "eventsCount", len(events))
+		return &ExecuteResult{Events: events}, evalErr
+	}
+
+	// 快速路径：内部健康探针、ProcessTimers 等同步调用走这里。
+	if env.asyncInflight.Load() == 0 && !valueIsThenable(vm, val) {
+		result := &ExecuteResult{
+			Result: valueToString(&val),
+			Events: drainEnvEvents(env),
+		}
+		val.Free()
+		env.mu.Unlock()
+		slog.Debug("ExecuteJS: sync done", "envID", envID, "eventsCount", len(result.Events))
+		return result, nil
+	}
+
+	// 慢速路径：把 val 挂到全局，附加 settle 钩子。
+	if err := setupAwaitProbe(vm, val); err != nil {
+		val.Free()
+		env.mu.Unlock()
+		return nil, fmt.Errorf("setup await probe: %w", err)
+	}
+	val.Free() // SetPropertyValue 内部 Dup 过，本地引用可释放。
+
+	// 事件循环
+	for {
+		// 1) 处理已就绪的异步结果（resolve/reject 对应 Promise）
+		if pumped := pumpAsyncResults(vm); pumped > 0 {
+			ExecutePendingJobs(vm)
+		}
+		// 2) 处理到期定时器（setTimeout-based await 链 / interval 回调）
+		if processExpiredTimers(vm) > 0 {
+			ExecutePendingJobs(vm)
+		}
+		// 3) 检查 done flag
+		if isAwaitDone(vm) {
+			break
+		}
+		// 4) deadline 检查
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			cleanupAwaitProbe(vm)
+			events := drainEnvEvents(env)
+			env.mu.Unlock()
+			slog.Warn("ExecuteJS: wall-clock timeout",
+				"envID", envID, "timeout", timeout,
+				"asyncInflight", env.asyncInflight.Load())
+			return &ExecuteResult{Events: events}, fmt.Errorf("ExecuteJS wall-clock timeout after %v", timeout)
+		}
+
+		// 5) 释放锁让 goroutine 推结果 / 健康探针抢锁 / 同插件其他请求处理。
+		env.mu.Unlock()
+
+		// 50ms 兜底 tick：处理 setInterval 等仅靠定时器驱动的进展场景；
+		// 不能太长（否则 setTimeout(fn, 0) 也要等 50ms），不能太短（CPU 空转）。
+		tickTimeout := min(50*time.Millisecond, remaining)
+
+		select {
+		case <-m.shutdownCh:
+			// shutdown 路径：上层会强制 Close，本协程不再回到持锁阶段。
+			env.mu.Lock()
+			// 检查环境是否已被销毁（DestroyEnv 会在关闭 VM 后将 env.vm 置为 nil）
+			if env.vm != nil {
+				cleanupAwaitProbe(vm)
+			}
+			events := drainEnvEvents(env)
+			env.mu.Unlock()
+			return &ExecuteResult{Events: events}, fmt.Errorf("jsenv manager shutting down")
+		case <-env.asyncSignal:
+			// 收到一个或多个新结果 → 重新加锁推进
+		case <-time.After(tickTimeout):
+			// 周期性醒来推进定时器
+		}
+		env.mu.Lock()
+
+		// 检查环境是否已被销毁
+		if env.vm == nil {
+			env.mu.Unlock()
+			slog.Warn("ExecuteJS: 环境已被销毁，提前退出", "envID", envID)
+			return nil, fmt.Errorf("env %s destroyed", envID)
+		}
+	}
+
+	resultStr, errMsg := readAwaitResult(vm)
+	cleanupAwaitProbe(vm)
+	events := drainEnvEvents(env)
+	env.mu.Unlock()
+
+	slog.Debug("ExecuteJS: async done", "envID", envID, "eventsCount", len(events), "hasError", errMsg != "")
+	for i, evt := range events {
+		dataPreview := evt.Data
+		if len(dataPreview) > 300 {
+			dataPreview = dataPreview[:300] + "..."
+		}
+		slog.Info("ExecuteJS: event detail", "envID", envID, "index", i, "name", evt.Name, "dataLen", len(evt.Data), "dataPreview", dataPreview)
+	}
+
+	if errMsg != "" {
+		return &ExecuteResult{Events: events}, fmt.Errorf("%s", errMsg)
+	}
+	return &ExecuteResult{Result: resultStr, Events: events}, nil
+}
+
+// pumpAsyncResults 在持锁状态下调入 JS 的 __pumpAsyncResults() 排空 asyncResults。
+// 返回处理的结果数；0 表示通道当前为空。
+func pumpAsyncResults(vm *quickjs.VM) int {
+	val, err := vm.EvalValue(`(typeof __pumpAsyncResults === 'function') ? __pumpAsyncResults() : 0`, quickjs.EvalGlobal)
+	if err != nil {
+		slog.Warn("pumpAsyncResults: eval failed", "error", err)
+		return 0
+	}
+	defer val.Free()
+	if r, anyErr := val.Any(); anyErr == nil {
+		return valueAsInt(r)
+	}
+	return 0
+}
+
+// valueIsThenable 用 JS 探测 val 是否带 then 函数。把 val 挂到 globalThis 临时槽
+// 调一次轻量 typeof 判断后清理。
+func valueIsThenable(vm *quickjs.VM, val quickjs.Value) bool {
+	if val.IsUndefined() {
+		return false
+	}
+	if err := bindGlobalValue(vm, "__execjs_probe", val); err != nil {
+		return false
+	}
+	defer unsetGlobalValue(vm, "__execjs_probe")
+
+	r, err := vm.EvalValue(`(function(){var v=globalThis.__execjs_probe;return v && typeof v.then === 'function';})()`, quickjs.EvalGlobal)
+	if err != nil {
+		return false
+	}
+	defer r.Free()
+	if x, anyErr := r.Any(); anyErr == nil {
+		if b, ok := x.(bool); ok {
+			return b
+		}
+	}
+	return false
+}
+
+// setupAwaitProbe 把 val 挂到全局，附加 .then 钩子，把结果回填到
+// __execjs_done / __execjs_value / __execjs_error。
+func setupAwaitProbe(vm *quickjs.VM, val quickjs.Value) error {
+	if err := bindGlobalValue(vm, "__execjs_pending", val); err != nil {
+		return err
+	}
+	r, err := vm.EvalValue(`(function(){
+		globalThis.__execjs_done = false;
+		globalThis.__execjs_value = undefined;
+		globalThis.__execjs_error = undefined;
+		Promise.resolve(globalThis.__execjs_pending).then(
+			function(v){ globalThis.__execjs_value = v; globalThis.__execjs_done = true; },
+			function(e){ globalThis.__execjs_error = (e && e.stack) ? String(e.stack) : String(e); globalThis.__execjs_done = true; }
+		);
+		globalThis.__execjs_pending = undefined;
+	})()`, quickjs.EvalGlobal)
+	if err != nil {
+		return err
+	}
+	r.Free()
+	// then 注册产生了一个微任务（非 Promise 路径会立即 resolve）；先消化一轮。
+	ExecutePendingJobs(vm)
+	return nil
+}
+
+// isAwaitDone 检查 setupAwaitProbe 设置的 done flag 是否为 true。
+func isAwaitDone(vm *quickjs.VM) bool {
+	v, err := vm.EvalValue(`globalThis.__execjs_done === true`, quickjs.EvalGlobal)
+	if err != nil {
+		return false
+	}
+	defer v.Free()
+	if r, anyErr := v.Any(); anyErr == nil {
+		if b, ok := r.(bool); ok {
+			return b
+		}
+	}
+	return false
+}
+
+// readAwaitResult 读取 setupAwaitProbe 写入的 value/error。errMsg 非空表示
+// Promise rejected。value 经过 valueToString 处理，可能为 ""。
+func readAwaitResult(vm *quickjs.VM) (string, string) {
+	// 先读 error
+	errV, err := vm.EvalValue(`globalThis.__execjs_error === undefined ? "" : String(globalThis.__execjs_error)`, quickjs.EvalGlobal)
+	if err == nil {
+		errStr := valueToString(&errV)
+		errV.Free()
+		if errStr != "" {
+			return "", errStr
+		}
+	} else {
+		errV.Free()
+	}
+	// 读 value：直接取字符串化值
+	valV, err := vm.EvalValue(`globalThis.__execjs_value === undefined ? "" : (typeof globalThis.__execjs_value === 'string' ? globalThis.__execjs_value : String(globalThis.__execjs_value))`, quickjs.EvalGlobal)
+	if err != nil {
+		return "", ""
+	}
+	defer valV.Free()
+	return valueToString(&valV), ""
+}
+
+// cleanupAwaitProbe 清理 setupAwaitProbe 写入的全局变量，避免污染下一次调用。
+func cleanupAwaitProbe(vm *quickjs.VM) {
+	v, err := vm.EvalValue(`(function(){
+		globalThis.__execjs_pending = undefined;
+		globalThis.__execjs_done = undefined;
+		globalThis.__execjs_value = undefined;
+		globalThis.__execjs_error = undefined;
+	})()`, quickjs.EvalGlobal)
+	if err == nil {
+		v.Free()
+	}
+}
+
+// bindGlobalValue 把 val 挂到 globalThis[name]。
+// 使用 SetPropertyValue（内部 Dup），不消耗 val。
+func bindGlobalValue(vm *quickjs.VM, name string, val quickjs.Value) error {
+	g := vm.GlobalObject()
+	defer g.Free()
+	a, err := vm.NewAtom(name)
+	if err != nil {
+		return err
+	}
+	return vm.SetPropertyValue(g, a, val)
+}
+
+// unsetGlobalValue 把 globalThis[name] 设为 undefined（最简单的清理）。
+func unsetGlobalValue(vm *quickjs.VM, name string) {
+	v, err := vm.EvalValue(`globalThis['`+name+`'] = undefined`, quickjs.EvalGlobal)
+	if err == nil {
+		v.Free()
+	}
+}
+
+// ExecuteJSAndWaitEvents 执行 JS 代码并等待指定名称的事件到达
+func (m *JSEnvManager) ExecuteJSAndWaitEvents(envID, code string, timeoutMs int64, waitEventNames []string) (*ExecuteResult, error) {
+	env, err := m.getEnv(envID)
+	if err != nil {
+		return nil, err
+	}
+
+	env.mu.Lock()
+
+	timeout := defaultJSTimeout
+	if timeoutMs > 0 {
+		timeout = time.Duration(timeoutMs) * time.Millisecond
+	}
+
+	// 执行代码
+	vm := env.vm
+	vm.SetEvalTimeout(timeout)
+	slog.Info("ExecuteJSAndWaitEvents: eval start", "envID", envID, "codeLen", len(code), "waitEventNames", waitEventNames)
+	val, evalErr := vm.EvalValue(code, quickjs.EvalGlobal)
+
+	// 处理到期定时器
+	processJobs(vm)
+
+	execResult := &ExecuteResult{}
+
+	if evalErr != nil {
+		execResult.Events = drainEnvEvents(env)
+		slog.Info("ExecuteJSAndWaitEvents: eval error", "envID", envID, "error", evalErr, "eventsCount", len(execResult.Events))
+		env.mu.Unlock()
+		return execResult, evalErr
+	}
+
+	execResult.Result = valueToString(&val)
+	val.Free()
+
+	// 构建等待事件名称的 set
+	waitSet := make(map[string]bool, len(waitEventNames))
+	for _, name := range waitEventNames {
+		waitSet[name] = true
+	}
+
+	if len(waitSet) == 0 {
+		execResult.Events = drainEnvEvents(env)
+		env.mu.Unlock()
+		return execResult, nil
+	}
+
+	// 先收集已有事件，检查是否已经有匹配的
+	execResult.Events = drainEnvEvents(env)
+	for _, evt := range execResult.Events {
+		if waitSet[evt.Name] {
+			slog.Info("ExecuteJSAndWaitEvents: 立即收到匹配事件", "envID", envID, "eventName", evt.Name)
+			env.mu.Unlock()
+			return execResult, nil
+		}
+	}
+
+	env.mu.Unlock()
+
+	// 没有立即收到匹配事件，开始轮询等待
+	waitTimeout := min(timeout, 30*time.Second)
+	deadline := time.Now().Add(waitTimeout)
+
+	slog.Info("ExecuteJSAndWaitEvents: 开始等待事件", "envID", envID, "waitEventNames", waitEventNames, "timeout", waitTimeout)
+
+	for time.Now().Before(deadline) {
+		// 关闭信号优先：若 manager 已开始 Close，立即返回，让上层（runBatchLoader 等）
+		// 释放主 env 锁，避免 jsManager.Close 死等。
+		select {
+		case <-m.shutdownCh:
+			slog.Info("ExecuteJSAndWaitEvents: 收到关闭信号，提前返回", "envID", envID)
+			return execResult, fmt.Errorf("jsenv manager shutting down")
+		default:
+		}
+
+		env.mu.Lock()
+
+		// 检查环境是否已被销毁（DestroyEnv 会在关闭 VM 后将 env.vm 置为 nil）
+		if env.vm == nil {
+			env.mu.Unlock()
+			slog.Warn("ExecuteJSAndWaitEvents: 环境已被销毁，提前退出", "envID", envID)
+			return execResult, fmt.Errorf("env %s destroyed", envID)
+		}
+
+		// 处理定时器回调（可能产生新事件）
+		processJobs(env.vm)
+
+		newEvents := drainEnvEvents(env)
+		env.mu.Unlock()
+
+		execResult.Events = append(execResult.Events, newEvents...)
+
+		for _, evt := range newEvents {
+			if waitSet[evt.Name] {
+				slog.Info("ExecuteJSAndWaitEvents: 收到匹配事件", "envID", envID, "eventName", evt.Name)
+				return execResult, nil
+			}
+		}
+
+		// 用 select 替代 time.Sleep，关闭时也能立即唤醒
+		select {
+		case <-m.shutdownCh:
+			slog.Info("ExecuteJSAndWaitEvents: 收到关闭信号，提前返回", "envID", envID)
+			return execResult, fmt.Errorf("jsenv manager shutting down")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	slog.Warn("ExecuteJSAndWaitEvents: 等待事件超时", "envID", envID, "waitEventNames", waitEventNames)
+	return execResult, nil
+}
+
+// DestroyEnv 销毁指定的 JS 运行时环境
+func (m *JSEnvManager) DestroyEnv(envID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	env, exists := m.envs[envID]
+	if !exists {
+		return fmt.Errorf("env %s not found", envID)
+	}
+
+	// 关闭 VM
+	env.mu.Lock()
+	if err := env.vm.Close(); err != nil {
+		slog.Warn("关闭 JS VM 失败", "envID", envID, "error", err)
+	}
+	env.vm = nil // 标记为已销毁，防止其他 goroutine 继续使用
+	env.mu.Unlock()
+
+	// 清理归属记录
+	delete(m.envs, envID)
+	if envSet, ok := m.pluginEnvs[env.pluginID]; ok {
+		delete(envSet, envID)
+		if len(envSet) == 0 {
+			delete(m.pluginEnvs, env.pluginID)
+		}
+	}
+
+	slog.Info("JS 环境已销毁", "envID", envID, "pluginID", env.pluginID)
+	return nil
+}
+
+// DestroyPluginEnvs 销毁指定插件创建的所有 JS 环境
+func (m *JSEnvManager) DestroyPluginEnvs(pluginID int64) error {
+	m.mu.Lock()
+	envIDs := make([]string, 0)
+	if envSet, ok := m.pluginEnvs[pluginID]; ok {
+		for envID := range envSet {
+			envIDs = append(envIDs, envID)
+		}
+	}
+	m.mu.Unlock()
+
+	if len(envIDs) == 0 {
+		return nil
+	}
+
+	slog.Info("批量销毁插件 JS 环境", "pluginID", pluginID, "count", len(envIDs))
+
+	var lastErr error
+	for _, envID := range envIDs {
+		if err := m.DestroyEnv(envID); err != nil {
+			slog.Warn("销毁 JS 环境失败", "envID", envID, "error", err)
+			lastErr = err
+		}
+	}
+
+	return lastErr
+}
+
+// Close 关闭所有 JS 运行时环境
+func (m *JSEnvManager) Close() error {
+	// 先广播关闭信号，让 ExecuteJSAndWaitEvents 等 polling 操作尽快释放 env 锁，
+	// 否则下面的 env.mu.Lock 会无限期阻塞。
+	m.SignalShutdown()
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	slog.Info("关闭 JSEnvManager")
+
+	var lastErr error
+	for envID, env := range m.envs {
+		// 短时等锁（shutdownCh 已关闭，polling 循环应当在 ~10ms 内退出）；
+		// 若仍拿不到锁说明有阻塞性 JS（罕见），跳过 vm.Close 避免并发 UB——
+		// 反正进程马上退出，OS 会回收内存。
+		if !tryLockWithTimeout(&env.mu, 3*time.Second) {
+			slog.Warn("关闭 JSEnvManager: env 锁等待超时，跳过 VM 关闭", "envID", envID)
+			continue
+		}
+		if err := env.vm.Close(); err != nil {
+			slog.Warn("关闭 JS VM 失败", "envID", envID, "error", err)
+			lastErr = err
+		}
+		env.mu.Unlock()
+	}
+
+	m.envs = make(map[string]*JSEnv)
+	m.pluginEnvs = make(map[int64]map[string]bool)
+
+	return lastErr
+}
+
+// tryLockWithTimeout 在 timeout 内尝试获取锁；成功返回 true 并已持有锁，超时返回 false。
+func tryLockWithTimeout(mu *sync.Mutex, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		if mu.TryLock() {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// SetBridgeCallback 为指定环境设置桥接回调（__go_bridge 的处理函数）
+// 必须在执行调用 __go_bridge 的代码之前调用
+func (m *JSEnvManager) SetBridgeCallback(envID string, cb BridgeCallback) error {
+	env, err := m.getEnv(envID)
+	if err != nil {
+		return err
+	}
+	env.bridgeCallback = cb
+	return nil
+}
+
+// ProbeStatus 是 HealthProbe 的返回值。直接放在 jsruntime 包以保持
+// runtime 与 jsplugin 包之间无环依赖。
+type ProbeStatus int
+
+const (
+	ProbeStatusHealthy   ProbeStatus = iota // VM 存活且抢到锁、eval 1+1=2
+	ProbeStatusUnhealthy                    // 抢到锁但 eval 失败 → VM 已坏
+	ProbeStatusBusy                         // 没抢到锁 → 当前正在跑请求，非死亡
+	ProbeStatusMissing                      // env 不在 map 中 → 已被销毁
+)
+
+// HealthProbe 是一个轻量的 VM 存活探针。
+//
+// 关键设计：通过 TryLock 直接访问 VM，不经过 ServiceScheduler 的串行队列。
+// 这样长 fetch 持锁期间，探针会返回 ProbeStatusBusy 而不是被排队 5s 后超时。
+// 调用方（HealthChecker）将 Busy 视作活着，从而不会把"忙"误判为"死"。
+//
+// 仅在 TryLock 成功后调用 vm.EvalValue("1+1")，必须断言结果 == 2 以验证 VM
+// 没有被 jsjiami 等代码破坏。
+func (m *JSEnvManager) HealthProbe(envID string) ProbeStatus {
+	env, err := m.getEnv(envID)
+	if err != nil {
+		return ProbeStatusMissing
+	}
+
+	if !env.mu.TryLock() {
+		return ProbeStatusBusy
+	}
+	defer env.mu.Unlock()
+
+	// 设置一个很短的 eval 超时，VM 真死的话 1ms 都跑不出来；
+	// 默认的 30s 超时会让 health probe 在罕见死循环场景下被卡住。
+	env.vm.SetEvalTimeout(500 * time.Millisecond)
+
+	val, err := env.vm.EvalValue("1+1", quickjs.EvalGlobal)
+	if err != nil {
+		slog.Warn("HealthProbe: eval failed", "envID", envID, "error", err)
+		return ProbeStatusUnhealthy
+	}
+	defer val.Free()
+
+	if r, anyErr := val.Any(); anyErr != nil || valueAsInt(r) != 2 {
+		slog.Warn("HealthProbe: unexpected eval result", "envID", envID, "result", r)
+		return ProbeStatusUnhealthy
+	}
+
+	return ProbeStatusHealthy
+}
+
+// valueAsInt 与 valToInt 类似但接收 Any() 已经返回的 interface{}，避免重复 Free。
+func valueAsInt(v any) int {
+	switch x := v.(type) {
+	case int:
+		return x
+	case int32:
+		return int(x)
+	case int64:
+		return int(x)
+	case float64:
+		return int(x)
+	}
+	return 0
+}
+
+// CompileToBytecode 将指定环境的已加载代码编译为字节码
+// 使用 quickjs.VM.Compile 将源码编译为字节码，可通过 EvalBytecode 加载
+func (m *JSEnvManager) CompileToBytecode(envID string) ([]byte, error) {
+	env, err := m.getEnv(envID)
+	if err != nil {
+		return nil, err
+	}
+
+	env.mu.Lock()
+	defer env.mu.Unlock()
+
+	if env.sourceCode == "" {
+		return nil, fmt.Errorf("env %q has no source code to compile", envID)
+	}
+
+	// 使用 QuickJS VM.Compile 将源码编译为字节码
+	bytecode, err := env.vm.Compile(env.sourceCode, quickjs.EvalGlobal)
+	if err != nil {
+		return nil, fmt.Errorf("compile bytecode for env %q: %w", envID, err)
+	}
+
+	slog.Debug("bytecode compiled", "envID", envID, "size", len(bytecode))
+	return bytecode, nil
+}
+
+// ExecuteJSParallel 并行执行多个 JS 环境中的代码，竞速返回第一个成功结果
+// maxConcurrent <= 0 表示全部并行，> 0 表示窗口并发（每批最多 maxConcurrent 个）
+func (m *JSEnvManager) ExecuteJSParallel(calls []ParallelCall, maxConcurrent int) (successIndex int, result *ExecuteResult, errs []string) {
+	if len(calls) == 0 {
+		return -1, nil, nil
+	}
+
+	// 初始化错误列表
+	errs = make([]string, len(calls))
+
+	// 确定并发窗口大小
+	windowSize := len(calls)
+	if maxConcurrent > 0 && maxConcurrent < len(calls) {
+		windowSize = maxConcurrent
+	}
+
+	// 按窗口分批执行
+	for start := 0; start < len(calls); start += windowSize {
+		end := min(start+windowSize, len(calls))
+		batchCalls := calls[start:end]
+
+		// 启动本批 goroutine
+		resultCh := make(chan ParallelResult, len(batchCalls))
+		for i, call := range batchCalls {
+			go func(idx int, c ParallelCall) {
+				var execResult *ExecuteResult
+				var execErr error
+				if len(c.WaitEventNames) > 0 {
+					execResult, execErr = m.ExecuteJSAndWaitEvents(c.EnvID, c.Code, c.TimeoutMs, c.WaitEventNames)
+				} else {
+					execResult, execErr = m.ExecuteJS(c.EnvID, c.Code, c.TimeoutMs)
+				}
+				resultCh <- ParallelResult{
+					Index:  idx,
+					Result: execResult,
+					Err:    execErr,
+				}
+			}(start+i, call)
+		}
+
+		// 等待本批所有结果
+		var batchSuccess *ParallelResult
+		remaining := len(batchCalls)
+		for remaining > 0 {
+			pr := <-resultCh
+			remaining--
+			if pr.Err != nil {
+				errs[pr.Index] = pr.Err.Error()
+				slog.Warn("ExecuteJSParallel: 调用失败", "index", pr.Index, "envID", calls[pr.Index].EnvID, "error", pr.Err)
+			} else if hasErrorEvent(pr.Result) {
+				// 事件层面的失败（如 dispatchError），不算竞速成功
+				errMsg := extractEventError(pr.Result)
+				errs[pr.Index] = errMsg
+				slog.Warn("ExecuteJSParallel: 调用失败（事件错误）", "index", pr.Index, "envID", calls[pr.Index].EnvID, "error", errMsg)
+			} else {
+				errs[pr.Index] = ""
+				// 记录第一个成功结果
+				if batchSuccess == nil {
+					tmp := pr
+					batchSuccess = &tmp
+					slog.Info("ExecuteJSParallel: 调用成功", "index", pr.Index, "envID", calls[pr.Index].EnvID)
+				}
+			}
+		}
+
+		// 本批有成功结果，立即返回
+		if batchSuccess != nil {
+			return batchSuccess.Index, batchSuccess.Result, errs
+		}
+
+		slog.Warn("ExecuteJSParallel: 本批全部失败，继续下一批", "batchStart", start, "batchEnd", end)
+	}
+
+	// 全部失败
+	return -1, nil, errs
+}
+
+// hasErrorEvent 检查执行结果的事件中是否包含错误事件（事件名包含 "Error"）
+func hasErrorEvent(result *ExecuteResult) bool {
+	if result == nil {
+		return false
+	}
+	for _, evt := range result.Events {
+		if strings.Contains(evt.Name, "Error") {
+			return true
+		}
+	}
+	return false
+}
+
+// extractEventError 从事件中提取错误信息
+func extractEventError(result *ExecuteResult) string {
+	if result == nil {
+		return "unknown error"
+	}
+	for _, evt := range result.Events {
+		if strings.Contains(evt.Name, "Error") {
+			return fmt.Sprintf("event %s: %s", evt.Name, evt.Data)
+		}
+	}
+	return "unknown error"
+}
+
+// --- internal helpers ---
+
+func (m *JSEnvManager) getEnv(envID string) (*JSEnv, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	env, exists := m.envs[envID]
+	if !exists {
+		return nil, fmt.Errorf("env %s not found", envID)
+	}
+	return env, nil
+}
+
+// valueToString 安全地将 quickjs.Value 转为字符串（避免对象循环引用导致 JSON.stringify 失败）
+func valueToString(v *quickjs.Value) string {
+	if v.IsUndefined() {
+		return ""
+	}
+	r, err := v.Any()
+	if err != nil {
+		// 对象可能含循环引用，无法 JSON 序列化，返回空
+		return ""
+	}
+	if r == nil {
+		return ""
+	}
+	switch val := r.(type) {
+	case string:
+		return val
+	default:
+		return fmt.Sprintf("%v", val)
+	}
+}
+
+func eventNames(events []JSEventResult) []string {
+	names := make([]string, len(events))
+	for i, e := range events {
+		names[i] = e.Name
+	}
+	return names
+}
+
+func drainEnvEvents(env *JSEnv) []JSEventResult {
+	var events []JSEventResult
+	for {
+		select {
+		case evt := <-env.events:
+			events = append(events, evt)
+		default:
+			return events
+		}
+	}
+}
+
+// ProcessTimers 处理指定环境中的到期定时器（非阻塞）。
+// 使用 TryLock：如果 VM 正忙（HTTP 请求处理中），立即返回 false，不等待。
+// 由外部 ticker goroutine 周期性调用。
+func (m *JSEnvManager) ProcessTimers(envID string) bool {
+	env, err := m.getEnv(envID)
+	if err != nil {
+		return false
+	}
+
+	// TryLock: 如果锁被 HTTP 请求持有，直接跳过本轮
+	if !env.mu.TryLock() {
+		return false
+	}
+	defer env.mu.Unlock()
+
+	vm := env.vm
+	didAnyTimerFire := false
+
+	// 单轮 pump→jobs→timers，做几次让 fetch().then(setTimeout(...)) 这种链
+	// 在一个 tick 里推进尽量多步；任何一步无产出即可退出，避免长时间占锁。
+	for range 8 {
+		didWork := false
+
+		// 1. 排空异步桥接结果（让 fetch/mimusic.* 的 Promise resolve）
+		if pumpAsyncResults(vm) > 0 {
+			didWork = true
+		}
+
+		// 2. 执行原生 Promise 微任务（async/await 恢复等）
+		if ExecutePendingJobs(vm) > 0 {
+			didWork = true
+		}
+
+		// 3. 处理一轮到期定时器
+		if processExpiredTimers(vm) > 0 {
+			didWork = true
+			didAnyTimerFire = true
+		}
+
+		if !didWork {
+			break
+		}
+	}
+
+	// 排空事件通道（防止阻塞）
+	// 注意：日志通过 __go_console 直接输出到 slog，不走事件通道
+	// __go_send 事件在定时器回调中极少产生，安全丢弃
+	drainEnvEvents(env)
+
+	return didAnyTimerFire
+}
+
+// GetNextTimerDeadline 返回下一个定时器的执行时间。
+// 无活跃定时器返回零值 time.Time（IsZero() == true）。
+// 使用 TryLock，VM 忙时返回当前时间——
+// 保守地认为"立即有事做"，让空闲检测跳过本轮休眠决策。
+func (m *JSEnvManager) GetNextTimerDeadline(envID string) time.Time {
+	env, err := m.getEnv(envID)
+	if err != nil {
+		return time.Time{}
+	}
+
+	if !env.mu.TryLock() {
+		return time.Now()
+	}
+	defer env.mu.Unlock()
+
+	val, err := env.vm.EvalValue(
+		"typeof __getNextTimerDeadline === 'function' ? __getNextTimerDeadline() : 0",
+		quickjs.EvalGlobal)
+	if err != nil {
+		return time.Time{}
+	}
+	ms := int64(valToInt(val))
+	if ms <= 0 {
+		return time.Time{}
+	}
+	return time.UnixMilli(ms)
+}
+
+// processJobs 处理所有待执行的工作：异步桥接结果 + 原生 Promise 微任务 + 定时器回调。
+// 模仿旧 cqjs 的 env_process_jobs 逻辑：
+//  1. 排空 asyncResults 通道，让 fetch/mimusic.* 等桥接 Promise resolve
+//  2. 执行 JS_ExecutePendingJob（原生 async/await 恢复）
+//  3. 处理到期定时器
+//  4. 如果有工作被执行，重复 1-3
+//  5. 如果还有未到期定时器，sleep 后重试（最多连续 500ms 无工作则提前退出）
+//
+// 注：步骤 1 是必需的——ExecuteJSAndWaitEvents / ProcessTimers 都靠 processJobs
+// 推进异步链；若不 pump，子 env 里的 fetch().then(...) 永远不会 resolve。
+func processJobs(vm *quickjs.VM) {
+	deadline := time.Now().Add(30 * time.Second)
+	idleCount := 0
+	const maxIdleIterations = 50 // 连续无工作最多等 500ms (50 × 10ms)
+
+	for time.Now().Before(deadline) {
+		didWork := false
+
+		// 1. 排空异步桥接结果（fetch / mimusic.* 的 Promise resolve）
+		if pumped := pumpAsyncResults(vm); pumped > 0 {
+			didWork = true
+		}
+
+		// 2. 执行原生 Promise 微任务（async/await 恢复等）
+		jobCount := ExecutePendingJobs(vm)
+		if jobCount > 0 {
+			didWork = true
+		}
+
+		// 3. 处理到期定时器
+		timerCount := processExpiredTimers(vm)
+		if timerCount > 0 {
+			didWork = true
+		}
+
+		// 如果有工作被执行，继续循环（可能产生新的微任务/定时器）
+		if didWork {
+			idleCount = 0
+			continue
+		}
+
+		// 3. 检查是否还有待执行的定时器
+		pending := getPendingTimerCount(vm)
+		if pending == 0 {
+			break
+		}
+
+		// 连续无工作超过 maxIdleIterations 次，提前退出避免长时间阻塞
+		idleCount++
+		if idleCount >= maxIdleIterations {
+			break
+		}
+
+		// 还有未到期的定时器，sleep 后重试
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// processExpiredTimers 处理所有已到期的 JS 定时器，返回触发数量
+func processExpiredTimers(vm *quickjs.VM) int {
+	fired := 0
+	for range 100 {
+		val, err := vm.EvalValue("typeof __processExpiredTimers === 'function' ? __processExpiredTimers() : 0", quickjs.EvalGlobal)
+		if err != nil {
+			break
+		}
+		count := valToInt(val)
+		if count == 0 {
+			break
+		}
+		fired += count
+	}
+	return fired
+}
+
+// getPendingTimerCount 获取待执行的一次性定时器数量（不含 interval 定时器）
+// interval 定时器会一直存在，不应阻止 processJobs 退出
+func getPendingTimerCount(vm *quickjs.VM) int {
+	val, err := vm.EvalValue("typeof __getPendingOneShotTimerCount === 'function' ? __getPendingOneShotTimerCount() : (typeof __timers !== 'undefined' ? __timers.size : 0)", quickjs.EvalGlobal)
+	if err != nil {
+		return 0
+	}
+	return valToInt(val)
+}
+
+// valToInt 安全地从 quickjs.Value 提取整数
+func valToInt(val quickjs.Value) int {
+	r, err := val.Any()
+	val.Free()
+	if err != nil {
+		return 0
+	}
+	switch v := r.(type) {
+	case int:
+		return v
+	case int32:
+		return int(v)
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	}
+	return 0
+}
+
+// --- Go 桥接函数注册 ---
+
+func registerBridgeFunctions(vm *quickjs.VM, env *JSEnv) error {
+	// __go_send(name, data) — 事件派发
+	if err := vm.RegisterFunc("__go_send", func(name, data string) {
+		slog.Info("__go_send called", "envID", env.envID, "name", name, "dataLen", len(data))
+		select {
+		case env.events <- JSEventResult{EnvID: env.envID, Name: name, Data: data}:
+		default:
+			slog.Warn("JS event channel full, dropping event", "envID", env.envID, "name", name)
+		}
+	}, false); err != nil {
+		return fmt.Errorf("register __go_send: %w", err)
+	}
+
+	// __go_console(level, msg) — console 日志
+	if err := vm.RegisterFunc("__go_console", func(level, msg string) {
+		switch strings.ToUpper(level) {
+		case "ERROR":
+			slog.Error("[JS]"+msg, "envID", env.envID)
+		case "WARN":
+			slog.Warn("[JS]"+msg, "envID", env.envID)
+		case "DEBUG":
+			slog.Info("[JS]"+msg, "envID", env.envID)
+		default:
+			slog.Info("[JS]"+msg, "envID", env.envID)
+		}
+	}, false); err != nil {
+		return fmt.Errorf("register __go_console: %w", err)
+	}
+
+	// __go_fetch_async(url, method, headersJSON, body) -> id string
+	// 真异步 HTTP：立即返回 id（形如 "fetch:42"），后台 goroutine 跑 HTTP，
+	// 完成后把结果投递到 env.asyncResults，由事件循环 resolve 对应 Promise。
+	// 详见 polyfill.go 中的 fetch / __resolveAsync 设计说明。
+	if err := vm.RegisterFunc("__go_fetch_async", func(url, method, headersJSON, body string) string {
+		seq := env.asyncSeq.Add(1)
+		id := fmt.Sprintf("fetch:%d", seq)
+		env.asyncInflight.Add(1)
+		go func() {
+			defer env.asyncInflight.Add(-1)
+			payload := doHTTPRequest(url, method, headersJSON, body)
+			result := asyncResult{
+				ID:   id,
+				Type: "fetch",
+				OK:   true,
+				Data: payload,
+			}
+			// 通道满（>256 in-flight）时丢弃 + log。这种情况下 JS 侧的
+			// Promise 会一直 pending，由 ExecuteJS 的 wall-clock 超时兜底
+			// reject。避免 goroutine 泄漏比单条 reject 更重要。
+			select {
+			case env.asyncResults <- result:
+			default:
+				slog.Warn("asyncResults channel full, drop fetch result",
+					"envID", env.envID, "id", id, "url", url)
+			}
+			// 非阻塞唤醒事件循环；容量 1，多次 send 自然合并。
+			select {
+			case env.asyncSignal <- struct{}{}:
+			default:
+			}
+		}()
+		return id
+	}, false); err != nil {
+		return fmt.Errorf("register __go_fetch_async: %w", err)
+	}
+
+	// __go_pop_async_result() -> "" or JSON
+	// 由 JS 侧 __pumpAsyncResults 调用，非阻塞地从 asyncResults 通道弹出
+	// 一个就绪结果。空队列返回 ""；JS 侧据此结束 pump 循环。
+	// 返回的 JSON 形如：{"id":"fetch:42","ok":true,"data":"...","type":"fetch"}。
+	if err := vm.RegisterFunc("__go_pop_async_result", func() string {
+		select {
+		case r := <-env.asyncResults:
+			out := map[string]any{
+				"id":   r.ID,
+				"ok":   r.OK,
+				"data": r.Data,
+				"type": r.Type,
+			}
+			b, _ := json.Marshal(out)
+			return string(b)
+		default:
+			return ""
+		}
+	}, false); err != nil {
+		return fmt.Errorf("register __go_pop_async_result: %w", err)
+	}
+
+	// __go_now_ms() — 当前时间毫秒戳
+	if err := vm.RegisterFunc("__go_now_ms", func() int64 {
+		return time.Now().UnixMilli()
+	}, false); err != nil {
+		return fmt.Errorf("register __go_now_ms: %w", err)
+	}
+
+	// __go_buffer_from(data, encoding) — Buffer.from 桥接
+	if err := vm.RegisterFunc("__go_buffer_from", goBufferFrom, false); err != nil {
+		return fmt.Errorf("register __go_buffer_from: %w", err)
+	}
+
+	// __go_buffer_to_string(dataHex, encoding) — Buffer.toString 桥接
+	if err := vm.RegisterFunc("__go_buffer_to_string", goBufferToString, false); err != nil {
+		return fmt.Errorf("register __go_buffer_to_string: %w", err)
+	}
+
+	// __go_crypto_md5(str) — MD5 hex
+	if err := vm.RegisterFunc("__go_crypto_md5", func(str string) string {
+		h := md5.Sum([]byte(str))
+		return hex.EncodeToString(h[:])
+	}, false); err != nil {
+		return fmt.Errorf("register __go_crypto_md5: %w", err)
+	}
+
+	// __go_crypto_sha256(str) — SHA256 hex
+	if err := vm.RegisterFunc("__go_crypto_sha256", func(str string) string {
+		h := sha256.Sum256([]byte(str))
+		return hex.EncodeToString(h[:])
+	}, false); err != nil {
+		return fmt.Errorf("register __go_crypto_sha256: %w", err)
+	}
+
+	// __go_crypto_random_bytes(size) — 随机字节 hex
+	// 注意：返回值必须是 string（不能是 (string, error)），
+	// 因为 QuickJS 的 RegisterFunc 会将多返回值包装为数组 [value, error]。
+	if err := vm.RegisterFunc("__go_crypto_random_bytes", func(size int) string {
+		buf := make([]byte, size)
+		if _, err := rand.Read(buf); err != nil {
+			slog.Error("__go_crypto_random_bytes error", "error", err)
+			return ""
+		}
+		return hex.EncodeToString(buf)
+	}, false); err != nil {
+		return fmt.Errorf("register __go_crypto_random_bytes: %w", err)
+	}
+
+	// __go_crypto_aes_encrypt(dataHex, mode, keyHex, ivHex) — AES 加密
+	if err := vm.RegisterFunc("__go_crypto_aes_encrypt", goCryptoAesEncrypt, false); err != nil {
+		return fmt.Errorf("register __go_crypto_aes_encrypt: %w", err)
+	}
+
+	// __go_crypto_rsa_encrypt(dataHex, keyPEM) — RSA 公钥加密
+	if err := vm.RegisterFunc("__go_crypto_rsa_encrypt", goCryptoRsaEncrypt, false); err != nil {
+		return fmt.Errorf("register __go_crypto_rsa_encrypt: %w", err)
+	}
+
+	// __go_zlib_inflate(dataHex) — zlib 解压
+	if err := vm.RegisterFunc("__go_zlib_inflate", goZlibInflate, false); err != nil {
+		return fmt.Errorf("register __go_zlib_inflate: %w", err)
+	}
+
+	// __go_zlib_deflate(dataHex) — zlib 压缩
+	if err := vm.RegisterFunc("__go_zlib_deflate", goZlibDeflate, false); err != nil {
+		return fmt.Errorf("register __go_zlib_deflate: %w", err)
+	}
+
+	// __go_raw_inflate(dataHex) — raw DEFLATE 解压（无 zlib 头，用于 ZIP 文件解析）
+	if err := vm.RegisterFunc("__go_raw_inflate", goRawInflate, false); err != nil {
+		return fmt.Errorf("register __go_raw_inflate: %w", err)
+	}
+
+	// __go_bridge(action, data) -> id string
+	// 真异步桥接：立即返回 id（形如 "bridge:42"），后台 goroutine 调
+	// env.bridgeCallback 处理动作（DB / 文件 / 跨插件通信），完成后把结果
+	// 投递到 env.asyncResults，由事件循环 resolve 对应 Promise。
+	//
+	// 即使 storage 这类轻量操作也走异步路径，是为了保证 JS 端 API 一致：
+	// 所有 mimusic.* 方法返回 Promise<T>，无需为不同 action 区分。
+	// 内部开销（goroutine 创建 + 通道发送 + 唤醒事件循环）单次 ~10us，
+	// 远小于 SQLite 一次查询 / 文件读写。
+	if err := vm.RegisterFunc("__go_bridge", func(action, data string) string {
+		seq := env.asyncSeq.Add(1)
+		id := fmt.Sprintf("bridge:%d", seq)
+		env.asyncInflight.Add(1)
+
+		// 在 goroutine 启动前快照 callback：避免 Stop/重载竞争。
+		cb := env.bridgeCallback
+
+		go func() {
+			defer env.asyncInflight.Add(-1)
+			result := asyncResult{ID: id, Type: "bridge"}
+			if cb == nil {
+				slog.Error("__go_bridge: no callback registered",
+					"envID", env.envID, "action", action)
+				result.OK = false
+				result.Data = "no bridge callback registered"
+			} else {
+				out, err := cb(action, data)
+				if err != nil {
+					slog.Warn("__go_bridge error",
+						"envID", env.envID, "action", action, "error", err)
+					result.OK = false
+					result.Data = err.Error()
+				} else {
+					result.OK = true
+					result.Data = out
+				}
+			}
+			select {
+			case env.asyncResults <- result:
+			default:
+				slog.Warn("asyncResults channel full, drop bridge result",
+					"envID", env.envID, "id", id, "action", action)
+			}
+			select {
+			case env.asyncSignal <- struct{}{}:
+			default:
+			}
+		}()
+		return id
+	}, false); err != nil {
+		return fmt.Errorf("register __go_bridge: %w", err)
+	}
+
+	return nil
+}
+
+// --- Go 桥接函数实现 ---
+
+// doHTTPRequest 执行一次 HTTP 请求并把结果序列化为 JSON 字符串。
+//
+// 这是 Go 侧的内部实现，不对 JS 直接暴露：JS 侧调 fetch() / __go_fetch_async()
+// 触发后台 goroutine 调用本函数，结果通过 asyncResults 通道回投给事件循环。
+// 因此函数虽然内部是阻塞 net/http 调用，但 QuickJS VM 锁不会被持有。
+//
+// 支持 X-Fetch-No-Redirect 请求头：存在时不自动跟随重定向，让 JS 侧处理
+// 重定向链（如 xiaomi 登录流程的 Cookie 收集）。
+func doHTTPRequest(url, method, headersJSON, body string) string {
+	slog.Info("doHTTPRequest", "url", url, "method", method, "headers", headersJSON)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var reqBody io.Reader
+	if body != "" {
+		reqBody = strings.NewReader(body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
+	if err != nil {
+		return marshalFetchError(err.Error())
+	}
+
+	// 解析并设置请求头
+	var headers map[string]string
+	noRedirect := false
+	if headersJSON != "" && headersJSON != "{}" {
+		if jsonErr := json.Unmarshal([]byte(headersJSON), &headers); jsonErr == nil {
+			for k, v := range headers {
+				if strings.EqualFold(k, "X-Fetch-No-Redirect") {
+					noRedirect = true
+					continue // 不传递此内部控制头
+				}
+				req.Header.Set(k, v)
+			}
+		}
+	}
+
+	// 补充默认 User-Agent（仅在 JS 侧未显式设置时填充）
+	// 不自动补充 Accept/Accept-Encoding/Connection，让请求指纹与 WASM 版本一致
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Set("User-Agent", "MiHome/6.0 (Linux; Android 10; Redmi Note 5 Build/QQ3A.200805.001)")
+	}
+
+	// 诊断日志：记录实际发送的请求头（X-Fetch-No-Redirect 已剥离，默认头已补充）
+	actualHeaders := make(map[string]string)
+	for k, vals := range req.Header {
+		if len(vals) > 0 {
+			actualHeaders[k] = vals[0]
+		}
+	}
+	slog.Info("doHTTPRequest actual request headers", "url", url, "noRedirect", noRedirect, "headers", actualHeaders)
+
+	// 根据是否需要跟随重定向选择客户端
+	client := sharedHTTPClient
+	if noRedirect {
+		client = noRedirectHTTPClient
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return marshalFetchError(err.Error())
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return marshalFetchError(err.Error())
+	}
+
+	// 收集响应头
+	respHeaders := make(map[string]string)
+	for k, vals := range resp.Header {
+		if len(vals) > 0 {
+			respHeaders[k] = strings.Join(vals, ", ")
+		}
+	}
+
+	// 诊断日志：记录响应状态和头信息
+	slog.Info("doHTTPRequest response", "url", url, "status", resp.StatusCode, "headers", respHeaders, "bodyLen", len(bodyBytes))
+	if resp.StatusCode == 401 || resp.StatusCode >= 400 {
+		slog.Warn("doHTTPRequest error response", "url", url, "status", resp.StatusCode, "body", string(bodyBytes))
+	}
+
+	result := map[string]any{
+		"status":     resp.StatusCode,
+		"statusText": resp.Status,
+		"headers":    respHeaders,
+		"body":       string(bodyBytes),
+	}
+
+	data, _ := json.Marshal(result)
+	return string(data)
+}
+
+func marshalFetchError(msg string) string {
+	result := map[string]string{"error": msg}
+	data, _ := json.Marshal(result)
+	return string(data)
+}
+
+// goBufferFrom 将数据按指定编码转为 hex 内部表示
+// 注意：返回值必须是 string（不能是 (string, error)），
+// 因为 QuickJS 的 RegisterFunc 会将多返回值包装为数组 [value, error]，
+// 导致 JS 端收到的是数组而非字符串。
+func goBufferFrom(data, encoding string) string {
+	switch strings.ToLower(encoding) {
+	case "utf8", "utf-8", "":
+		return hex.EncodeToString([]byte(data))
+	case "base64":
+		decoded, err := base64.StdEncoding.DecodeString(data)
+		if err != nil {
+			// 尝试 RawStdEncoding
+			decoded, err = base64.RawStdEncoding.DecodeString(data)
+			if err != nil {
+				slog.Error("goBufferFrom base64 decode error", "error", err)
+				return ""
+			}
+		}
+		return hex.EncodeToString(decoded)
+	case "hex":
+		// 验证 hex 有效性
+		if _, err := hex.DecodeString(data); err != nil {
+			slog.Error("goBufferFrom hex validation error", "error", err)
+			return ""
+		}
+		return data
+	case "binary", "latin1":
+		buf := make([]byte, len(data))
+		for i := 0; i < len(data); i++ {
+			buf[i] = data[i]
+		}
+		return hex.EncodeToString(buf)
+	default:
+		return hex.EncodeToString([]byte(data))
+	}
+}
+
+// goBufferToString 将 hex 内部表示转为指定编码字符串
+// 注意：返回值必须是 string（不能是 (string, error)），
+// 因为 QuickJS 的 RegisterFunc 会将多返回值包装为数组 [value, error]。
+func goBufferToString(dataHex, encoding string) string {
+	decoded, err := hex.DecodeString(dataHex)
+	if err != nil {
+		slog.Error("goBufferToString hex decode error", "error", err, "dataHexLen", len(dataHex))
+		return ""
+	}
+
+	switch strings.ToLower(encoding) {
+	case "utf8", "utf-8", "":
+		return string(decoded)
+	case "base64":
+		return base64.StdEncoding.EncodeToString(decoded)
+	case "hex":
+		return dataHex
+	case "binary", "latin1":
+		return string(decoded)
+	default:
+		return string(decoded)
+	}
+}
+
+// goCryptoAesEncrypt AES 加密
+// 注意：返回值必须是 string（不能是 (string, error)），
+// 因为 QuickJS 的 RegisterFunc 会将多返回值包装为数组 [value, error]。
+func goCryptoAesEncrypt(dataHex, mode, keyHex, ivHex string) string {
+	data, err := hex.DecodeString(dataHex)
+	if err != nil {
+		slog.Error("goCryptoAesEncrypt data hex decode error", "error", err)
+		return ""
+	}
+	key, err := hex.DecodeString(keyHex)
+	if err != nil {
+		slog.Error("goCryptoAesEncrypt key hex decode error", "error", err)
+		return ""
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		slog.Error("goCryptoAesEncrypt aes new cipher error", "error", err)
+		return ""
+	}
+
+	// PKCS7 padding
+	blockSize := block.BlockSize()
+	padding := blockSize - len(data)%blockSize
+	padText := bytes.Repeat([]byte{byte(padding)}, padding)
+	data = append(data, padText...)
+
+	encrypted := make([]byte, len(data))
+
+	switch strings.ToLower(mode) {
+	case "cbc":
+		iv, err := hex.DecodeString(ivHex)
+		if err != nil {
+			slog.Error("goCryptoAesEncrypt iv hex decode error", "error", err)
+			return ""
+		}
+		cbc := cipher.NewCBCEncrypter(block, iv)
+		cbc.CryptBlocks(encrypted, data)
+	case "ecb":
+		for i := 0; i < len(data); i += blockSize {
+			block.Encrypt(encrypted[i:i+blockSize], data[i:i+blockSize])
+		}
+	default:
+		slog.Error("goCryptoAesEncrypt unsupported mode", "mode", mode)
+		return ""
+	}
+
+	return hex.EncodeToString(encrypted)
+}
+
+// goCryptoRsaEncrypt RSA 公钥加密
+// 注意：返回值必须是 string（不能是 (string, error)），
+// 因为 QuickJS 的 RegisterFunc 会将多返回值包装为数组 [value, error]。
+func goCryptoRsaEncrypt(dataHex, keyPEM string) string {
+	data, err := hex.DecodeString(dataHex)
+	if err != nil {
+		slog.Error("goCryptoRsaEncrypt data hex decode error", "error", err)
+		return ""
+	}
+
+	block, _ := pem.Decode([]byte(keyPEM))
+	if block == nil {
+		slog.Error("goCryptoRsaEncrypt failed to decode PEM block")
+		return ""
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		// 尝试 PKCS1
+		pubKey, err2 := x509.ParsePKCS1PublicKey(block.Bytes)
+		if err2 != nil {
+			slog.Error("goCryptoRsaEncrypt parse public key error", "error", err)
+			return ""
+		}
+		pub = pubKey
+	}
+
+	rsaPub, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		slog.Error("goCryptoRsaEncrypt not an RSA public key")
+		return ""
+	}
+
+	// 老牌音源平台（网易云等）的握手协议固定要求 PKCS#1 v1.5；不能改 OAEP。
+	//lint:ignore SA1019 required by upstream music platform protocols (NetEase etc.)
+	encrypted, err := rsa.EncryptPKCS1v15(rand.Reader, rsaPub, data)
+	if err != nil {
+		slog.Error("goCryptoRsaEncrypt rsa encrypt error", "error", err)
+		return ""
+	}
+
+	return hex.EncodeToString(encrypted)
+}
+
+// goZlibInflate zlib 解压
+// 注意：返回值必须是 string（不能是 (string, error)），
+// 因为 QuickJS 的 RegisterFunc 会将多返回值包装为数组 [value, error]。
+func goZlibInflate(dataHex string) string {
+	data, err := hex.DecodeString(dataHex)
+	if err != nil {
+		slog.Error("goZlibInflate hex decode error", "error", err)
+		return ""
+	}
+
+	reader, err := zlib.NewReader(bytes.NewReader(data))
+	if err != nil {
+		slog.Error("goZlibInflate zlib new reader error", "error", err)
+		return ""
+	}
+	defer reader.Close()
+
+	result, err := io.ReadAll(reader)
+	if err != nil {
+		slog.Error("goZlibInflate zlib read error", "error", err)
+		return ""
+	}
+
+	return hex.EncodeToString(result)
+}
+
+// goZlibDeflate zlib 压缩
+// 注意：返回值必须是 string（不能是 (string, error)），
+// 因为 QuickJS 的 RegisterFunc 会将多返回值包装为数组 [value, error]。
+func goZlibDeflate(dataHex string) string {
+	data, err := hex.DecodeString(dataHex)
+	if err != nil {
+		slog.Error("goZlibDeflate hex decode error", "error", err)
+		return ""
+	}
+
+	var buf bytes.Buffer
+	writer := zlib.NewWriter(&buf)
+	if _, err := writer.Write(data); err != nil {
+		slog.Error("goZlibDeflate zlib write error", "error", err)
+		return ""
+	}
+	if err := writer.Close(); err != nil {
+		slog.Error("goZlibDeflate zlib close error", "error", err)
+		return ""
+	}
+
+	return hex.EncodeToString(buf.Bytes())
+}
+
+// goRawInflate raw DEFLATE 解压（无 zlib 头/尾），用于 ZIP 文件中的 DEFLATE 压缩数据
+func goRawInflate(dataHex string) string {
+	data, err := hex.DecodeString(dataHex)
+	if err != nil {
+		slog.Error("goRawInflate hex decode error", "error", err)
+		return ""
+	}
+
+	reader := flate.NewReader(bytes.NewReader(data))
+	defer reader.Close()
+
+	result, err := io.ReadAll(reader)
+	if err != nil {
+		slog.Error("goRawInflate flate read error", "error", err)
+		return ""
+	}
+
+	return hex.EncodeToString(result)
+}

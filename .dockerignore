@@ -1,0 +1,66 @@
+# Node.js
+node_modules
+npm-debug.log
+yarn-error.log
+yarn.lock
+package-lock.json
+
+# Go
+bin
+obj
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git
+.gitignore
+.gitmodules
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Documentation
+docs
+*.md
+CHANGELOG.md
+LICENSE
+
+# Scripts
+scripts
+# 但保留 docker-entrypoint.sh（Docker 容器启动入口脚本）
+!scripts/docker-entrypoint.sh
+
+# Test
+test
+*_test.go
+
+# Web development files (not needed in production image)
+web/node_modules
+web/.env.*
+web/auto-imports.d.ts
+web/components.d.ts
+# 注意：web/dist 是生产构建文件，需要保留
+
+# Plugin development
+mimusic-plugins
+mimusic-plugin-example
+
+# Build artifacts (excluding web/dist which is needed)
+*.log
+tmp
+temp

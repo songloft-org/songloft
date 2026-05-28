@@ -1,0 +1,86 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# Docker
+!.dockerignore
+
+# Build outputs
+/bin/
+/build/
+/dist/
+mimusic-player-build
+
+# mimusic binaries
+mimusic
+mimusic-linux
+mimusic-linux-amd64
+mimusic-linux-arm64
+mimusic-linux-armv7
+mimusic-darwin
+mimusic-darwin-amd64
+mimusic-darwin-arm64
+
+# Release artifacts
+checksums.txt
+version.json
+
+# Runtime data
+mimusic.db
+/data/
+/music/
+xiaomusic/
+
+# Frontend dev artifacts
+web/dev-dist
+
+# IDE / AI assistants
+.vscode/
+.idea/
+.aone_copilot/
+.qoder/
+.claude/
+.opencode
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+
+# Coverage output
+coverage.txt
+coverage.html
+
+# Benchmark output
+bench.txt
+
+# Fuzzing output
+fuzz/
+
+# Misc
+examples/

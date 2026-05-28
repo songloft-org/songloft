@@ -1,0 +1,581 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'      # 自动发正式版（hanxi/mimusic:X.Y.Z / :latest / :X.Y.Z-full / :full + 写 CHANGELOG）
+  workflow_dispatch: # 手动发开发版（hanxi/mimusic:dev / :dev-full + dev 的 prerelease）
+
+env:
+  GO_VERSION: '1.26'
+  FLUTTER_VERSION: '3.41.5'
+  DOCKER_USERNAME: hanxi
+  IMAGE_NAME: mimusic
+  RELEASE_REPO: ${{ github.repository }}
+
+jobs:
+  # ============================================================
+  # Job 1: 解析版本号与发布类型，获取上一个 tag
+  # ============================================================
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      version_tag: ${{ steps.parse.outputs.version_tag }}
+      is_prerelease: ${{ steps.parse.outputs.is_prerelease }}
+      release_title: ${{ steps.parse.outputs.release_title }}
+      previous_tag: ${{ steps.prev-tag.outputs.previous_tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史以查找上一个 tag
+
+      - name: Parse version info
+        id: parse
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            # tag 触发：v1.2.4 → 正式发布
+            VERSION="${{ github.ref_name }}"          # v1.2.4
+            VERSION_TAG="${VERSION#v}"                # 1.2.4
+            IS_PRERELEASE="false"
+            RELEASE_TITLE="Release ${VERSION}"
+          else
+            # workflow_dispatch（任意分支触发）：开发版统一用 dev 标识
+            VERSION="dev"
+            VERSION_TAG="dev"
+            IS_PRERELEASE="true"
+            TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S')
+            RELEASE_TITLE="Development Build dev from ${{ github.ref_name }} (${TIMESTAMP} UTC)"
+          fi
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+          echo "is_prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
+          echo "release_title=${RELEASE_TITLE}" >> $GITHUB_OUTPUT
+
+          echo "Version: ${VERSION}"
+          echo "Version Tag: ${VERSION_TAG}"
+          echo "Is Prerelease: ${IS_PRERELEASE}"
+          echo "Release Title: ${RELEASE_TITLE}"
+
+      - name: Get previous tag
+        id: prev-tag
+        run: |
+          # 获取当前 tag 之前的上一个 tag
+          CURRENT_TAG="${{ steps.parse.outputs.version }}"
+          
+          # 获取所有按创建时间排序的 tag，找到当前 tag 的前一个
+          PREV_TAG=$(git --no-pager tag --sort=creatordate --merged HEAD | grep -v "^${CURRENT_TAG}$" | tail -1)
+          
+          if [ -z "$PREV_TAG" ]; then
+            # 如果没有上一个 tag，使用第一个 commit
+            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+            echo "No previous tag found, using first commit: ${PREV_TAG}"
+          else
+            echo "Previous tag: ${PREV_TAG}"
+          fi
+          
+          echo "previous_tag=${PREV_TAG}" >> $GITHUB_OUTPUT
+
+  # ============================================================
+  # Job 2: 构建 Flutter Web（嵌入模式）
+  # ============================================================
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init mimusic-player submodule
+        run: git submodule update --init --recursive -- mimusic-player
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: |
+          cd mimusic-player
+          flutter pub get
+
+      - name: Build Flutter Web (embedded mode)
+        run: make build-frontend-web-embedded
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-web-embedded
+          path: mimusic-player-build/web-embedded
+          retention-days: 1
+
+  # ============================================================
+  # Job 3: 多平台交叉编译（lite + full）
+  # ============================================================
+  build-binaries:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}${{ matrix.goarm && format('/v{0}', matrix.goarm) || '' }}
+    needs: [prepare, build-frontend]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+            gen_version_json: true
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: linux
+            goarch: arm
+            goarm: '7'
+            suffix: linux-armv7
+          - goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64
+            ext: .exe
+          - goos: windows
+            goarch: arm64
+            suffix: windows-arm64
+            ext: .exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init pkg/tag submodule
+        run: git submodule update --init --recursive -- pkg/tag
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-web-embedded
+          path: mimusic-player-build/web-embedded
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download Go dependencies
+        run: go mod download
+
+      - name: Install UPX
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq upx
+
+      - name: Build binaries (lite + full)
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          SUFFIX="${{ matrix.suffix }}"
+          EXT="${{ matrix.ext }}"
+
+          # 构建 lite 版本（复用 Makefile build-cross 目标，含 UPX 压缩）
+          make build-cross GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            GOARM=${{ matrix.goarm }} OUTPUT="mimusic-${SUFFIX}${EXT}"
+
+          # 构建 full 版本（BUILD_TYPE=full 让 mimusic version 输出带 full 标识，与 Dockerfile 一致）
+          make build-cross GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            GOARM=${{ matrix.goarm }} OUTPUT="mimusic-${SUFFIX}-full${EXT}" \
+            EXTRA_TAGS=full BUILD_TYPE=full
+
+          ls -lh mimusic-${SUFFIX}*
+
+      - name: Generate version.json
+        if: matrix.gen_version_json == true
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          cat > version.json <<EOF
+          {
+            "version": "${VERSION}",
+            "git_commit": "${GIT_COMMIT}",
+            "build_time": "${BUILD_TIME}",
+            "download_url_prefix": "https://github.com/${{ env.RELEASE_REPO }}/releases/download/${VERSION}/mimusic",
+            "release_notes": "Release ${VERSION}"
+          }
+          EOF
+          cat version.json
+
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.suffix }}
+          path: |
+            mimusic-${{ matrix.suffix }}${{ matrix.ext }}
+            mimusic-${{ matrix.suffix }}-full${{ matrix.ext }}
+            version.json
+          retention-days: 1
+
+  # ============================================================
+  # Job 4: Docker 多架构镜像构建、推送并导出 tar 包
+  # ============================================================
+  docker-build-push:
+    name: Docker Build & Push
+    needs: [prepare, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init pkg/tag submodule
+        run: git submodule update --init --recursive -- pkg/tag
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-web-embedded
+          path: mimusic-player-build/web-embedded
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64,arm
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set build metadata
+        id: meta
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          VERSION_TAG: ${{ needs.prepare.outputs.version_tag }}
+          IS_PRERELEASE: ${{ needs.prepare.outputs.is_prerelease }}
+        run: |
+          GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          echo "GIT_COMMIT=${GIT_COMMIT}" >> $GITHUB_OUTPUT
+          echo "BUILD_TIME=${BUILD_TIME}" >> $GITHUB_OUTPUT
+
+          # 计算 Docker 标签
+          if [[ "${IS_PRERELEASE}" == "false" ]]; then
+            # tag 触发：版本号 + latest / full
+            LITE_TAGS="${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${VERSION_TAG},${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
+            FULL_TAGS="${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${VERSION_TAG}-full,${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:full"
+          else
+            # 分支 push / dispatch：仅打分支名标签（main → :main / :main-full）
+            LITE_TAGS="${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${VERSION_TAG}"
+            FULL_TAGS="${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${VERSION_TAG}-full"
+          fi
+
+          echo "LITE_TAGS=${LITE_TAGS}" >> $GITHUB_OUTPUT
+          echo "FULL_TAGS=${FULL_TAGS}" >> $GITHUB_OUTPUT
+          echo "Lite tags: ${LITE_TAGS}"
+          echo "Full tags: ${FULL_TAGS}"
+
+      - name: Create output directory
+        run: mkdir -p docker-tars
+
+      # ---------- 逐平台构建 lite 版本并导出 tar（写 GHA cache，下面 manifest 步骤复用）----------
+      - name: Build & save lite linux/amd64
+        run: |
+          docker buildx build \
+            --build-arg VERSION="${{ needs.prepare.outputs.version }}" \
+            --build-arg GIT_COMMIT="${{ steps.meta.outputs.GIT_COMMIT }}" \
+            --build-arg BUILD_TIME="${{ steps.meta.outputs.BUILD_TIME }}" \
+            --platform linux/amd64 \
+            --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-amd64 \
+            --cache-from type=gha,scope=lite-linux-amd64 \
+            --cache-to type=gha,scope=lite-linux-amd64,mode=max \
+            --load \
+            .
+          docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-amd64 \
+            -o docker-tars/mimusic-docker-linux-amd64.tar
+          docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-amd64 2>/dev/null || true
+
+      - name: Build & save lite linux/arm64
+        run: |
+          docker buildx build \
+            --build-arg VERSION="${{ needs.prepare.outputs.version }}" \
+            --build-arg GIT_COMMIT="${{ steps.meta.outputs.GIT_COMMIT }}" \
+            --build-arg BUILD_TIME="${{ steps.meta.outputs.BUILD_TIME }}" \
+            --platform linux/arm64 \
+            --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-arm64 \
+            --cache-from type=gha,scope=lite-linux-arm64 \
+            --cache-to type=gha,scope=lite-linux-arm64,mode=max \
+            --load \
+            .
+          docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-arm64 \
+            -o docker-tars/mimusic-docker-linux-arm64.tar
+          docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-arm64 2>/dev/null || true
+
+      - name: Build & save lite linux/arm/v7
+        run: |
+          docker buildx build \
+            --build-arg VERSION="${{ needs.prepare.outputs.version }}" \
+            --build-arg GIT_COMMIT="${{ steps.meta.outputs.GIT_COMMIT }}" \
+            --build-arg BUILD_TIME="${{ steps.meta.outputs.BUILD_TIME }}" \
+            --platform linux/arm/v7 \
+            --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-armv7 \
+            --cache-from type=gha,scope=lite-linux-armv7 \
+            --cache-to type=gha,scope=lite-linux-armv7,mode=max \
+            --load \
+            .
+          docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-armv7 \
+            -o docker-tars/mimusic-docker-linux-arm-v7.tar
+          docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-armv7 2>/dev/null || true
+
+      # ---------- 推送 lite 多架构 manifest（命中上面的 GHA cache，无需重新编译）----------
+      - name: Push lite multi-arch manifest
+        run: |
+          IFS=',' read -ra TAGS <<< "${{ steps.meta.outputs.LITE_TAGS }}"
+          TAG_ARGS=""
+          for tag in "${TAGS[@]}"; do
+            TAG_ARGS="${TAG_ARGS} -t ${tag}"
+          done
+
+          docker buildx build ${TAG_ARGS} \
+            --build-arg VERSION="${{ needs.prepare.outputs.version }}" \
+            --build-arg GIT_COMMIT="${{ steps.meta.outputs.GIT_COMMIT }}" \
+            --build-arg BUILD_TIME="${{ steps.meta.outputs.BUILD_TIME }}" \
+            --platform linux/amd64,linux/arm64,linux/arm/v7 \
+            --cache-from type=gha,scope=lite-linux-amd64 \
+            --cache-from type=gha,scope=lite-linux-arm64 \
+            --cache-from type=gha,scope=lite-linux-armv7 \
+            --push \
+            .
+
+      # ---------- 逐平台构建 full 版本并导出 tar ----------
+      - name: Build & save full linux/amd64
+        run: |
+          docker buildx build \
+            --build-arg VERSION="${{ needs.prepare.outputs.version }}" \
+            --build-arg GIT_COMMIT="${{ steps.meta.outputs.GIT_COMMIT }}" \
+            --build-arg BUILD_TIME="${{ steps.meta.outputs.BUILD_TIME }}" \
+            --build-arg FULL_BUILD=true \
+            --platform linux/amd64 \
+            --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-amd64 \
+            --cache-from type=gha,scope=full-linux-amd64 \
+            --cache-to type=gha,scope=full-linux-amd64,mode=max \
+            --load \
+            .
+          docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-amd64 \
+            -o docker-tars/mimusic-docker-linux-amd64-full.tar
+          docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-amd64 2>/dev/null || true
+
+      - name: Build & save full linux/arm64
+        run: |
+          docker buildx build \
+            --build-arg VERSION="${{ needs.prepare.outputs.version }}" \
+            --build-arg GIT_COMMIT="${{ steps.meta.outputs.GIT_COMMIT }}" \
+            --build-arg BUILD_TIME="${{ steps.meta.outputs.BUILD_TIME }}" \
+            --build-arg FULL_BUILD=true \
+            --platform linux/arm64 \
+            --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-arm64 \
+            --cache-from type=gha,scope=full-linux-arm64 \
+            --cache-to type=gha,scope=full-linux-arm64,mode=max \
+            --load \
+            .
+          docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-arm64 \
+            -o docker-tars/mimusic-docker-linux-arm64-full.tar
+          docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-arm64 2>/dev/null || true
+
+      - name: Build & save full linux/arm/v7
+        run: |
+          docker buildx build \
+            --build-arg VERSION="${{ needs.prepare.outputs.version }}" \
+            --build-arg GIT_COMMIT="${{ steps.meta.outputs.GIT_COMMIT }}" \
+            --build-arg BUILD_TIME="${{ steps.meta.outputs.BUILD_TIME }}" \
+            --build-arg FULL_BUILD=true \
+            --platform linux/arm/v7 \
+            --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-armv7 \
+            --cache-from type=gha,scope=full-linux-armv7 \
+            --cache-to type=gha,scope=full-linux-armv7,mode=max \
+            --load \
+            .
+          docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-armv7 \
+            -o docker-tars/mimusic-docker-linux-arm-v7-full.tar
+          docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-armv7 2>/dev/null || true
+
+      # ---------- 推送 full 多架构 manifest（命中上面的 GHA cache）----------
+      - name: Push full multi-arch manifest
+        run: |
+          IFS=',' read -ra TAGS <<< "${{ steps.meta.outputs.FULL_TAGS }}"
+          TAG_ARGS=""
+          for tag in "${TAGS[@]}"; do
+            TAG_ARGS="${TAG_ARGS} -t ${tag}"
+          done
+
+          docker buildx build ${TAG_ARGS} \
+            --build-arg VERSION="${{ needs.prepare.outputs.version }}" \
+            --build-arg GIT_COMMIT="${{ steps.meta.outputs.GIT_COMMIT }}" \
+            --build-arg BUILD_TIME="${{ steps.meta.outputs.BUILD_TIME }}" \
+            --build-arg FULL_BUILD=true \
+            --platform linux/amd64,linux/arm64,linux/arm/v7 \
+            --cache-from type=gha,scope=full-linux-amd64 \
+            --cache-from type=gha,scope=full-linux-arm64 \
+            --cache-from type=gha,scope=full-linux-armv7 \
+            --push \
+            .
+
+      - name: List docker tars
+        run: ls -lh docker-tars/
+
+      - name: Upload Docker tar artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-tars
+          path: docker-tars/
+          retention-days: 1
+
+  # ============================================================
+  # Job 5: 生成 Changelog 并发布 Release
+  # ============================================================
+  create-release:
+    name: Create Release
+    needs: [prepare, build-binaries, docker-build-push]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史与所有 tag 用于 changelog 生成
+          ref: main       # 直接在 main 上工作，便于 changelog-action 写入 CHANGELOG.md 后 commit/push
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: release-files
+          merge-multiple: true
+
+      - name: Download Docker tar artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-tars
+          path: release-files
+
+      - name: Generate checksums
+        run: |
+          cd release-files
+          # 对所有文件（二进制 + Docker tar 包）生成 sha256 校验和
+          sha256sum $(ls | grep -v checksums.txt) > checksums.txt
+          echo "=== checksums.txt ==="
+          cat checksums.txt
+
+      - name: List all release files
+        run: |
+          echo "=== Release files ==="
+          ls -lh release-files/
+
+      # 仅 stable（tag 触发）跑：fromTag 必须是真实 git tag，main 这种滚动版本会让
+      # action 的 git rev-list 报错 → 整个 release 失败。所以 prerelease 直接跳过，
+      # release notes 由下面 Create GitHub Release 的 fallback 生成。
+      - name: Generate Changelog from Conventional Commits
+        if: needs.prepare.outputs.is_prerelease == 'false'
+        id: changelog
+        uses: requarks/changelog-action@v1
+        with:
+          token: ${{ github.token }}
+          fromTag: ${{ needs.prepare.outputs.version }}
+          toTag: ${{ needs.prepare.outputs.previous_tag }}
+          writeToFile: true
+          changelogFilePath: CHANGELOG.md
+          useGitmojis: true
+          includeInvalidCommits: false
+          restrictToTypes: feat,fix,docs,style,refactor,perf,test,build,ci,chore,revert
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_TITLE: ${{ needs.prepare.outputs.release_title }}
+          IS_PRERELEASE: ${{ needs.prepare.outputs.is_prerelease }}
+        run: |
+          cd release-files
+
+          # 收集所有文件
+          FILES=($(ls))
+          echo "Uploading ${#FILES[@]} files..."
+
+          # 检查 release 是否已存在，存在则删除
+          if gh release view "${VERSION}" --repo "${{ env.RELEASE_REPO }}" > /dev/null 2>&1; then
+            echo "Release ${VERSION} already exists, deleting..."
+            gh release delete "${VERSION}" --repo "${{ env.RELEASE_REPO }}" --yes
+          fi
+
+          # 构建 Release Notes
+          RELEASE_NOTES="${{ steps.changelog.outputs.changes }}"
+          
+          # 如果 changelog 为空，使用默认内容
+          if [ -z "$RELEASE_NOTES" ] || [ "$RELEASE_NOTES" = "" ]; then
+            if [[ "${IS_PRERELEASE}" == "true" ]]; then
+              RELEASE_NOTES="Development build from branch: ${{ github.ref_name }}"
+            else
+              RELEASE_NOTES="Release ${VERSION}"
+            fi
+          fi
+
+          # 创建 Release
+          if [[ "${IS_PRERELEASE}" == "true" ]]; then
+            gh release create "${VERSION}" \
+              --repo "${{ env.RELEASE_REPO }}" \
+              --title "${RELEASE_TITLE}" \
+              --notes "${RELEASE_NOTES}" \
+              --prerelease \
+              "${FILES[@]}"
+          else
+            gh release create "${VERSION}" \
+              --repo "${{ env.RELEASE_REPO }}" \
+              --title "${RELEASE_TITLE}" \
+              --notes "${RELEASE_NOTES}" \
+              --latest \
+              "${FILES[@]}"
+          fi
+
+          echo "Release created: https://github.com/${{ env.RELEASE_REPO }}/releases/tag/${VERSION}"
+
+      # ============================================================
+      # 仅 stable：把 changelog-action 写入的 CHANGELOG.md commit 回 main
+      # （checkout 阶段已经直接在 main 分支上工作，无需切分支）
+      # ============================================================
+      - name: Commit CHANGELOG.md to main
+        if: needs.prepare.outputs.is_prerelease == 'false'
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "CHANGELOG.md 无变更，跳过 commit"
+            exit 0
+          fi
+
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG for ${VERSION}"
+          git push origin main
