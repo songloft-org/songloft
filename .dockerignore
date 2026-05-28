@@ -57,8 +57,8 @@ web/components.d.ts
 # 注意：web/dist 是生产构建文件，需要保留
 
 # Plugin development
-mimusic-plugins
-mimusic-plugin-example
+songloft-plugins
+songloft-plugin-example
 
 # Build artifacts (excluding web/dist which is needed)
 *.log

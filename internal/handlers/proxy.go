@@ -129,7 +129,7 @@ func ServeRemoteResource(w http.ResponseWriter, r *http.Request, resourceURL str
 	}
 
 	// 设置合理的 User-Agent,避免被上游 CDN 拒绝
-	upstreamReq.Header.Set("User-Agent", "MiMusic/1.0")
+	upstreamReq.Header.Set("User-Agent", "Songloft/1.0")
 
 	// 透传 Accept 头
 	if accept := r.Header.Get("Accept"); accept != "" {

@@ -19,15 +19,15 @@ import (
 
 const (
 	// GitHub Release 版本文件 URL
-	stableVersionURL = "https://github.com/mimusic-org/mimusic/releases/latest/download/version.json"
-	devVersionURL    = "https://github.com/mimusic-org/mimusic/releases/download/main/version.json"
+	stableVersionURL = "https://github.com/songloft-org/songloft/releases/latest/download/version.json"
+	devVersionURL    = "https://github.com/songloft-org/songloft/releases/download/main/version.json"
 
 	// 二进制文件路径
 	// 注意：临时文件必须与目标文件在同一目录，才能使用原子 rename 替换正在运行的二进制文件
-	binarySource = "/app/mimusic" // Docker 镜像中的原始底包
-	binaryTarget = "/app/data/mimusic"
-	binaryBackup = "/app/data/mimusic.backup"
-	binaryTemp   = "/app/data/mimusic.new"
+	binarySource = "/app/songloft" // Docker 镜像中的原始底包
+	binaryTarget = "/app/data/songloft"
+	binaryBackup = "/app/data/songloft.backup"
+	binaryTemp   = "/app/data/songloft.new"
 )
 
 // UpgradeService 升级服务
@@ -398,7 +398,7 @@ func (s *UpgradeService) restoreBackup() error {
 }
 
 // ResetToBaseImage 回退到 Docker 镜像底包
-// 将 /app/mimusic（Docker 镜像中的原始二进制）复制回 /app/data/mimusic，然后重启服务
+// 将 /app/songloft（Docker 镜像中的原始二进制）复制回 /app/data/songloft，然后重启服务
 func (s *UpgradeService) ResetToBaseImage() error {
 	s.updateProgress(models.UpgradeStatusResetting, 0, "开始回退到底包版本...")
 

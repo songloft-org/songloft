@@ -26,7 +26,16 @@ go.work
 /dist/
 mimusic-player-build
 
-# mimusic binaries
+# songloft binaries
+songloft
+songloft-linux
+songloft-linux-amd64
+songloft-linux-arm64
+songloft-linux-armv7
+songloft-darwin
+songloft-darwin-amd64
+songloft-darwin-arm64
+# legacy mimusic binaries (kept so leftover dev builds do not get tracked)
 mimusic
 mimusic-linux
 mimusic-linux-amd64
@@ -41,6 +50,7 @@ checksums.txt
 version.json
 
 # Runtime data
+songloft.db
 mimusic.db
 /data/
 /music/

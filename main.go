@@ -23,12 +23,12 @@ func init() {
 	}
 }
 
-// @title MiMusic API
+// @title Songloft API
 // @version 1.4.1
 // @description 轻量级音乐服务器 API 文档，支持本地音乐管理、网络歌曲、电台和歌单功能
 
 // @contact.name API Support
-// @contact.url https://github.com/mimusic-org/mimusic
+// @contact.url https://github.com/songloft-org/songloft
 // @contact.email im.hanxi@gmail.com
 
 // @license.name Apache 2.0

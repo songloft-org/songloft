@@ -270,7 +270,7 @@ func (f *SourceFetcher) downloadToTemp(ctx context.Context, url string) (string,
 		return "", 0, fmt.Errorf("http status %d", resp.StatusCode)
 	}
 
-	tmp, err := os.CreateTemp("", "mimusic-source-*")
+	tmp, err := os.CreateTemp("", "songloft-source-*")
 	if err != nil {
 		return "", 0, fmt.Errorf("create temp file: %w", err)
 	}

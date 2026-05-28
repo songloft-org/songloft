@@ -330,7 +330,7 @@ type RemoteVersionInfo struct {
 	Version           string `json:"version" example:"v1.0.0"`                                                                              // 版本号
 	GitCommit         string `json:"git_commit" example:"abc123"`                                                                           // Git 提交哈希
 	BuildTime         string `json:"build_time" example:"2024-01-01_12:00:00"`                                                              // 构建时间
-	DownloadURLPrefix string `json:"download_url_prefix" example:"https://github.com/mimusic-org/mimusic/releases/download/v1.0.0/mimusic"` // 下载地址前缀
+	DownloadURLPrefix string `json:"download_url_prefix" example:"https://github.com/songloft-org/songloft/releases/download/v1.0.0/songloft"` // 下载地址前缀
 	ReleaseNotes      string `json:"release_notes" example:"正式版本更新说明"`                                                                      // 发布说明
 }
 

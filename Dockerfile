@@ -55,7 +55,7 @@ ENV TZ=Asia/Shanghai
 WORKDIR /app
 
 COPY --from=hanxi/ffprobe /ffprobe /bin/ffprobe
-COPY --from=go-builder /app/mimusic /app/mimusic
+COPY --from=go-builder /app/songloft /app/songloft
 COPY scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
 
 # 创建挂载目录

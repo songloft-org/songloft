@@ -329,7 +329,7 @@ func (c *CacheService) downloadExternalToTemp(ctx context.Context, url string) (
 	contentType := resp.Header.Get("Content-Type")
 	ext := getExtFromContentType(contentType)
 
-	tmp, err := os.CreateTemp("", "mimusic-extdl-*"+ext)
+	tmp, err := os.CreateTemp("", "songloft-extdl-*"+ext)
 	if err != nil {
 		return "", "", fmt.Errorf("create temp: %w", err)
 	}

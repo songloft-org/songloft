@@ -715,7 +715,7 @@ func (c *ConvertService) fetchToTemp(ctx context.Context, downloadURL string) (s
 
 	ext := getExtFromContentType(contentType)
 
-	tmpFile, err := os.CreateTemp("", "mimusic-convert-*"+ext)
+	tmpFile, err := os.CreateTemp("", "songloft-convert-*"+ext)
 	if err != nil {
 		return "", "", fmt.Errorf("create temp file: %w", err)
 	}

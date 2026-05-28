@@ -287,7 +287,7 @@ func (a *App) Init() error {
 	// 初始化 Tracely 监控客户端（仅在编译时注入了 AppSecret 与 Host 时启用）
 	if tracelycfg.Enabled() {
 		a.tracelyClient = tracely.New(tracely.Config{
-			AppID:             "mimusic",
+			AppID:             "songloft",
 			AppSecret:         tracelycfg.AppSecret,
 			Host:              tracelycfg.Host,
 			EnableHeartbeat:   true,
@@ -438,15 +438,15 @@ func (a *App) showHelp() {
 	flag.Usage()
 	fmt.Println()
 	fmt.Println("示例用法:")
-	fmt.Println("  ./mimusic -username admin -password admin -port 58091")
-	fmt.Println("  ./mimusic -username admin -password admin -db data/mimusic.db")
-	fmt.Println("  ./mimusic -username admin -password admin -port 58091 -db data/mimusic.db")
+	fmt.Println("  ./songloft -username admin -password admin -port 58091")
+	fmt.Println("  ./songloft -username admin -password admin -db data/songloft.db")
+	fmt.Println("  ./songloft -username admin -password admin -port 58091 -db data/songloft.db")
 	fmt.Println()
 	fmt.Println("环境变量:")
 	fmt.Println("  ADMIN_USERNAME  - 管理员用户名（可通过 -username 参数指定）")
 	fmt.Println("  ADMIN_PASSWORD  - 管理员密码（可通过 -password 参数指定）")
 	fmt.Println("  LISTEN_PORT     - 监听端口（默认: 58091，可通过 -port 参数指定）")
-	fmt.Println("  DB_PATH         - 数据库文件路径（默认: data/mimusic.db，可通过 -db 参数指定）")
+	fmt.Println("  DB_PATH         - 数据库文件路径（默认: data/songloft.db，可通过 -db 参数指定）")
 	fmt.Println()
 	fmt.Println("注意: 其他配置（如音乐目录、扫描配置等）存储在数据库 config 表中")
 }
@@ -456,7 +456,7 @@ func ParseConfig() (*config.AppConfig, error) {
 	// 定义命令行参数
 	var (
 		port     = flag.String("port", "58091", "监听端口")
-		dbPath   = flag.String("db", "data/mimusic.db", "数据库文件路径")
+		dbPath   = flag.String("db", "data/songloft.db", "数据库文件路径")
 		username = flag.String("username", "", "管理员用户名")
 		password = flag.String("password", "", "管理员密码")
 		help     = flag.Bool("help", false, "显示帮助信息")
@@ -468,7 +468,7 @@ func ParseConfig() (*config.AppConfig, error) {
 
 	// 显示版本信息
 	if *showVer {
-		fmt.Printf("MiMusic Version: %s\n", version.GetVersion())
+		fmt.Printf("Songloft Version: %s\n", version.GetVersion())
 		fmt.Printf("Git Commit: %s\n", version.GitCommit)
 		fmt.Printf("Build Time: %s\n", version.BuildTime)
 		if version.BuildType != "" {
@@ -506,7 +506,7 @@ func ParseConfig() (*config.AppConfig, error) {
 
 	// 获取数据库路径（优先使用命令行参数，其次使用环境变量）
 	finalDBPath := *dbPath
-	if envDBPath := os.Getenv("DB_PATH"); envDBPath != "" && *dbPath == "data/mimusic.db" {
+	if envDBPath := os.Getenv("DB_PATH"); envDBPath != "" && *dbPath == "data/songloft.db" {
 		finalDBPath = envDBPath
 	}
 

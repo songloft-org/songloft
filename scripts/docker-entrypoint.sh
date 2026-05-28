@@ -4,11 +4,11 @@ set -e
 # Docker 容器启动入口脚本
 # 用于实现二进制文件的热替换升级功能
 
-BINARY_SOURCE="/app/mimusic"
-BINARY_TARGET="/app/data/mimusic"
-BINARY_BACKUP="/app/mimusic.backup"
+BINARY_SOURCE="/app/songloft"
+BINARY_TARGET="/app/data/songloft"
+BINARY_BACKUP="/app/songloft.backup"
 
-echo "MiMusic Docker Entrypoint"
+echo "Songloft Docker Entrypoint"
 echo "=========================="
 
 # 版本比较函数
@@ -67,7 +67,7 @@ compare_versions() {
 get_version() {
     binary_path="$1"
     if [ -f "$binary_path" ]; then
-        "$binary_path" -version 2>&1 | grep "MiMusic Version:" | awk '{print $3}'
+        "$binary_path" -version 2>&1 | grep "Songloft Version:" | awk '{print $3}'
     else
         echo "unknown"
     fi
@@ -153,7 +153,7 @@ chmod +x "$BINARY_TARGET"
 cd /app
 
 echo ""
-echo "启动 MiMusic..."
+echo "启动 Songloft..."
 echo ""
 
 # 执行二进制文件，传递所有参数

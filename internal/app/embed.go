@@ -48,7 +48,7 @@ const litePageHTML = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>MiMusic · 轻量版</title>
+<title>Songloft · 轻量版</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -65,12 +65,12 @@ const litePageHTML = `<!DOCTYPE html>
 </style>
 </head>
 <body>
-  <h1>MiMusic 服务正在运行<span class="tag">轻量版</span></h1>
-  <p>当前构建未嵌入 Web 前端，仅提供 API 服务。请使用 MiMusic 客户端连接本服务器。</p>
+  <h1>Songloft 服务正在运行<span class="tag">轻量版</span></h1>
+  <p>当前构建未嵌入 Web 前端，仅提供 API 服务。请使用 Songloft 客户端连接本服务器。</p>
   <p>客户端配置服务器地址：<code id="server-addr"></code></p>
   <div class="links">
-    <a href="https://github.com/mimusic-org/mimusic-player/releases" target="_blank" rel="noopener">下载客户端</a>
-    <a href="https://github.com/mimusic-org/mimusic" target="_blank" rel="noopener">项目主页</a>
+    <a href="https://github.com/songloft-org/songloft-player/releases" target="_blank" rel="noopener">下载客户端</a>
+    <a href="https://github.com/songloft-org/songloft" target="_blank" rel="noopener">项目主页</a>
   </div>
   <script>
     document.getElementById('server-addr').textContent = window.location.origin;
