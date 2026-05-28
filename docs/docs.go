@@ -11,7 +11,7 @@ const docTemplate = `{
         "title": "{{.Title}}",
         "contact": {
             "name": "API Support",
-            "url": "https://github.com/mimusic-org/mimusic",
+            "url": "https://github.com/songloft-org/songloft",
             "email": "im.hanxi@gmail.com"
         },
         "license": {
@@ -4607,7 +4607,7 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:58091",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
-	Title:            "MiMusic API",
+	Title:            "Songloft API",
 	Description:      "轻量级音乐服务器 API 文档，支持本地音乐管理、网络歌曲、电台和歌单功能",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,

@@ -2,10 +2,10 @@
     "swagger": "2.0",
     "info": {
         "description": "轻量级音乐服务器 API 文档，支持本地音乐管理、网络歌曲、电台和歌单功能",
-        "title": "MiMusic API",
+        "title": "Songloft API",
         "contact": {
             "name": "API Support",
-            "url": "https://github.com/mimusic-org/mimusic",
+            "url": "https://github.com/songloft-org/songloft",
             "email": "im.hanxi@gmail.com"
         },
         "license": {

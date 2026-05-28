@@ -616,12 +616,12 @@ info:
   contact:
     email: im.hanxi@gmail.com
     name: API Support
-    url: https://github.com/mimusic-org/mimusic
+    url: https://github.com/songloft-org/songloft
   description: 轻量级音乐服务器 API 文档，支持本地音乐管理、网络歌曲、电台和歌单功能
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
-  title: MiMusic API
+  title: Songloft API
   version: 1.4.1
 paths:
   /auth/login:
