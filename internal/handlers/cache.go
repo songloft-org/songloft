@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"mimusic/internal/services"
+	"songloft/internal/services"
 )
 
 // CacheHandler 音乐缓存管理处理器。

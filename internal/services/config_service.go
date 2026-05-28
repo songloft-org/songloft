@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"sync"
 
-	"mimusic/internal/database"
-	"mimusic/internal/models"
+	"songloft/internal/database"
+	"songloft/internal/models"
 )
 
 // ConfigRepository 配置仓储接口（ConfigService 依赖）。

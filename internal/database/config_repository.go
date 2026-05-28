@@ -8,8 +8,8 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"mimusic/internal/database/sqlc"
-	"mimusic/internal/models"
+	"songloft/internal/database/sqlc"
+	"songloft/internal/models"
 )
 
 // ConfigRepository 配置项仓储。

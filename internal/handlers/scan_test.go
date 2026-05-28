@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"mimusic/internal/services"
+	"songloft/internal/services"
 )
 
 // TestNewScanHandler 测试创建扫描处理器

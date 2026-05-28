@@ -9,8 +9,8 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"mimusic/internal/database/sqlc"
-	"mimusic/internal/models"
+	"songloft/internal/database/sqlc"
+	"songloft/internal/models"
 )
 
 // TokenRepository 认证令牌仓储。

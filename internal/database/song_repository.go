@@ -9,8 +9,8 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"mimusic/internal/database/sqlc"
-	"mimusic/internal/models"
+	"songloft/internal/database/sqlc"
+	"songloft/internal/models"
 )
 
 // SongRepository 歌曲仓储。

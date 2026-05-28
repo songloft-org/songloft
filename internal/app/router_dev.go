@@ -5,7 +5,7 @@ package app
 
 import (
 	"fmt"
-	_ "mimusic/docs"
+	_ "songloft/docs"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 )

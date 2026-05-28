@@ -1,5 +1,5 @@
 # 变量定义
-BINARY_NAME=mimusic
+BINARY_NAME=songloft
 GO=CGO_ENABLED=0 GOAMD64=v1 go
 GO_VERSION=1.25.6
 GOFLAGS=-v
@@ -16,12 +16,12 @@ TRACELY_HOST ?=
 
 # 构建标志
 LDFLAGS=-s -w \
-	-X mimusic/internal/version.Version=$(VERSION) \
-	-X mimusic/internal/version.GitCommit=$(GIT_COMMIT) \
-	-X mimusic/internal/version.BuildTime=$(BUILD_TIME) \
-	$(if $(BUILD_TYPE),-X mimusic/internal/version.BuildType=$(BUILD_TYPE)) \
-	$(if $(TRACELY_APP_SECRET),-X mimusic/internal/tracelycfg.AppSecret=$(TRACELY_APP_SECRET)) \
-	$(if $(TRACELY_HOST),-X mimusic/internal/tracelycfg.Host=$(TRACELY_HOST))
+	-X songloft/internal/version.Version=$(VERSION) \
+	-X songloft/internal/version.GitCommit=$(GIT_COMMIT) \
+	-X songloft/internal/version.BuildTime=$(BUILD_TIME) \
+	$(if $(BUILD_TYPE),-X songloft/internal/version.BuildType=$(BUILD_TYPE)) \
+	$(if $(TRACELY_APP_SECRET),-X songloft/internal/tracelycfg.AppSecret=$(TRACELY_APP_SECRET)) \
+	$(if $(TRACELY_HOST),-X songloft/internal/tracelycfg.Host=$(TRACELY_HOST))
 
 # 构建标签说明：
 #   dev  - 开发模式（含 Swagger + pprof）
@@ -181,7 +181,7 @@ build-all-prod-full: build-linux-prod-full build-windows-prod-full build-darwin-
 	@echo "$(GREEN)✓ 所有平台完整版编译完成$(NC)"
 
 .PHONY: build-cross
-build-cross: ## 交叉编译（用法：make build-cross GOOS=linux GOARCH=amd64 OUTPUT=build/mimusic-linux-amd64 [EXTRA_TAGS=full]）
+build-cross: ## 交叉编译（用法：make build-cross GOOS=linux GOARCH=amd64 OUTPUT=build/songloft-linux-amd64 [EXTRA_TAGS=full]）
 	@echo "$(BLUE)正在编译 $(GOOS)/$(GOARCH)...$(NC)"
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) $(if $(GOARM),GOARM=$(GOARM)) GOAMD64=v1 go build $(GOFLAGS) $(if $(EXTRA_TAGS),-tags "$(EXTRA_TAGS)") -ldflags="$(LDFLAGS)" -o $(OUTPUT) .
 	@if command -v upx >/dev/null 2>&1 && echo " linux/amd64 linux/arm64 linux/arm windows/amd64 " | grep -q " $(GOOS)/$(GOARCH) "; then \
@@ -231,7 +231,7 @@ clean: ## 清理编译产物
 	@rm -f $(BINARY_NAME).exe
 	@rm -f $(BINARY_NAME)-darwin
 	@rm -f coverage.out coverage.html
-	@rm -f mimusic.db
+	@rm -f songloft.db mimusic.db
 	@rm -rf web/dist
 	@echo "$(GREEN)✓ 清理完成$(NC)"
 

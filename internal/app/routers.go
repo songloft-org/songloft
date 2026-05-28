@@ -6,8 +6,8 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"mimusic/internal/handlers"
-	app_middleware "mimusic/internal/middleware"
+	"songloft/internal/handlers"
+	app_middleware "songloft/internal/middleware"
 
 	"github.com/hanxi/tracely/sdk/go/tracely"
 

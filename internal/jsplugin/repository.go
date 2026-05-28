@@ -3,7 +3,7 @@ package jsplugin
 import (
 	"context"
 
-	"mimusic/internal/models"
+	"songloft/internal/models"
 )
 
 // Repository 定义 JS 插件的数据库操作接口

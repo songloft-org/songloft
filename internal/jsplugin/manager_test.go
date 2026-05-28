@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"mimusic/internal/database"
+	"songloft/internal/database"
 
 	_ "modernc.org/sqlite"
 )

@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"mimusic/internal/database/testutil"
-	"mimusic/internal/models"
-	"mimusic/internal/services"
+	"songloft/internal/database/testutil"
+	"songloft/internal/models"
+	"songloft/internal/services"
 )
 
 // newAuthHandlerForTest 启动 :memory: SQLite + 真实 AuthService,

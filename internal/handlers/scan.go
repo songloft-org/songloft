@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"mimusic/internal/services"
+	"songloft/internal/services"
 )
 
 // ScanHandler 扫描处理器

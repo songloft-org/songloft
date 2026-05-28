@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"mimusic/internal/services"
+	"songloft/internal/services"
 )
 
 // ProxyHandler 通用资源代理处理器

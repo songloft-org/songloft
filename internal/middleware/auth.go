@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"mimusic/internal/services"
+	"songloft/internal/services"
 )
 
 func respondAuthError(w http.ResponseWriter, status int, message string, err error) {

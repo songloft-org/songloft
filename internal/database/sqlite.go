@@ -10,7 +10,7 @@ import (
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
 
-	"mimusic/internal/database/sqlc"
+	"songloft/internal/database/sqlc"
 )
 
 //go:embed migrations/*.sql

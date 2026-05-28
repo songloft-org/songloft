@@ -17,9 +17,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"mimusic/internal/database"
-	"mimusic/internal/models"
-	"mimusic/internal/services/source"
+	"songloft/internal/database"
+	"songloft/internal/models"
+	"songloft/internal/services/source"
 
 	"github.com/hanxi/tag"
 )

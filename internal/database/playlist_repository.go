@@ -15,8 +15,8 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"mimusic/internal/database/sqlc"
-	"mimusic/internal/models"
+	"songloft/internal/database/sqlc"
+	"songloft/internal/models"
 )
 
 // PlaylistRepository 歌单仓储。

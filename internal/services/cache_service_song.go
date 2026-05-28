@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"mimusic/internal/models"
-	"mimusic/internal/services/source"
+	"songloft/internal/models"
+	"songloft/internal/services/source"
 )
 
 // CacheSongFetcher 抽象 SourceOrchestrator,由 app.go 注入。

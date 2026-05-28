@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"mimusic/internal/database/testutil"
-	"mimusic/internal/models"
+	"songloft/internal/database/testutil"
+	"songloft/internal/models"
 )
 
 // newTestConfigRepo 启动 :memory: SQLite，返回 ConfigRepository。

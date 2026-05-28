@@ -1,4 +1,4 @@
-module mimusic
+module songloft
 
 go 1.26
 

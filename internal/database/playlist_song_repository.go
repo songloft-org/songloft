@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"mimusic/internal/database/sqlc"
-	"mimusic/internal/models"
+	"songloft/internal/database/sqlc"
+	"songloft/internal/models"
 )
 
 // PlaylistSongRepository 负责 playlist_songs 关联表的读写。

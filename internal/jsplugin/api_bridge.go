@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"mimusic/internal/database"
-	"mimusic/internal/jsruntime"
+	"songloft/internal/database"
+	"songloft/internal/jsruntime"
 )
 
 // pluginBootstrapJS 是注入到每个插件 JS 环境的引导代码

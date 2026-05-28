@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"mimusic/internal/database"
-	"mimusic/internal/models"
+	"songloft/internal/database"
+	"songloft/internal/models"
 )
 
 // PlaylistRepository 是 PlaylistService 依赖的歌单仓储接口。

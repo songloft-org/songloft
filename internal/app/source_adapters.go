@@ -3,9 +3,9 @@ package app
 import (
 	"context"
 
-	"mimusic/internal/jsplugin"
-	"mimusic/internal/services"
-	"mimusic/internal/services/source"
+	"songloft/internal/jsplugin"
+	"songloft/internal/services"
+	"songloft/internal/services/source"
 )
 
 // 本文件集中 source 子系统所需的接口适配器。

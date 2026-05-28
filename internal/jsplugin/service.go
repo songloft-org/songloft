@@ -11,7 +11,7 @@ import (
 	text_template "text/template"
 	"time"
 
-	"mimusic/internal/jsruntime"
+	"songloft/internal/jsruntime"
 )
 
 // ServiceStatus 服务运行状态

@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"mimusic/internal/jsplugin"
-	"mimusic/internal/models"
-	"mimusic/internal/services/source"
+	"songloft/internal/jsplugin"
+	"songloft/internal/models"
+	"songloft/internal/services/source"
 
 	"github.com/go-chi/chi/v5"
 )

@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"mimusic/internal/version"
+	"songloft/internal/version"
 )
 
 // VersionHandler 版本处理器

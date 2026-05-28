@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"mimusic/internal/services"
+	"songloft/internal/services"
 
 	"github.com/go-chi/chi/v5"
 )

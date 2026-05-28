@@ -2,7 +2,7 @@ package main
 
 import (
 	"log/slog"
-	"mimusic/internal/app"
+	"songloft/internal/app"
 	"os"
 	"os/signal"
 	"runtime/debug"

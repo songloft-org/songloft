@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"mimusic/internal/database"
-	"mimusic/internal/database/testutil"
-	"mimusic/internal/models"
+	"songloft/internal/database"
+	"songloft/internal/database/testutil"
+	"songloft/internal/models"
 )
 
 // playlistTestEnv 把 :memory: SQLite 下需要的 3 个仓储打包好,

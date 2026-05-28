@@ -10,8 +10,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"mimusic/internal/database"
-	"mimusic/internal/models"
+	"songloft/internal/database"
+	"songloft/internal/models"
 )
 
 // TokenRepository 认证令牌仓储接口（AuthService 依赖）。

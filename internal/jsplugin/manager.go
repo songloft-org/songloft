@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"mimusic/internal/database"
-	"mimusic/internal/jsruntime"
-	"mimusic/internal/services"
+	"songloft/internal/database"
+	"songloft/internal/jsruntime"
+	"songloft/internal/services"
 
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/sync/singleflight"

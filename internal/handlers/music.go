@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"mimusic/internal/database"
-	"mimusic/internal/models"
-	"mimusic/internal/services"
+	"songloft/internal/database"
+	"songloft/internal/models"
+	"songloft/internal/services"
 
 	"github.com/go-chi/chi/v5"
 )

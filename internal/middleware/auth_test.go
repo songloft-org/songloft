@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"mimusic/internal/database/testutil"
-	"mimusic/internal/models"
-	"mimusic/internal/services"
+	"songloft/internal/database/testutil"
+	"songloft/internal/models"
+	"songloft/internal/services"
 )
 
 // newAuthServiceForTest 启动 :memory: SQLite 并构造一份可用的 AuthService。

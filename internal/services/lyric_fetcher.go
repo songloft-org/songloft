@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"mimusic/internal/models"
+	"songloft/internal/models"
 )
 
 // LyricFetcher 从 lyric URL 拉取歌词 payload。

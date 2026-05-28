@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"mimusic/internal/models"
+	"songloft/internal/models"
 )
 
 // 类型别名：JSPlugin 和 JSPluginStatus 定义在 models 包中，此处为向后兼容保留别名

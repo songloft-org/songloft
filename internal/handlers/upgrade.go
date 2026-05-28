@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	"mimusic/internal/models"
-	"mimusic/internal/services"
-	"mimusic/internal/version"
+	"songloft/internal/models"
+	"songloft/internal/services"
+	"songloft/internal/version"
 )
 
 // UpgradeHandler 升级处理器

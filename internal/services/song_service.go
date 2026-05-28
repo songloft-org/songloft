@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"mimusic/internal/database"
-	"mimusic/internal/models"
+	"songloft/internal/database"
+	"songloft/internal/models"
 )
 
 // SongRepository 是 SongService 依赖的歌曲仓储接口。

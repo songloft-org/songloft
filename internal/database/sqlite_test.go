@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"mimusic/internal/models"
+	"songloft/internal/models"
 	"testing"
 )
 

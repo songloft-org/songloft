@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"mimusic/internal/database"
-	"mimusic/internal/database/testutil"
-	"mimusic/internal/models"
+	"songloft/internal/database"
+	"songloft/internal/database/testutil"
+	"songloft/internal/models"
 )
 
 // authTestEnv 把 :memory: SQLite 下 auth 测试需要的两个仓储打包好。

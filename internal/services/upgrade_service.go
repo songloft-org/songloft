@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"mimusic/internal/models"
-	"mimusic/internal/version"
+	"songloft/internal/models"
+	"songloft/internal/version"
 )
 
 const (

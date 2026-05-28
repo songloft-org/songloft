@@ -3,7 +3,7 @@ package testutil
 import (
 	"testing"
 
-	"mimusic/internal/database"
+	"songloft/internal/database"
 )
 
 // OpenMemoryDB 启动一个 :memory: SQLite，并在测试结束时自动关闭。

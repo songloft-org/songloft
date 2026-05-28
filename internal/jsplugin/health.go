@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"mimusic/internal/jsruntime"
+	"songloft/internal/jsruntime"
 )
 
 // HealthStatus 健康检查结果状态

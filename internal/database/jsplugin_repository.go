@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 
-	"mimusic/internal/database/sqlc"
-	"mimusic/internal/models"
+	"songloft/internal/database/sqlc"
+	"songloft/internal/models"
 )
 
 // JSPluginRepository 是 JS 插件仓储，复用 sqlc 生成的查询。

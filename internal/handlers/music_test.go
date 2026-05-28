@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"testing"
 
-	"mimusic/internal/database"
-	"mimusic/internal/database/testutil"
-	"mimusic/internal/models"
-	"mimusic/internal/services"
+	"songloft/internal/database"
+	"songloft/internal/database/testutil"
+	"songloft/internal/models"
+	"songloft/internal/services"
 
 	"github.com/go-chi/chi/v5"
 )

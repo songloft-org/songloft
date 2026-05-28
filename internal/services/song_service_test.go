@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"mimusic/internal/database"
-	"mimusic/internal/database/testutil"
-	"mimusic/internal/models"
+	"songloft/internal/database"
+	"songloft/internal/database/testutil"
+	"songloft/internal/models"
 )
 
 // newTestSongRepo 启动 :memory: SQLite，返回 SongRepository。
