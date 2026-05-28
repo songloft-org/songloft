@@ -14,22 +14,22 @@ import (
 )
 
 // pluginBootstrapJS 是注入到每个插件 JS 环境的引导代码
-// 定义了 mimusic 全局对象的基础结构和生命周期回调桩。
+// 定义了 songloft 全局对象的基础结构和生命周期回调桩。
 //
 // 设计原则：所有 __go_bridge 调用统一通过 __callBridge（polyfill 提供）
-// 包装为 Promise<string>，mimusic.* 接口对外都返回 Promise，
+// 包装为 Promise<string>，songloft.* 接口对外都返回 Promise，
 // 调用方必须 `await`。这与 fetch / setTimeout 等 Web 标准 API 行为一致，
 // 也是 JS 接口"真异步"的核心契约。
 const pluginBootstrapJS = `
-// MiMusic JS Plugin API 基础框架
-var mimusic = mimusic || {};
+// Songloft JS Plugin API 基础框架
+var songloft = songloft || {};
 
 // 插件生命周期默认空实现（插件代码通过 globalThis.xxx = ... 覆盖）。
 // 注意：必须使用 globalThis 赋值而非 function 声明，
 // 否则 QuickJS 中 Annex B 块级函数声明会创建 declarative binding，
 // 导致插件 IIFE 中 globalThis.onHTTPRequest = ... 无法覆盖。
 //
-// onHTTPRequest 默认实现为 async：与异步 mimusic.* API 自然组合。
+// onHTTPRequest 默认实现为 async：与异步 songloft.* API 自然组合。
 if (typeof globalThis.onInit !== 'function') { globalThis.onInit = async function() {}; }
 if (typeof globalThis.onDeinit !== 'function') { globalThis.onDeinit = async function() {}; }
 if (typeof globalThis.onHTTPRequest !== 'function') {
@@ -39,14 +39,14 @@ if (typeof globalThis.onHTTPRequest !== 'function') {
 }
 
 // 日志（同步本地操作，无需 await）
-mimusic.log = {
+songloft.log = {
     info: function(msg) { console.log('[plugin] ' + msg); },
     warn: function(msg) { console.warn('[plugin] ' + msg); },
     error: function(msg) { console.error('[plugin] ' + msg); }
 };
 
-// === mimusic.storage（async）===
-mimusic.storage = {
+// === songloft.storage（async）===
+songloft.storage = {
     get: async function(key) {
         var s = await __callBridge('storage.get', key);
         return s ? JSON.parse(s) : null;
@@ -63,8 +63,8 @@ mimusic.storage = {
     }
 };
 
-// === mimusic.songs（async）===
-mimusic.songs = {
+// === songloft.songs（async）===
+songloft.songs = {
     list: async function(options) {
         var s = await __callBridge('songs.list', JSON.stringify(options || {}));
         return s ? JSON.parse(s) : [];
@@ -79,8 +79,8 @@ mimusic.songs = {
     }
 };
 
-// === mimusic.playlists（async）===
-mimusic.playlists = {
+// === songloft.playlists（async）===
+songloft.playlists = {
     list: async function() {
         var s = await __callBridge('playlists.list', '');
         return s ? JSON.parse(s) : [];
@@ -95,10 +95,10 @@ mimusic.playlists = {
     }
 };
 
-// === mimusic.plugin（async）===
+// === songloft.plugin（async）===
 // 即使 getToken/getHostUrl 内部是 O(1) 的内存读取，也统一返回 Promise，
-// 保证 mimusic.* API 表面一致；插件代码用 const t = await mimusic.plugin.getToken()。
-mimusic.plugin = {
+// 保证 songloft.* API 表面一致；插件代码用 const t = await songloft.plugin.getToken()。
+songloft.plugin = {
     getToken: async function() {
         return await __callBridge('plugin.getToken', '');
     },
@@ -107,10 +107,10 @@ mimusic.plugin = {
     }
 };
 
-// === mimusic.jsenv（async）===
+// === songloft.jsenv（async）===
 // 子 JS 环境（独立 QuickJS VM）：用于在插件内创建隔离的 sandbox 跑用户脚本，
 // 跨 env 真并行（ExecuteJSParallel），生命周期受 pluginID 管理（DestroyPluginEnvs 自动回收）。
-mimusic.jsenv = {
+songloft.jsenv = {
     create: async function(name, initCode) {
         var s = await __callBridge('jsenv.create', JSON.stringify({name: name, initCode: initCode || ''}));
         var p = s ? JSON.parse(s) : {};
@@ -230,7 +230,7 @@ func extractPermFromAction(action string) string {
 		return PermStorage
 	}
 
-	// 子 JS 环境权限（mimusic.jsenv.*）
+	// 子 JS 环境权限（songloft.jsenv.*）
 	if strings.HasPrefix(action, "jsenv.") {
 		return PermJSEnv
 	}

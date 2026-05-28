@@ -127,7 +127,7 @@ globalThis.__pumpAsyncResults = function() {
 
 // __callBridge(action, dataString) -> Promise<string>
 //
-// 桥接调用的统一 Promise 包装：所有 mimusic.* API 内部都调它，避免重复样板。
+// 桥接调用的统一 Promise 包装：所有 songloft.* API 内部都调它，避免重复样板。
 // __go_bridge 立即返回 id；__resolveAsync(id, ok, payload, "bridge") 由事件
 // 循环触发，type==="bridge" 时透传字符串 payload，让上层自行 JSON.parse。
 globalThis.__callBridge = function(action, data) {

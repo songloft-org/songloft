@@ -218,7 +218,7 @@ package main
 
 import (
     "log"
-    "mimusic/internal/jsruntime"
+    "songloft/internal/jsruntime"
 )
 
 func main() {
@@ -319,7 +319,7 @@ for _, evt := range result.Events {
 `jsruntime` 提供底层 VM 能力，`internal/jsplugin` 在其上封装插件生命周期、权限、热更新等业务逻辑：
 
 ```go
-import "mimusic/internal/jsruntime"
+import "songloft/internal/jsruntime"
 
 type Manager struct {
     jsRuntime *jsruntime.JSEnvManager

@@ -1067,7 +1067,7 @@ func (m *JSEnvManager) ProcessTimers(envID string) bool {
 	for range 8 {
 		didWork := false
 
-		// 1. 排空异步桥接结果（让 fetch/mimusic.* 的 Promise resolve）
+		// 1. 排空异步桥接结果（让 fetch/songloft.* 的 Promise resolve）
 		if pumpAsyncResults(vm) > 0 {
 			didWork = true
 		}
@@ -1126,7 +1126,7 @@ func (m *JSEnvManager) GetNextTimerDeadline(envID string) time.Time {
 
 // processJobs 处理所有待执行的工作：异步桥接结果 + 原生 Promise 微任务 + 定时器回调。
 // 模仿旧 cqjs 的 env_process_jobs 逻辑：
-//  1. 排空 asyncResults 通道，让 fetch/mimusic.* 等桥接 Promise resolve
+//  1. 排空 asyncResults 通道，让 fetch/songloft.* 等桥接 Promise resolve
 //  2. 执行 JS_ExecutePendingJob（原生 async/await 恢复）
 //  3. 处理到期定时器
 //  4. 如果有工作被执行，重复 1-3
@@ -1142,7 +1142,7 @@ func processJobs(vm *quickjs.VM) {
 	for time.Now().Before(deadline) {
 		didWork := false
 
-		// 1. 排空异步桥接结果（fetch / mimusic.* 的 Promise resolve）
+		// 1. 排空异步桥接结果（fetch / songloft.* 的 Promise resolve）
 		if pumped := pumpAsyncResults(vm); pumped > 0 {
 			didWork = true
 		}
@@ -1397,7 +1397,7 @@ func registerBridgeFunctions(vm *quickjs.VM, env *JSEnv) error {
 	// 投递到 env.asyncResults，由事件循环 resolve 对应 Promise。
 	//
 	// 即使 storage 这类轻量操作也走异步路径，是为了保证 JS 端 API 一致：
-	// 所有 mimusic.* 方法返回 Promise<T>，无需为不同 action 区分。
+	// 所有 songloft.* 方法返回 Promise<T>，无需为不同 action 区分。
 	// 内部开销（goroutine 创建 + 通道发送 + 唤醒事件循环）单次 ~10us，
 	// 远小于 SQLite 一次查询 / 文件读写。
 	if err := vm.RegisterFunc("__go_bridge", func(action, data string) string {

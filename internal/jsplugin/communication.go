@@ -92,8 +92,8 @@ func (c *Communicator) Call(ctx context.Context, from, to, action string, payloa
 // 所有方法都是 async；handler 也允许返回 Promise，框架会自动 await。
 func GenerateCommJS() string {
 	return `
-// === mimusic.comm — 插件间通信 ===
-mimusic.comm = {
+// === songloft.comm — 插件间通信 ===
+songloft.comm = {
     // 异步发送消息到其他插件（fire-and-forget）
     // 返回 Promise 让调用方能 await 投递完成；不需要时可不 await。
     send: async function(target, action, payload) {
@@ -126,7 +126,7 @@ mimusic.comm = {
 // 内部：处理插件间消息的入口（由 Go 侧 ExecuteJS 调用，事件循环会 await 返回的 Promise）。
 async function __handleInterPluginMessage(msgJSON) {
     var msg = JSON.parse(msgJSON);
-    var handler = mimusic.comm._handlers[msg.action];
+    var handler = songloft.comm._handlers[msg.action];
     if (!handler) {
         return JSON.stringify({ success: false, error: 'no handler for action: ' + msg.action });
     }

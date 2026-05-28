@@ -71,7 +71,7 @@ func ComputeEntryHash(zipData []byte, mainPath string) (string, error) {
 
 // ComputeCanonicalZipHash 按规范化算法计算 zip 的 hash（64 位小写 hex）。
 //
-// 算法（与 @mimusic/plugin-builder 保持一致）：
+// 算法（与 @songloft/plugin-builder 保持一致）：
 //  1. 枚举 zip 内所有**非 plugin.json**的普通文件（跳过目录与 plugin.json 本身）
 //  2. 按文件名 Unicode 升序排序
 //  3. 对每个文件写入：`<path>\n<sha256Hex(content)>\n`

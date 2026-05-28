@@ -182,7 +182,7 @@ func (s *JSService) Load(pluginsDir, dataDir string) error {
 	}
 
 	// [9.5] 注册桥接回调（__go_bridge 的处理函数）
-	// 必须在 onInit() 调用之前完成，以便插件代码可以通过 mimusic.storage/songs/playlists 访问 Go 服务
+	// 必须在 onInit() 调用之前完成，以便插件代码可以通过 songloft.storage/songs/playlists 访问 Go 服务
 	if s.bridgeHandler != nil {
 		if err := s.jsManager.SetBridgeCallback(s.envID, s.bridgeHandler.HandleBridgeCall); err != nil {
 			return fmt.Errorf("set bridge callback for env %s: %w", s.envID, err)
@@ -275,7 +275,7 @@ func (s *JSService) Stop() error {
 	// 清理桥接处理器资源（如果将来有需要清理的）
 	// bridgeHandler 当前无需额外清理
 
-	// 销毁 JS 环境（包含本插件创建的所有子 env，例如 mimusic.jsenv.create 的）
+	// 销毁 JS 环境（包含本插件创建的所有子 env，例如 songloft.jsenv.create 的）
 	// DestroyPluginEnvs 按 pluginID 批量回收，root env 也在其中。
 	if s.plugin != nil {
 		if err := s.jsManager.DestroyPluginEnvs(s.plugin.ID); err != nil {

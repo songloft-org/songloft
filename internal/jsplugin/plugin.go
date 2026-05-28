@@ -23,7 +23,7 @@ const (
 // PluginManifest 对应 plugin.json 文件结构。
 //
 // 开发期严格校验：`entryHash` / `zipHash` 为必填字段，由
-// @mimusic/plugin-builder 打包时自动写入，后端在 InstallFromUpload /
+// @songloft/plugin-builder 打包时自动写入，后端在 InstallFromUpload /
 // Update / Load 中都会校验实际内容与字段值严格一致。
 type PluginManifest struct {
 	Schema         string   `json:"$schema,omitempty"`

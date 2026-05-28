@@ -18,7 +18,7 @@ const (
 	PermPlaylistsWrite = "playlists.write" // 修改歌单
 	PermInterPlugin    = "inter-plugin"    // 插件间通信
 	PermCommand        = "command"         // 执行命令
-	PermJSEnv          = "jsenv"           // 创建/执行子 JS 环境（mimusic.jsenv.*）
+	PermJSEnv          = "jsenv"           // 创建/执行子 JS 环境（songloft.jsenv.*）
 )
 
 // AllPermissions 所有合法权限列表（声明层白名单）。
