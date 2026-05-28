@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const webEmbedRoot = "mimusic-player-build/web-embedded"
+const webEmbedRoot = "songloft-player-build/web-embedded"
 
 // registerWebStatic 注册 Flutter Web 前端静态文件服务。
 // 轻量构建（无 full build tag）时 webDist 为空 embed.FS，不挂载根路由，以纯 API 模式运行。

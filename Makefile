@@ -53,36 +53,36 @@ build-nuxt-web: ## 构建旧版 Nuxt Web 前端（已弃用，仅作备用）
 	@echo "$(GREEN)✓ Nuxt Web 构建完成$(NC)"
 
 .PHONY: build-frontend-web-embedded
-build-frontend-web-embedded: ## 构建 Flutter Web（嵌入模式）：隐藏 API 地址 UI，输出至 mimusic-player-build/web-embedded
-	@bash mimusic-player/scripts/build-frontend.sh web-embedded $(if $(OUTPUT_DIR),$(OUTPUT_DIR),mimusic-player-build)
+build-frontend-web-embedded: ## 构建 Flutter Web（嵌入模式）：隐藏 API 地址 UI，输出至 songloft-player-build/web-embedded
+	@bash songloft-player/scripts/build-frontend.sh web-embedded $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-web
 build-frontend-web: ## 构建 Flutter Web 独立部署版（standalone）
-	@bash mimusic-player/scripts/build-frontend.sh web $(if $(OUTPUT_DIR),$(OUTPUT_DIR),mimusic-player-build)
+	@bash songloft-player/scripts/build-frontend.sh web $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-linux
 build-frontend-linux: ## 构建 Flutter Linux 桌面版
-	@bash mimusic-player/scripts/build-frontend.sh linux $(if $(OUTPUT_DIR),$(OUTPUT_DIR),mimusic-player-build)
+	@bash songloft-player/scripts/build-frontend.sh linux $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-windows
 build-frontend-windows: ## 构建 Flutter Windows 桌面版
-	@bash mimusic-player/scripts/build-frontend.sh windows $(if $(OUTPUT_DIR),$(OUTPUT_DIR),mimusic-player-build)
+	@bash songloft-player/scripts/build-frontend.sh windows $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-macos
 build-frontend-macos: ## 构建 Flutter macOS 桌面版
-	@bash mimusic-player/scripts/build-frontend.sh macos $(if $(OUTPUT_DIR),$(OUTPUT_DIR),mimusic-player-build)
+	@bash songloft-player/scripts/build-frontend.sh macos $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-android
 build-frontend-android: ## 构建 Flutter Android 版（APK + AAB）
-	@bash mimusic-player/scripts/build-frontend.sh android $(if $(OUTPUT_DIR),$(OUTPUT_DIR),mimusic-player-build)
+	@bash songloft-player/scripts/build-frontend.sh android $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-ios
 build-frontend-ios: ## 构建 Flutter iOS 版（仅 macOS）
-	@bash mimusic-player/scripts/build-frontend.sh ios $(if $(OUTPUT_DIR),$(OUTPUT_DIR),mimusic-player-build)
+	@bash songloft-player/scripts/build-frontend.sh ios $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-all
 build-frontend-all: ## 构建 Flutter 前端当前系统支持的所有平台
-	@bash mimusic-player/scripts/build-frontend.sh all $(if $(OUTPUT_DIR),$(OUTPUT_DIR),mimusic-player-build)
+	@bash songloft-player/scripts/build-frontend.sh all $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build
 build: swagger ## 编译项目（开发环境，lite 版本，不嵌入前端）

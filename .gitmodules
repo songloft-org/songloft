@@ -1,9 +1,9 @@
 [submodule "pkg/tag"]
 	path = pkg/tag
 	url = https://github.com/hanxi/tag.git
-[submodule "mimusic-player"]
-	path = mimusic-player
-	url = https://github.com/mimusic-org/mimusic-player.git
+[submodule "songloft-player"]
+	path = songloft-player
+	url = https://github.com/songloft-org/songloft-player.git
 [submodule "jsplugins"]
 	path = jsplugins
 	url = https://github.com/mimusic-org/jsplugins.git
