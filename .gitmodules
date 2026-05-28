@@ -13,6 +13,6 @@
 [submodule "jsplugins-src/jsplugin-musicsdk"]
 	path = jsplugins-src/jsplugin-musicsdk
 	url = https://github.com/mimusic-org/jsplugin-musicsdk.git
-[submodule "jsplugins-src/mimusic-jsplugin-miot"]
-	path = jsplugins-src/mimusic-jsplugin-miot
-	url = https://github.com/mimusic-org/mimusic-jsplugin-miot.git
+[submodule "jsplugins-src/songloft-plugin-miot"]
+	path = jsplugins-src/songloft-plugin-miot
+	url = https://github.com/songloft-org/songloft-plugin-miot.git
