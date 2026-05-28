@@ -86,6 +86,12 @@ func (a *App) Init() error {
 		return fmt.Errorf("创建数据库目录失败: %w", err)
 	}
 
+	// 兼容老安装（一次性）：若目标 DB 不存在但同目录下有 mimusic.db，则自动 rename。
+	// 这是 MiMusic → Songloft v2.0 重命名中唯一保留的兼容点（详见 MIGRATION.md）。
+	if err := migrateLegacyDB(a.config.DBPath); err != nil {
+		return fmt.Errorf("迁移老数据库失败: %w", err)
+	}
+
 	// 初始化数据库
 	db, err := database.Open(a.config.DBPath)
 	if err != nil {
