@@ -1,4 +1,4 @@
-# MiMusic 后端架构说明
+# Songloft 后端架构说明
 
 ## 技术栈
 
@@ -31,7 +31,7 @@ HTTP Server (main.go)
         ├── Database 主路径
         │     → Repository / UnitOfWork (internal/database/*_repository.go, unit_of_work.go)
         │     → sqlc 固定 SQL (internal/database/sqlc/) + squirrel 动态 SQL
-        │     → SQLite (data/mimusic.db, goose 迁移管理 schema)
+        │     → SQLite (data/songloft.db, goose 迁移管理 schema)
         │
         └── JS 插件侧路径（按需）
               → JS Plugin Manager (internal/jsplugin/)
@@ -182,7 +182,7 @@ HTTP Server (main.go)
 
 ```
 web_embed.go      (build tag: !full)  → 空 embed.FS
-web_embed_full.go  (build tag: full)   → //go:embed all:mimusic-player-build/web-embedded
+web_embed_full.go  (build tag: full)   → //go:embed all:songloft-player-build/web-embedded
 ```
 
 ## 设计模式

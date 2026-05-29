@@ -1,8 +1,8 @@
-# MiMusic 前端架构说明
+# Songloft 前端架构说明
 
-> **独立仓库**: [https://github.com/mimusic-org/mimusic-player](https://github.com/mimusic-org/mimusic-player)
+> **独立仓库**: [https://github.com/songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
 
-MiMusic 前端是一个基于 Flutter 的跨平台音乐播放器，支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。Flutter Web 构建产物可嵌入到 Go 后端二进制中一起分发。
+Songloft 前端是一个基于 Flutter 的跨平台音乐播放器，支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。Flutter Web 构建产物可嵌入到 Go 后端二进制中一起分发。
 
 ## 技术栈
 
@@ -29,13 +29,13 @@ MiMusic 前端是一个基于 Flutter 的跨平台音乐播放器，支持 **And
 ## 目录结构
 
 ```
-mimusic-player/lib/
+songloft-player/lib/
 ├── config/                          # 应用配置
 │   ├── app_config.dart              # API 配置、部署模式、版本号
 │   └── constants.dart               # 应用常量
 ├── core/                            # 核心基础设施
 │   ├── audio/
-│   │   ├── audio_service.dart       # MiMusicAudioHandler（音频播放、通知栏控制）
+│   │   ├── audio_service.dart       # SongloftAudioHandler（音频播放、通知栏控制）
 │   │   └── system_volume_provider.dart  # 系统音量 Provider（基于 volume_controller）
 │   ├── network/
 │   │   ├── api_client.dart          # Dio HTTP 客户端封装
@@ -273,7 +273,7 @@ flutter build web --dart-define=DEPLOY_MODE=standalone
 ## 音频播放架构
 
 ```
-MiMusicAudioHandler (extends BaseAudioHandler)
+SongloftAudioHandler (extends BaseAudioHandler)
 ├── just_audio (核心播放引擎)
 │   ├── Web: HTML5 Audio
 │   ├── Android/iOS: 原生播放器
@@ -292,7 +292,7 @@ MiMusicAudioHandler (extends BaseAudioHandler)
 ## 开发命令
 
 ```bash
-cd mimusic-player
+cd songloft-player
 flutter pub get                    # 安装依赖
 flutter run -d chrome              # Web 调试（standalone 模式）
 flutter run -d chrome --dart-define=DEPLOY_MODE=embedded  # 模拟嵌入模式
@@ -306,7 +306,7 @@ flutter test                       # 运行测试
 ### 构建命令
 
 ```bash
-# Web 嵌入模式（输出至 mimusic-player-build/web-embedded，供 Go 二进制 //go:embed）
+# Web 嵌入模式（输出至 songloft-player-build/web-embedded，供 Go 二进制 //go:embed）
 make build-frontend-web-embedded
 
 # Web 独立部署版
@@ -327,4 +327,4 @@ make build-frontend-ios
 make build-frontend-all
 ```
 
-预编译安装包下载: [https://github.com/mimusic-org/mimusic-player/releases](https://github.com/mimusic-org/mimusic-player/releases)
+预编译安装包下载: [https://github.com/songloft-org/songloft-player/releases](https://github.com/songloft-org/songloft-player/releases)

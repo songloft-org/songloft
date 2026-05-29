@@ -3,7 +3,7 @@
 layout: home
 
 hero:
-  name: "MiMusic"
+  name: "Songloft"
   text: "自托管个人音乐服务器"
   tagline: 数据自主 · 插件化扩展 · 仅管理你合法拥有的音乐
   actions:

@@ -41,7 +41,7 @@ usage() {
 release_plugin() {
     local plugin_name="$1"
     local version="$2"
-    local repo="mimusic-org/mimusic-jsplugin-${plugin_name}"
+    local repo="songloft-org/songloft-jsplugin-${plugin_name}"
 
     echo -e "${YELLOW}触发 ${plugin_name} 插件发布...${NC}"
     echo "  仓库: ${repo}"

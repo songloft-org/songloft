@@ -1,6 +1,6 @@
-# MiMusic 颜色系统规范
+# Songloft 颜色系统规范
 
-本文档说明 MiMusic 项目中使用的颜色体系及其使用规范。
+本文档说明 Songloft 项目中使用的颜色体系及其使用规范。
 
 ## 📚 目录
 
@@ -13,12 +13,12 @@
 
 ## Flutter Material 3 颜色体系
 
-MiMusic Flutter 前端使用 **Material 3** 设计系统，通过 `ColorScheme.fromSeed` 自动生成完整的颜色方案。
+Songloft Flutter 前端使用 **Material 3** 设计系统，通过 `ColorScheme.fromSeed` 自动生成完整的颜色方案。
 
 ### 核心配置
 
 ```dart
-// mimusic-player/lib/core/theme/app_theme.dart
+// songloft-player/lib/core/theme/app_theme.dart
 class AppTheme {
   static const Color _seedColor = Color(0xFF6366F1); // indigo-500
 
@@ -61,7 +61,7 @@ class AppTheme {
 
 ### 主题模式
 
-MiMusic 支持三种主题模式：
+Songloft 支持三种主题模式：
 
 - **亮色模式**：明亮的界面风格
 - **暗色模式**：护眼的暗色界面
@@ -204,10 +204,10 @@ TV 端使用 `TvTheme` 类定义的专用常量：
 
 ## 封面颜色提取
 
-MiMusic 使用 `palette_generator` 库从歌曲封面图片中提取主色调，用于播放器界面的动态配色：
+Songloft 使用 `palette_generator` 库从歌曲封面图片中提取主色调，用于播放器界面的动态配色：
 
 ```dart
-// mimusic-player/lib/core/utils/color_extraction.dart
+// songloft-player/lib/core/utils/color_extraction.dart
 // 从封面图片提取主色调，应用到播放器背景渐变等场景
 ```
 

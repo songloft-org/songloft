@@ -1,6 +1,6 @@
-# MiMusic 项目架构说明
+# Songloft 项目架构说明
 
-MiMusic 是一个自托管的本地音乐服务器，采用前后端分离架构。
+Songloft 是一个自托管的本地音乐服务器，采用前后端分离架构。
 
 ## 架构文档导航
 
@@ -14,7 +14,7 @@ MiMusic 是一个自托管的本地音乐服务器，采用前后端分离架构
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Flutter 跨平台前端                                          │
-│  /mimusic-player (独立仓库: github.com/mimusic-org/mimusic-player) │
+│  /songloft-player (独立仓库: github.com/songloft-org/songloft-player) │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
 │  │ Android  │ │   iOS    │ │  macOS   │ │ Windows  │       │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
@@ -82,7 +82,7 @@ MiMusic 是一个自托管的本地音乐服务器，采用前后端分离架构
 ## 项目目录结构
 
 ```
-mimusic/
+songloft/
 ├── main.go                     # 主程序入口
 ├── web_embed.go                # 轻量版（空 embed.FS，build tag: !full）
 ├── web_embed_full.go           # 完整版（嵌入 Flutter Web，build tag: full）
@@ -102,7 +102,7 @@ mimusic/
 │   └── version/                # 版本信息
 ├── pkg/                        # 公共包
 │   └── tag/                    # 音频元数据读写库
-├── mimusic-player/             # Flutter 前端（独立子仓库）
+├── songloft-player/             # Flutter 前端（独立子仓库）
 │   └── lib/                    # Dart 源码
 │       ├── config/             # API 配置、部署模式
 │       ├── core/               # 网络、路由、主题、存储、音频
@@ -195,7 +195,7 @@ make build-frontend-all            # 当前系统支持的所有平台
 - 新 API：在对应 handler 中添加方法 → 在 `routers.go` 注册路由
 - 新模型：在 `models/` 中定义 → 在 `database/` 中实现 CRUD
 - 新服务：在 `services/` 中实现 → 通过构造函数注入到 handler
-- 新插件：通过 JS 插件系统扩展（脚手架 `pnpm create mimusic-plugin`），无需修改宿主代码
+- 新插件：通过 JS 插件系统扩展（脚手架 `pnpm create songloft-plugin`），无需修改宿主代码
 
 ### 易于测试
 - 数据库层走 `database/testutil.OpenMemoryDB(t)` 起 `:memory:` SQLite + 真实 Repository，避免手写 mock（已统一删除）

@@ -1,5 +1,5 @@
-MiMusic
-Copyright 2026 MiMusic Team
+Songloft
+Copyright 2026 Songloft Team
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ are reproduced below or referenced by path.
 --------------------------------------------------------------------------------
 License: BSD 2-Clause
 Copyright 2015 David Howden
-Notice : MiMusic forks this library and adds MP3 (ID3v2.3) and FLAC
+Notice : Songloft forks this library and adds MP3 (ID3v2.3) and FLAC
          (Vorbis Comment + PICTURE) writers, plus encoding-detection
          improvements. See pkg/tag/LICENSE for full text.
 
@@ -60,7 +60,7 @@ SQLite is in the Public Domain. The Go port modernc.org/sqlite is
 distributed under BSD-3-Clause.
 
 --------------------------------------------------------------------------------
-5. Flutter Client  (mimusic-org/mimusic-player, separate repository)
+5. Flutter Client  (songloft-org/songloft-player, separate repository)
 --------------------------------------------------------------------------------
 The Flutter client embeds `just_audio_media_kit`, which in turn depends on
 libmpv / FFmpeg. libmpv is distributed under LGPL-2.1+ and FFmpeg is
@@ -71,7 +71,7 @@ and refer to the client repository for source-availability obligations
 under LGPL section 4 / GPL section 3.
 
 --------------------------------------------------------------------------------
-6. JS Plugin Toolchain  (mimusic-org/plugin-toolchain, separate repository)
+6. JS Plugin Toolchain  (songloft-org/plugin-toolchain, separate repository)
 --------------------------------------------------------------------------------
 The plugin SDK and builder bundle a number of TypeScript / Node.js
 libraries under MIT / BSD / Apache-2.0. See that repository's
@@ -82,12 +82,12 @@ TRADEMARK NOTICE
 ================================================================================
 
 All product names, trademarks, and registered trademarks mentioned in
-MiMusic and its bundled plugins (including but not limited to "Xiaomi",
+Songloft and its bundled plugins (including but not limited to "Xiaomi",
 "MIoT", "Mi", "Mina", "MiHome", "Bluetooth", "Android", "iOS", "macOS",
 "Windows", "Linux", "Docker") are property of their respective owners.
 Their use in source code, documentation, or user interfaces is for
 identification and interoperability purposes only and does not imply
 endorsement, sponsorship, or affiliation.
 
-MiMusic and its authors are not affiliated with, endorsed by, or
+Songloft and its authors are not affiliated with, endorsed by, or
 sponsored by any of the trademark holders mentioned above.

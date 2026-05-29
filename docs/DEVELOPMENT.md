@@ -1,6 +1,6 @@
 # 文档站开发说明
 
-本文档面向希望在本地预览或修改 MiMusic 文档站的开发者。
+本文档面向希望在本地预览或修改 Songloft 文档站的开发者。
 
 ## 本地预览
 
@@ -21,7 +21,7 @@ npm run docs:dev
 | `index.md` | 源文件 | 直接编辑 |
 | `faq.md` | 源文件 | 直接编辑 |
 | `js-plugin-development-guide.md` | 源文件 | 直接编辑 |
-| `swagger.json` | 手动维护 | 从主仓 `mimusic/docs/swagger.json` 复制 |
+| `swagger.json` | 手动维护 | 从主仓 `songloft/docs/swagger.json` 复制 |
 | `quick-start.md` | 构建时生成 | 改仓库根的 `README.md` |
 | `changelog.md` | 构建时生成 | 改仓库根的 `CHANGELOG.md` |
 | `issues/*.md` | 运行时生成 | 改 GitHub issues（带「文档」标签） |

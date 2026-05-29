@@ -138,7 +138,7 @@ run_cmd() {
 # 主流程
 # ============================================================
 main() {
-    log_info "=== MiMusic 自动升版号工具 ==="
+    log_info "=== Songloft 自动升版号工具 ==="
     if [ "$DRY_RUN" = true ]; then
         log_warn "DRY-RUN 模式：不会实际修改任何文件"
     fi
@@ -186,7 +186,7 @@ main() {
     if [ -z "$(git config user.email 2>/dev/null)" ]; then
         log_warn "git user.email 未设置，自动配置为 CI 用户"
         run_cmd "git config user.email 'ci@mimusic'"
-        run_cmd "git config user.name 'MiMusic CI'"
+        run_cmd "git config user.name 'Songloft CI'"
     fi
 
     # 1. 更新 Makefile
