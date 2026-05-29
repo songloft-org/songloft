@@ -48,24 +48,21 @@ gh repo rename songloft-plugin-miot -R mimusic-org/mimusic-jsplugin-miot
 >
 > 操作权限：你必须同时是 `mimusic-org` 的 owner 和 `songloft-org` 的 owner。
 
-```bash
-# 顺序：先小后大（先 transfer 不带 v2.0 改动的，最后 transfer 主仓库）
-gh repo transfer --new-owner songloft-org mimusic-org/jsplugins
-gh repo transfer --new-owner songloft-org mimusic-org/jsplugin-musicsdk
-gh repo transfer --new-owner songloft-org mimusic-org/plugin-toolchain
-gh repo transfer --new-owner songloft-org mimusic-org/songloft-plugin-miot
-gh repo transfer --new-owner songloft-org mimusic-org/songloft-player
-gh repo transfer --new-owner songloft-org mimusic-org/songloft
-```
-
-⚠️ 实测 `gh repo transfer` 子命令在新版 `gh` 里叫 `gh repo edit --new-owner`，如果上面命令不存在，改用：
+`gh repo transfer` 子命令在 `gh` CLI 里**不存在**，只能走 REST API：
 
 ```bash
-gh api repos/mimusic-org/jsplugins/transfer -f new_owner=songloft-org -X POST
-# 重复上面 6 次
+# 直接用项目根脚本，按"先小后大"顺序自动跑
+bash scripts/transfer-repos-to-songloft-org.sh           # dry-run
+bash scripts/transfer-repos-to-songloft-org.sh apply     # 实际 transfer
 ```
 
-**最稳的做法**：直接用 web UI（每个仓库的 Settings → "Danger Zone" → "Transfer ownership"），输入 `songloft-org` + 仓库名确认。一个一个手工做 6 次，避免 CLI 上的兼容性问题。
+如果想手工跑某一个：
+
+```bash
+gh api -X POST repos/mimusic-org/jsplugins/transfer -f new_owner=songloft-org
+```
+
+**也可以直接用 web UI**（一个一个手工做 6 次）：每个仓库的 Settings → "Danger Zone" → "Transfer ownership"，输入 `songloft-org` + 仓库名确认。Web UI 多一道二次确认，比脚本更难误操作。
 
 ---
 
