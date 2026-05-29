@@ -4,15 +4,12 @@
 [submodule "songloft-player"]
 	path = songloft-player
 	url = https://github.com/songloft-org/songloft-player.git
-[submodule "jsplugins"]
-	path = jsplugins
-	url = https://github.com/mimusic-org/jsplugins.git
 [submodule "plugin-toolchain"]
 	path = plugin-toolchain
-	url = https://github.com/mimusic-org/plugin-toolchain.git
+	url = https://github.com/songloft-org/plugin-toolchain.git
 [submodule "jsplugins-src/jsplugin-musicsdk"]
 	path = jsplugins-src/jsplugin-musicsdk
-	url = https://github.com/mimusic-org/jsplugin-musicsdk.git
+	url = https://github.com/songloft-org/jsplugin-musicsdk.git
 [submodule "jsplugins-src/songloft-plugin-miot"]
 	path = jsplugins-src/songloft-plugin-miot
 	url = https://github.com/songloft-org/songloft-plugin-miot.git

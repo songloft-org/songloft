@@ -1,6 +1,6 @@
 # AGENTS.md
 
-本文件为 AI 编程助手提供 MiMusic 项目的**入口信息**：项目结构、常用命令、铁律与踩坑总结。代码本身就是真实来源的内容（目录树、依赖、API 表、表结构）请直接看代码或下方链接的详细文档。
+本文件为 AI 编程助手提供 Songloft 项目的**入口信息**：项目结构、常用命令、铁律与踩坑总结。代码本身就是真实来源的内容（目录树、依赖、API 表、表结构）请直接看代码或下方链接的详细文档。
 
 > **详细文档**：
 > - 架构：[整体](docs/ARCHITECTURE.md) · [后端](docs/ARCHITECTURE_BACKEND.md) · [前端](docs/ARCHITECTURE_FRONTEND.md)
@@ -12,15 +12,14 @@
 
 ## 项目概述
 
-MiMusic 是自托管本地音乐服务器（v1.4.1），多仓库结构：
+Songloft 是自托管本地音乐服务器（v2.0 起，前身为 MiMusic），多仓库结构：
 
 | 目录 | 技术 | 说明 |
 |------|------|------|
 | `/` | Go 1.26 + Chi v5 + SQLite | 后端 API 服务（默认端口 58091，账号 admin/admin） |
-| `/mimusic-player` ([独立仓库](https://github.com/mimusic-org/mimusic-player)) | Flutter 3.29+ / Dart 3.7+ | 跨平台前端（6 平台） |
-| `/plugin-toolchain` ([独立仓库](https://github.com/mimusic-org/plugin-toolchain)) | TS + pnpm | JS 插件开发工具链（SDK / Builder / 脚手架） |
-| `/jsplugins-src` | TS | JS 插件源码（子模块集合） |
-| `/jsplugins` ([独立仓库](https://github.com/mimusic-org/jsplugins)) | JS | JS 插件构建产物（子模块） |
+| `/songloft-player` ([独立仓库](https://github.com/songloft-org/songloft-player)) | Flutter 3.29+ / Dart 3.7+ | 跨平台前端（6 平台） |
+| `/plugin-toolchain` ([独立仓库](https://github.com/songloft-org/plugin-toolchain)) | TS + pnpm | JS 插件开发工具链（SDK / Builder / 脚手架） |
+| `/jsplugins-src` | TS | JS 插件源码（子模块集合，每个插件在自己仓库下分发 release） |
 | `/pkg/tag` | Go | 音频元数据**读写**库（基于上游 tag 库扩展 MP3/FLAC 写入） |
 
 ---
@@ -37,14 +36,14 @@ make check          # fmt + vet + test
 make sqlc           # 重新生成 sqlc 代码（改了 queries/*.sql 后必跑）
 make swagger        # 重新生成 API 文档
 
-# 前端构建（产物落到 mimusic-player-build/，供后端嵌入或独立部署）
+# 前端构建（产物落到 songloft-player-build/，供后端嵌入或独立部署）
 make build-frontend-web-embedded   # 嵌入 Go 二进制用（隐藏 API 地址 UI）
 make build-frontend-web            # 独立部署 web
 make build-frontend-{linux,windows,macos,android,ios,all}
 
 # 前端开发
-cd mimusic-player && flutter run -d chrome          # standalone
-cd mimusic-player && flutter run -d chrome --dart-define=DEPLOY_MODE=embedded
+cd songloft-player && flutter run -d chrome          # standalone
+cd songloft-player && flutter run -d chrome --dart-define=DEPLOY_MODE=embedded
 ```
 
 ---
@@ -55,7 +54,7 @@ cd mimusic-player && flutter run -d chrome --dart-define=DEPLOY_MODE=embedded
 
 访问栈：**goose 迁移 + sqlc 固定 SQL + squirrel 动态 SQL + Repository + UnitOfWork**。
 
-- **改 schema** → `internal/database/migrations/000N_xxx.sql`，启动时 `goose.Up` 自动执行；**禁止**手动 `ALTER data/mimusic.db`
+- **改 schema** → `internal/database/migrations/000N_xxx.sql`，启动时 `goose.Up` 自动执行；**禁止**手动 `ALTER data/songloft.db`
 - **加固定 SQL** → `database/queries/{table}.sql` + `make sqlc`；生成产物 `database/sqlc/` 必须入库
 - **动态 SQL（变长 WHERE/SET）** → 在 `*_repository.go` 内用 squirrel，禁止拼字符串
 - **跨表写** → `db.RunInTx(ctx, func(ctx, uow))` 拿同一 `*sql.Tx` 下的 `uow.Songs/Playlists/...`；**禁止** service 层手 `BeginTx`，否则会 SQLITE_BUSY
@@ -79,7 +78,7 @@ cd mimusic-player && flutter run -d chrome --dart-define=DEPLOY_MODE=embedded
 ## 构建与部署
 
 - 构建标签：`dev`（含 Swagger，不嵌前端） / `full`（嵌 Flutter Web） / 无标签（轻量）
-- 嵌入路径是 `mimusic-player-build/web-embedded`（**不是** `mimusic-player/build/web-embedded`）
+- 嵌入路径是 `songloft-player-build/web-embedded`（**不是** `songloft-player/build/web-embedded`）
 - SPA 回退：`internal/app/embed.go` 处理，文件不存在时返回 `index.html`
 - 部署模式由 `--dart-define=DEPLOY_MODE=embedded|standalone` 切换，`AppConfig.isEmbedded` 是编译时常量，tree-shaking 会移除独立模式下的 API 地址 UI
 
@@ -97,8 +96,8 @@ cd mimusic-player && flutter run -d chrome --dart-define=DEPLOY_MODE=embedded
 
 ## JS 插件
 
-- 源码 `jsplugins-src/<name>/`，构建产物 `jsplugins/<name>.jsplugin.zip`
-- 新建插件：`pnpm create mimusic-plugin <name>`（详见 `plugin-toolchain/README.md`）
+- 源码 `jsplugins-src/<name>/`，构建产物在各插件仓库的 GitHub Releases
+- 新建插件：`pnpm create songloft-plugin <name>`（详见 `plugin-toolchain/README.md`）
 - 沙盒：QuickJS，通过 `internal/jsruntime` 提供的 `host` 桥接调用宿主能力（`http.fetch`、`storage`、`logger`）
 - 路由：`/api/v1/jsplugin/{entry_path}/...`
 - 权限：manifest 中 `permissions: ["network", "storage", "fs:music", ...]`，运行时由 `internal/jsplugin` 校验

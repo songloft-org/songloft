@@ -164,14 +164,19 @@ export SONGLOFT_TOKEN=...
 
 `MIMUSIC_*` 环境变量和 `.mimusic-dev.json` **不再被读取**。
 
-### 3.5 插件 manifest 字段
+### 3.5 插件分发模式变更
 
-`updateUrl` 与 `homepage` 中如指向 `mimusic-org/*` 仓库的链接，需改为 `songloft-org/*`：
+v2.0 起取消"插件聚合仓库"模式（旧的 `mimusic-org/jsplugins` 已下线）。每个插件改为在自己的 GitHub 仓库下分发：
+
+- 构建产物 `.jsplugin.zip` 放到本仓库的 GitHub Release
+- `manifest.json` 同时 commit 到本仓库 main 分支供 `updateUrl` 拉取
 
 ```diff
 - "updateUrl": "https://raw.githubusercontent.com/mimusic-org/jsplugins/main/myplugin.json",
-+ "updateUrl": "https://raw.githubusercontent.com/songloft-org/jsplugins/main/myplugin.json",
++ "updateUrl": "https://raw.githubusercontent.com/<your-org>/<your-plugin-repo>/main/manifest.json",
 ```
+
+`homepage` 中如指向 `mimusic-org/*` 仓库的链接也需改为 `songloft-org/*`。
 
 ---
 

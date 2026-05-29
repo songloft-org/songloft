@@ -12,7 +12,7 @@
 | `mimusic-org/plugin-toolchain` | ✅ | `songloft-org/plugin-toolchain`（仅 transfer，不改名）|
 | `mimusic-org/jsplugin-musicsdk` | ✅ | `songloft-org/jsplugin-musicsdk`（仅 transfer，不改名）|
 | `mimusic-org/mimusic-jsplugin-miot` | ✅ | `songloft-org/songloft-plugin-miot` |
-| `mimusic-org/jsplugins` | （Phase 4 之后才会有新 manifest）| `songloft-org/jsplugins`（仅 transfer，不改名）|
+| ~~`mimusic-org/jsplugins`~~ | ~~~~ | ~~`songloft-org/jsplugins`~~ —— 已删除。Songloft v2.0 起取消聚合仓库，每个插件在自己仓库分发 release |
 | `github.com/hanxi/tag` (pkg/tag) | ✅ | 保持不变（hanxi 个人 fork，不归 mimusic-org 也不 transfer 到 songloft-org）|
 
 ⚠️ **冲突警告**：`songloft-org/songloft` 已经作为 placeholder 仓库存在（你之前抢名时建的，描述 "Coming in MiMusic v2.0 as Songloft"）。直接 transfer-rename 会冲突，必须先 rename / archive placeholder。
@@ -59,7 +59,7 @@ bash scripts/transfer-repos-to-songloft-org.sh apply     # 实际 transfer
 如果想手工跑某一个：
 
 ```bash
-gh api -X POST repos/mimusic-org/jsplugins/transfer -f new_owner=songloft-org
+gh api -X POST repos/mimusic-org/plugin-toolchain/transfer -f new_owner=songloft-org
 ```
 
 **也可以直接用 web UI**（一个一个手工做 6 次）：每个仓库的 Settings → "Danger Zone" → "Transfer ownership"，输入 `songloft-org` + 仓库名确认。Web UI 多一道二次确认，比脚本更难误操作。
