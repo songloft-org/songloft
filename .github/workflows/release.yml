@@ -3,14 +3,14 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'      # 自动发正式版（hanxi/mimusic:X.Y.Z / :latest / :X.Y.Z-full / :full + 写 CHANGELOG）
-  workflow_dispatch: # 手动发开发版（hanxi/mimusic:dev / :dev-full + dev 的 prerelease）
+      - 'v*'      # 自动发正式版（songloft/songloft:X.Y.Z / :latest / :X.Y.Z-full / :full + 写 CHANGELOG）
+  workflow_dispatch: # 手动发开发版（songloft/songloft:dev / :dev-full + dev 的 prerelease）
 
 env:
   GO_VERSION: '1.26'
   FLUTTER_VERSION: '3.41.5'
-  DOCKER_USERNAME: hanxi
-  IMAGE_NAME: mimusic
+  DOCKER_USERNAME: songloft
+  IMAGE_NAME: songloft
   RELEASE_REPO: ${{ github.repository }}
 
 jobs:
@@ -91,8 +91,8 @@ jobs:
         with:
           submodules: false
 
-      - name: Init mimusic-player submodule
-        run: git submodule update --init --recursive -- mimusic-player
+      - name: Init songloft-player submodule
+        run: git submodule update --init --recursive -- songloft-player
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -103,7 +103,7 @@ jobs:
 
       - name: Flutter pub get
         run: |
-          cd mimusic-player
+          cd songloft-player
           flutter pub get
 
       - name: Build Flutter Web (embedded mode)
@@ -113,7 +113,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-web-embedded
-          path: mimusic-player-build/web-embedded
+          path: songloft-player-build/web-embedded
           retention-days: 1
 
   # ============================================================
@@ -166,7 +166,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-web-embedded
-          path: mimusic-player-build/web-embedded
+          path: songloft-player-build/web-embedded
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -191,14 +191,14 @@ jobs:
 
           # 构建 lite 版本（复用 Makefile build-cross 目标，含 UPX 压缩）
           make build-cross GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-            GOARM=${{ matrix.goarm }} OUTPUT="mimusic-${SUFFIX}${EXT}"
+            GOARM=${{ matrix.goarm }} OUTPUT="songloft-${SUFFIX}${EXT}"
 
-          # 构建 full 版本（BUILD_TYPE=full 让 mimusic version 输出带 full 标识，与 Dockerfile 一致）
+          # 构建 full 版本（BUILD_TYPE=full 让 songloft version 输出带 full 标识，与 Dockerfile 一致）
           make build-cross GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-            GOARM=${{ matrix.goarm }} OUTPUT="mimusic-${SUFFIX}-full${EXT}" \
+            GOARM=${{ matrix.goarm }} OUTPUT="songloft-${SUFFIX}-full${EXT}" \
             EXTRA_TAGS=full BUILD_TYPE=full
 
-          ls -lh mimusic-${SUFFIX}*
+          ls -lh songloft-${SUFFIX}*
 
       - name: Generate version.json
         if: matrix.gen_version_json == true
@@ -212,7 +212,7 @@ jobs:
             "version": "${VERSION}",
             "git_commit": "${GIT_COMMIT}",
             "build_time": "${BUILD_TIME}",
-            "download_url_prefix": "https://github.com/${{ env.RELEASE_REPO }}/releases/download/${VERSION}/mimusic",
+            "download_url_prefix": "https://github.com/${{ env.RELEASE_REPO }}/releases/download/${VERSION}/songloft",
             "release_notes": "Release ${VERSION}"
           }
           EOF
@@ -223,8 +223,8 @@ jobs:
         with:
           name: binary-${{ matrix.suffix }}
           path: |
-            mimusic-${{ matrix.suffix }}${{ matrix.ext }}
-            mimusic-${{ matrix.suffix }}-full${{ matrix.ext }}
+            songloft-${{ matrix.suffix }}${{ matrix.ext }}
+            songloft-${{ matrix.suffix }}-full${{ matrix.ext }}
             version.json
           retention-days: 1
 
@@ -248,7 +248,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-web-embedded
-          path: mimusic-player-build/web-embedded
+          path: songloft-player-build/web-embedded
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -311,7 +311,7 @@ jobs:
             --load \
             .
           docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-amd64 \
-            -o docker-tars/mimusic-docker-linux-amd64.tar
+            -o docker-tars/songloft-docker-linux-amd64.tar
           docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-amd64 2>/dev/null || true
 
       - name: Build & save lite linux/arm64
@@ -327,7 +327,7 @@ jobs:
             --load \
             .
           docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-arm64 \
-            -o docker-tars/mimusic-docker-linux-arm64.tar
+            -o docker-tars/songloft-docker-linux-arm64.tar
           docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-arm64 2>/dev/null || true
 
       - name: Build & save lite linux/arm/v7
@@ -343,7 +343,7 @@ jobs:
             --load \
             .
           docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-armv7 \
-            -o docker-tars/mimusic-docker-linux-arm-v7.tar
+            -o docker-tars/songloft-docker-linux-arm-v7.tar
           docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-armv7 2>/dev/null || true
 
       # ---------- 推送 lite 多架构 manifest（命中上面的 GHA cache，无需重新编译）----------
@@ -381,7 +381,7 @@ jobs:
             --load \
             .
           docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-amd64 \
-            -o docker-tars/mimusic-docker-linux-amd64-full.tar
+            -o docker-tars/songloft-docker-linux-amd64-full.tar
           docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-amd64 2>/dev/null || true
 
       - name: Build & save full linux/arm64
@@ -398,7 +398,7 @@ jobs:
             --load \
             .
           docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-arm64 \
-            -o docker-tars/mimusic-docker-linux-arm64-full.tar
+            -o docker-tars/songloft-docker-linux-arm64-full.tar
           docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-arm64 2>/dev/null || true
 
       - name: Build & save full linux/arm/v7
@@ -415,7 +415,7 @@ jobs:
             --load \
             .
           docker save ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-armv7 \
-            -o docker-tars/mimusic-docker-linux-arm-v7-full.tar
+            -o docker-tars/songloft-docker-linux-arm-v7-full.tar
           docker rmi ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-armv7 2>/dev/null || true
 
       # ---------- 推送 full 多架构 manifest（命中上面的 GHA cache）----------
