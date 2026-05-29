@@ -45,7 +45,6 @@ export default async () => {
       ['meta', { name: 'og:type', content: 'website' }],
       ['meta', { name: 'og:title', content: 'Songloft - 自托管个人音乐服务器' }],
       ['meta', { name: 'og:description', content: '简单、自由、插件化的个人音乐服务器，支持 JS 插件扩展' }],
-      ['script', { defer: true, src: 'https://umami.hanxi.cc/script.js', 'data-website-id': '29cca3f5-e420-432b-adc7-8a1325d31c68' }]
     ],
     lastUpdated: true,
     markdown: {
