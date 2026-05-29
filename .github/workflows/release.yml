@@ -528,11 +528,15 @@ jobs:
             gh release delete "${VERSION}" --repo "${{ env.RELEASE_REPO }}" --yes
           fi
 
-          # 构建 Release Notes
-          RELEASE_NOTES="${{ steps.changelog.outputs.changes }}"
-          
+          # 构建 Release Notes（用 heredoc 避免 changelog 内容被 shell 展开执行）
+          RELEASE_NOTES=$(cat <<'NOTES_EOF'
+          ${{ steps.changelog.outputs.changes }}
+          NOTES_EOF
+          )
+          RELEASE_NOTES=$(echo "$RELEASE_NOTES" | sed '/^[[:space:]]*$/d')
+
           # 如果 changelog 为空，使用默认内容
-          if [ -z "$RELEASE_NOTES" ] || [ "$RELEASE_NOTES" = "" ]; then
+          if [ -z "$RELEASE_NOTES" ]; then
             if [[ "${IS_PRERELEASE}" == "true" ]]; then
               RELEASE_NOTES="Development build from branch: ${{ github.ref_name }}"
             else
