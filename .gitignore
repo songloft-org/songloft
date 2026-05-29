@@ -24,6 +24,7 @@ go.work
 /bin/
 /build/
 /dist/
+songloft-player-build
 mimusic-player-build
 
 # songloft binaries
