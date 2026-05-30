@@ -30,6 +30,53 @@ docker run -d \
   songloft/songloft:latest
 ```
 
+### Q: Docker 部署时定时任务时间不对（时区错误）怎么办？
+
+A: 需要设置 `TZ` 环境变量指定时区：
+
+```bash
+docker run -d \
+  -e TZ=Asia/Shanghai \
+  -v /absolute/path/to/music:/app/music \
+  -v /absolute/path/to/data:/app/data \
+  songloft/songloft:latest
+```
+
+Docker Compose 中同样添加：
+```yaml
+environment:
+  - TZ=Asia/Shanghai
+```
+
+### Q: 如何通过反向代理子路径部署（Sub Path）？
+
+A: Songloft 支持通过 `-base-path` 参数或 `BASE_PATH` 环境变量配置子路径，适用于 Nginx 反向代理多服务合并到同一端口的场景。
+
+**启动配置**：
+```bash
+# 命令行参数
+./songloft -base-path /songloft
+
+# 或环境变量
+BASE_PATH=/songloft ./songloft
+
+# Docker
+docker run -d -e BASE_PATH=/songloft ...
+```
+
+**Nginx 配置示例**：
+```nginx
+location /songloft/ {
+    proxy_pass http://127.0.0.1:58091;
+    proxy_read_timeout 52w;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+配置后通过 `http://your-domain/songloft/` 即可访问。Flutter 嵌入模式会自动从 `<base href>` 检测子路径。
+
 ### Q: 完整版和精简版有什么区别？
 
 A: 
@@ -48,7 +95,9 @@ A: 有两种方式：
 
 ### Q: 如何修改默认密码？
 
-A: 默认账号密码为 `admin` / `admin`，建议修改。根据部署方式选择对应方法：
+A: 默认账号密码为 `admin` / `admin`，建议修改。根据部署方式选择对应方法。
+
+> **提示**：Docker 用户推荐通过环境变量 `ADMIN_PASSWORD` 设置密码，避免使用命令行参数方式（容易因旧进程未停止而不生效）。
 
 **Docker 启动**：通过环境变量 `ADMIN_PASSWORD` 设置：
 ```bash
@@ -114,7 +163,7 @@ A: 检查以下几点：
 
 ### Q: 如何扫描音乐库？
 
-A: 启动服务后，在客户端的 **设置 → 扫描管理** 中点击扫描按钮。扫描是异步执行的，可以通过进度接口查看状态，也可以取消正在进行的扫描。
+A: 添加或修改音乐文件后，**必须手动触发扫描**才能在歌曲库中看到。在客户端的 **设置 → 扫描管理** 中点击扫描按钮（注意该按钮是长条形的，不是提示框）。扫描是异步执行的，可以通过进度接口查看状态，也可以取消正在进行的扫描。
 
 ### Q: Flutter 客户端如何连接后端？
 
@@ -133,6 +182,10 @@ A:
 ### Q: macOS 上 Token 存储报错怎么办？
 
 A: Flutter 的 `secure_storage` 在 macOS 未签名沙盒环境下可能无法使用 Keychain。Songloft 已内置降级机制，会自动回退到 `SharedPreferences` 存储，不影响正常使用。
+
+### Q: 如何添加网络歌曲或网络电台？
+
+A: 在客户端 **电台收藏** 歌单中点击添加按钮，输入电台流媒体地址（如 `.m3u`、`.pls` 或直接的音频流 URL）。网络歌曲可通过 JS 插件（如洛雪音源）搜索添加到歌单中。目前不支持扫描本地 `.m3u` 文件自动导入电台。
 
 ### Q: TV 端如何操作？
 
