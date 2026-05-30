@@ -12,7 +12,7 @@
             "name": "Apache 2.0",
             "url": "https://www.apache.org/licenses/LICENSE-2.0"
         },
-        "version": "2.1.0"
+        "version": "2.1.1"
     },
     "host": "localhost:58091",
     "basePath": "/api/v1",

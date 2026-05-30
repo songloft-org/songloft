@@ -622,7 +622,7 @@ info:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
   title: Songloft API
-  version: 2.1.0
+  version: 2.1.1
 paths:
   /auth/login:
     post:
