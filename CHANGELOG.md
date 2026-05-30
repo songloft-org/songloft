@@ -1,3 +1,19 @@
+## [v2.1.0] - 2026-05-30
+### :sparkles: New Features
+- [`b2a19ba`](https://github.com/songloft-org/songloft/commit/b2a19bad067d1dd1a2640b791c0a009d78bfdf68) - 支持运行在sub path下面 [#68](https://github.com/songloft-org/songloft/pull/68) *(commit by [@hanxi](https://github.com/hanxi))*
+- [`8038e79`](https://github.com/songloft-org/songloft/commit/8038e7920960ccc853a7dea58ac31cd71aaee51e) - 支持自动转音频编码 [#36](https://github.com/songloft-org/songloft/pull/36) *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :bug: Bug Fixes
+- [`74fd9a5`](https://github.com/songloft-org/songloft/commit/74fd9a54f5c662aeeadfd1edc45142d76b378139) - 修复电台播放问题 [#69](https://github.com/songloft-org/songloft/pull/69) *(commit by [@hanxi](https://github.com/hanxi))*
+- [`6b2c484`](https://github.com/songloft-org/songloft/commit/6b2c4841ab3b5bdb14b49cc62017236dafe854c3) - 修复不能单独改密码的问题 [#70](https://github.com/songloft-org/songloft/pull/70) *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :memo: Documentation Changes
+- [`587abc9`](https://github.com/songloft-org/songloft/commit/587abc915ec0b803bdaae50ada8b0a81a25b0846) - update CHANGELOG for v2.0.2 *(commit by [@github-actions[bot]](https://github.com/apps/github-actions))*
+
+### :wrench: Chores
+- [`96b2a91`](https://github.com/songloft-org/songloft/commit/96b2a916b00276f56dc44191f02c068255138c85) - release version 2.1.0 *(commit by [@hanxi](https://github.com/hanxi))*
+
+
 ## [v2.0.2] - 2026-05-30
 ### :sparkles: New Features
 - [`aa3cf97`](https://github.com/songloft-org/songloft/commit/aa3cf978a0d0cff3a9e32fc9e5892116af8950a9) - 新增备份和还原功能 *(commit by [@hanxi](https://github.com/hanxi))*
@@ -893,3 +909,4 @@
 [v2.0.0-alpha.1]: https://github.com/songloft-org/songloft/compare/e0a9fd8a53e21bc17982323664e10f8d9549531a...v2.0.0-alpha.1
 [v2.0.1]: https://github.com/songloft-org/songloft/compare/v2.0.0...v2.0.1
 [v2.0.2]: https://github.com/songloft-org/songloft/compare/v2.0.1...v2.0.2
+[v2.1.0]: https://github.com/songloft-org/songloft/compare/v2.0.2...v2.1.0
