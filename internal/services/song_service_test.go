@@ -9,7 +9,40 @@ import (
 	"songloft/internal/database"
 	"songloft/internal/database/testutil"
 	"songloft/internal/models"
+
+	"github.com/hanxi/tag"
 )
+
+// copyTestMP3 把 pkg/tag/testdata 里的样本 MP3 复制到一个临时路径，返回新路径。
+// UpdateLyrics 测试需要一个真实可写的 MP3，复制后才能放心改 USLT 而不污染 testdata。
+func copyTestMP3(t *testing.T) string {
+	t.Helper()
+	src := filepath.Join("..", "..", "pkg", "tag", "testdata", "with_tags", "sample.id3v23.mp3")
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatalf("read sample mp3: %v", err)
+	}
+	dst := filepath.Join(t.TempDir(), "sample.mp3")
+	if err := os.WriteFile(dst, data, 0644); err != nil {
+		t.Fatalf("write tmp mp3: %v", err)
+	}
+	return dst
+}
+
+// readLyricsFromFile 读取本地音频文件的内嵌歌词。失败直接 fatal。
+func readLyricsFromFile(t *testing.T, path string) (lyrics, title, artist string) {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open audio: %v", err)
+	}
+	defer f.Close()
+	m, err := tag.ReadFrom(f)
+	if err != nil {
+		t.Fatalf("read tag: %v", err)
+	}
+	return m.Lyrics(), m.Title(), m.Artist()
+}
 
 // newTestSongRepo 启动 :memory: SQLite，返回 SongRepository。
 func newTestSongRepo(t *testing.T) *database.SongRepository {
@@ -455,5 +488,139 @@ func TestCleanInvalidSongsWithoutScanner(t *testing.T) {
 	}
 	if result.InExcludedDir != 0 {
 		t.Errorf("CleanInvalidSongs() InExcludedDir = %d, want 0", result.InExcludedDir)
+	}
+}
+
+// TestUpdateLyrics_LocalSong_WritesFile 验证 type=local 的歌曲 UpdateLyrics 后：
+//  1. DB 的 lyric 列被更新成 LyricPayload JSON
+//  2. 音频文件的 USLT 已被改写
+//  3. 其它 ID3 字段（Title/Artist）未被清空（pkg/tag.WriteTag 是重建模式，
+//     必须传完整 song 才能保留它们 —— WriteSongTags 的关键约束）
+//  4. 返回 status=written
+func TestUpdateLyrics_LocalSong_WritesFile(t *testing.T) {
+	repo := newTestSongRepo(t)
+	service := NewSongService(repo, nil, nil, nil, nil, nil)
+	ctx := context.Background()
+
+	mp3Path := copyTestMP3(t)
+
+	song := &models.Song{
+		Type:        models.TypeLocal,
+		Title:       "原标题",
+		Artist:      "原艺术家",
+		Album:       "原专辑",
+		FilePath:    mp3Path,
+		Lyric:       "",
+		LyricSource: models.LyricSourceEmbedded,
+	}
+	if err := repo.Create(ctx, song); err != nil {
+		t.Fatalf("create song: %v", err)
+	}
+
+	newLyric := models.LyricPayload{Lyric: "[00:01.500]hello\n[00:03.000]world"}.MarshalString()
+
+	status, err := service.UpdateLyrics(ctx, song.ID, newLyric, models.LyricSourceManual, "")
+	if err != nil {
+		t.Fatalf("UpdateLyrics() error = %v", err)
+	}
+	if status != FileWriteWritten {
+		t.Errorf("UpdateLyrics() status = %v, want %v", status, FileWriteWritten)
+	}
+
+	// DB 校验
+	got, err := repo.GetByID(ctx, song.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.Lyric != newLyric {
+		t.Errorf("DB lyric = %q, want %q", got.Lyric, newLyric)
+	}
+	if got.LyricSource != models.LyricSourceManual {
+		t.Errorf("DB lyric_source = %q, want %q", got.LyricSource, models.LyricSourceManual)
+	}
+
+	// 文件校验：USLT 含新主歌词，Title/Artist 未被清空
+	fileLyrics, fileTitle, fileArtist := readLyricsFromFile(t, mp3Path)
+	if fileLyrics != "[00:01.500]hello\n[00:03.000]world" {
+		t.Errorf("file lyrics = %q, want new lyric text", fileLyrics)
+	}
+	if fileTitle != "原标题" {
+		t.Errorf("file title = %q, want %q (must not be wiped)", fileTitle, "原标题")
+	}
+	if fileArtist != "原艺术家" {
+		t.Errorf("file artist = %q, want %q (must not be wiped)", fileArtist, "原艺术家")
+	}
+}
+
+// TestUpdateLyrics_RemoteSong_SkipsFile 验证 type=remote 的歌曲不会回写文件，
+// 只更新 DB，返回 status=skipped。
+func TestUpdateLyrics_RemoteSong_SkipsFile(t *testing.T) {
+	repo := newTestSongRepo(t)
+	service := NewSongService(repo, nil, nil, nil, nil, nil)
+	ctx := context.Background()
+
+	song := &models.Song{
+		Type:  models.TypeRemote,
+		Title: "远程歌曲",
+		URL:   "https://example.com/song.mp3",
+		Lyric: "",
+	}
+	if err := repo.Create(ctx, song); err != nil {
+		t.Fatalf("create song: %v", err)
+	}
+
+	status, err := service.UpdateLyrics(ctx, song.ID, `{"lyric":"[00:01]x"}`, models.LyricSourceCached, "")
+	if err != nil {
+		t.Fatalf("UpdateLyrics() error = %v", err)
+	}
+	if status != FileWriteSkipped {
+		t.Errorf("UpdateLyrics() status = %v, want %v", status, FileWriteSkipped)
+	}
+
+	got, err := repo.GetByID(ctx, song.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.Lyric != `{"lyric":"[00:01]x"}` {
+		t.Errorf("DB lyric not updated")
+	}
+}
+
+// TestUpdateLyrics_URLSource_SkipsFile 验证 lyric_source=url 时跳过文件回写，
+// lyric_remote_url 列被更新。
+func TestUpdateLyrics_URLSource_SkipsFile(t *testing.T) {
+	repo := newTestSongRepo(t)
+	service := NewSongService(repo, nil, nil, nil, nil, nil)
+	ctx := context.Background()
+
+	mp3Path := copyTestMP3(t)
+	originalLyrics, _, _ := readLyricsFromFile(t, mp3Path)
+
+	song := &models.Song{
+		Type:     models.TypeLocal,
+		Title:    "本地歌曲",
+		FilePath: mp3Path,
+	}
+	if err := repo.Create(ctx, song); err != nil {
+		t.Fatalf("create song: %v", err)
+	}
+
+	status, err := service.UpdateLyrics(ctx, song.ID, "", models.LyricSourceURL, "https://lrc.example.com/x")
+	if err != nil {
+		t.Fatalf("UpdateLyrics() error = %v", err)
+	}
+	if status != FileWriteSkipped {
+		t.Errorf("UpdateLyrics() status = %v, want %v", status, FileWriteSkipped)
+	}
+
+	got, _ := repo.GetByID(ctx, song.ID)
+	if got.LyricRemoteURL != "https://lrc.example.com/x" {
+		t.Errorf("DB lyric_remote_url = %q", got.LyricRemoteURL)
+	}
+
+	// 文件 USLT 未被改动
+	fileLyrics, _, _ := readLyricsFromFile(t, mp3Path)
+	if fileLyrics != originalLyrics {
+		t.Errorf("file USLT changed for url source: %q -> %q", originalLyrics, fileLyrics)
 	}
 }

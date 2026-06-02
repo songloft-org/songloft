@@ -20,8 +20,6 @@ import (
 	"songloft/internal/database"
 	"songloft/internal/models"
 	"songloft/internal/services/source"
-
-	"github.com/hanxi/tag"
 )
 
 const (
@@ -633,58 +631,11 @@ func truncateUTF8(s string, maxBytes int) string {
 
 // writeFileTags 把 song 的元数据写入到本地文件(MP3 / FLAC 等)。
 // 失败只记 warning,不影响主转换流程。
+//
+// 实际逻辑统一在 WriteSongTags（song_file_writer.go），这里仅做 wrapper
+// 保持 convert_service 原有调用点签名不变。
 func (c *ConvertService) writeFileTags(filePath string, song *models.Song) {
-	// song.Lyric 是 LyricPayload JSON;tag 只能写纯 LRC 文本,取主歌词字段
-	mainLyric := models.UnmarshalLyric(song.Lyric).Lyric
-
-	opts := tag.WriteOptions{
-		Title:       song.Title,
-		Artist:      song.Artist,
-		AlbumArtist: song.Artist, // 大多数情况下专辑艺术家与艺术家一致
-		Album:       song.Album,
-		Lyrics:      mainLyric,
-	}
-
-	// 解析 added_at 年份作为发行年(网络歌曲的 Song 模型没有专门的 year 字段,
-	// 使用 added_at 是个保守的兜底;如果 song 有 raw metadata 含 year,后续可扩展)
-	if !song.AddedAt.IsZero() {
-		opts.Year = song.AddedAt.Year()
-	}
-
-	// 防御性处理:如果传入 song 的 LyricSource 还是 url(理论上不应该,
-	// convertOne 已经把 URL 歌词转 cached),清空避免把 URL 当歌词写入
-	if song.LyricSource == models.LyricSourceURL {
-		opts.Lyrics = ""
-	}
-
-	// 读取封面(优先 cover_path 本地文件)
-	if song.CoverPath != "" {
-		if data, err := os.ReadFile(song.CoverPath); err == nil {
-			opts.Picture = &tag.Picture{
-				MIMEType:    tag.MIMETypeFromExt(filepath.Ext(song.CoverPath)),
-				Data:        data,
-				Description: "",
-			}
-		} else {
-			slog.Debug("read cover failed,skip embedding",
-				"coverPath", song.CoverPath, "error", err)
-		}
-	}
-
-	if err := tag.WriteTag(filePath, opts); err != nil {
-		if errors.Is(err, tag.ErrUnsupportedWrite) {
-			slog.Debug("tag write skipped for unsupported format",
-				"path", filePath, "error", err)
-			return
-		}
-		slog.Warn("write tag failed",
-			"path", filePath, "error", err)
-		return
-	}
-	slog.Debug("tag written", "path", filePath,
-		"title", opts.Title, "artist", opts.Artist,
-		"hasPicture", opts.Picture != nil,
-		"lyricsLen", len(opts.Lyrics))
+	WriteSongTags(filePath, song)
 }
 
 // fetchToTemp 通过 HTTP GET 把 URL 内容下载到系统临时目录,返回临时路径和 Content-Type 推断的扩展名

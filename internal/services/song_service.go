@@ -480,7 +480,12 @@ func (s *SongService) flushScanBatch(ctx context.Context, batch []scanExtractRes
 				song.Format = r.metadata.Format
 				song.BitRate = r.metadata.BitRate
 				song.SampleRate = r.metadata.SampleRate
-				models.ApplyLyricToSong(song, r.metadata.Lyric, r.metadata.LyricSource)
+				// lyric_source=manual 表示用户手动调整过歌词，
+				// 重扫时不再用文件内嵌/外挂 .lrc 覆盖，否则不支持回写音频文件的格式
+				// （如 .wav）一旦 reimport 就丢调整。
+				if song.LyricSource != models.LyricSourceManual {
+					models.ApplyLyricToSong(song, r.metadata.Lyric, r.metadata.LyricSource)
+				}
 				song.FileSize = r.fileSize
 				song.UpdatedAt = time.Now()
 
@@ -705,10 +710,41 @@ func (s *SongService) CleanInvalidSongs(ctx context.Context) (*CleanResult, erro
 	return result, nil
 }
 
-// UpdateLyrics 更新歌曲歌词。
-// lyric 应为 LyricPayload JSON 文本(或空);lyricRemoteURL 仅在 lyricSource="url" 时使用。
-func (s *SongService) UpdateLyrics(ctx context.Context, id int64, lyric, lyricSource, lyricRemoteURL string) error {
-	return s.songs.UpdateLyrics(ctx, id, lyric, lyricSource, lyricRemoteURL)
+// UpdateLyrics 更新歌曲歌词，并在条件满足时把主歌词回写到本地音频文件。
+//
+// 行为：
+//  1. 把新歌词内容更新进 DB（lyric 列、lyric_source 列、lyric_remote_url 列）
+//  2. 若 song.Type==local 且 song.FilePath 存在、且 lyricSource 不是 url，
+//     重新读取 song 后调用 WriteSongTags 把元数据完整回写到音频文件。
+//     回写传完整 song（pkg/tag.WriteTag 是重建模式，避免清空 Title/Artist 等其它字段）。
+//
+// 返回值：
+//   - status 表示文件回写结果（written/skipped/failed）；DB 已写入成功才会有值
+//   - err 仅在 DB 操作失败时非 nil（文件回写失败不算失败，会通过 status 表达）
+//
+// lyric 应为 LyricPayload JSON 文本（或空）；lyricRemoteURL 仅在 lyricSource="url" 时使用。
+func (s *SongService) UpdateLyrics(ctx context.Context, id int64, lyric, lyricSource, lyricRemoteURL string) (FileWriteStatus, error) {
+	if err := s.songs.UpdateLyrics(ctx, id, lyric, lyricSource, lyricRemoteURL); err != nil {
+		return "", err
+	}
+
+	// url 来源不需要回写：歌词在运行时拉取，不缓存到本地文件
+	if lyricSource == models.LyricSourceURL {
+		return FileWriteSkipped, nil
+	}
+
+	// 只对 type=local 且有 file_path 的歌曲尝试回写
+	song, err := s.songs.GetByID(ctx, id)
+	if err != nil || song == nil {
+		// DB 已写成功，但读不到 song（极小概率），跳过文件回写不报错
+		slog.Warn("UpdateLyrics: refetch song after lyric update failed", "songId", id, "err", err)
+		return FileWriteSkipped, nil
+	}
+	if song.Type != models.TypeLocal || song.FilePath == "" {
+		return FileWriteSkipped, nil
+	}
+
+	return WriteSongTags(song.FilePath, song), nil
 }
 
 // UpdateSongDuration 按 song ID 回填时长（仅在原 duration 为 0 时生效）
