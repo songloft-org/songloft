@@ -123,6 +123,13 @@ func ServeRemoteResource(w http.ResponseWriter, r *http.Request, resourceURL str
 		http.Error(w, "resource fetch failed", http.StatusInternalServerError)
 		return
 	}
+	
+	// 处理 Basic Auth
+	if upstreamReq.URL.User != nil {
+		password, _ := upstreamReq.URL.User.Password()
+		upstreamReq.SetBasicAuth(upstreamReq.URL.User.Username(), password)
+		upstreamReq.URL.User = nil // 清除以防止泄露
+	}
 
 	// 透传客户端的 Range 请求头（支持断点续传、分段加载）
 	if rangeHeader := r.Header.Get("Range"); rangeHeader != "" {
@@ -130,7 +137,7 @@ func ServeRemoteResource(w http.ResponseWriter, r *http.Request, resourceURL str
 	}
 
 	// 设置合理的 User-Agent,避免被上游 CDN 拒绝
-	upstreamReq.Header.Set("User-Agent", "Songloft/1.0")
+	upstreamReq.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
 	// 透传 Accept 头
 	if accept := r.Header.Get("Accept"); accept != "" {
