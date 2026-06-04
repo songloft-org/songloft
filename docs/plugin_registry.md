@@ -212,5 +212,5 @@ https://cdn.jsdelivr.net/gh/{用户名}/{仓库名}@{分支}/registry.json
 | 循环引用 | 自动检测 | A → B → A 不会死循环，已访问的 URL 自动跳过 |
 
 - `plugins` 中的 URL 必须指向有效的 `plugin.json` 文件
-- 如果源文件托管在 GitHub，中国大陆用户可能需要配置 GitHub 代理才能访问
+- 如果源文件托管在 GitHub，中国大陆用户可在插件商店中选择 GitHub 镜像加速（预设或自定义），也可在「设置 → 系统 → HTTP 代理」中配置通用代理（如 `http://192.168.1.1:7890`）以加速访问
 - 某个 `includes` 或 `plugins` 条目拉取失败不会影响其他源和插件的加载

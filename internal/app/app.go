@@ -17,6 +17,7 @@ import (
 	"songloft/internal/config"
 	"songloft/internal/database"
 	"songloft/internal/handlers"
+	"songloft/internal/httputil"
 	"songloft/internal/jsplugin"
 	"songloft/internal/models"
 	"songloft/internal/services"
@@ -118,6 +119,18 @@ func (a *App) Init() error {
 			slog.Info("日志等级已应用", "level", levelStr)
 		} else {
 			slog.Warn("日志等级配置无效，使用默认 info", "value", levelStr)
+		}
+	}
+
+	// 应用持久化的 HTTP 代理
+	var httpProxyCfg struct {
+		Proxy string `json:"proxy"`
+	}
+	if err := a.configService.GetJSON("http_proxy", &httpProxyCfg); err == nil && httpProxyCfg.Proxy != "" {
+		if err := httputil.SetGlobalProxy(httpProxyCfg.Proxy); err != nil {
+			slog.Warn("HTTP 代理配置无效，已忽略", "proxy", httpProxyCfg.Proxy, "error", err)
+		} else {
+			slog.Info("HTTP 代理已应用", "proxy", httpProxyCfg.Proxy)
 		}
 	}
 

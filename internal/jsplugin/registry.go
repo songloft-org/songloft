@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"songloft/internal/httputil"
 )
 
 const (
@@ -58,7 +60,7 @@ type RegistryService struct {
 // NewRegistryService 创建 RegistryService。
 func NewRegistryService() *RegistryService {
 	return &RegistryService{
-		httpClient: &http.Client{Timeout: registryFetchTimeout},
+		httpClient: httputil.NewClient(registryFetchTimeout),
 	}
 }
 

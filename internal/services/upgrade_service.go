@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"songloft/internal/httputil"
 	"songloft/internal/models"
 	"songloft/internal/version"
 )
@@ -46,9 +47,7 @@ func NewUpgradeService() *UpgradeService {
 			Status:   models.UpgradeStatusIdle,
 			Progress: 0,
 		},
-		httpClient: &http.Client{
-			Timeout: 10 * time.Minute,
-		},
+		httpClient: httputil.NewClient(10 * time.Minute),
 	}
 }
 

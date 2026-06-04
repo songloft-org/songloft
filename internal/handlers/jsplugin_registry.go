@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"songloft/internal/httputil"
 	"songloft/internal/jsplugin"
 )
 
@@ -313,7 +314,7 @@ func (h *JSPluginHandler) handleRegistryInstall(w http.ResponseWriter, r *http.R
 }
 
 func downloadZIP(ctx context.Context, url string) ([]byte, error) {
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := httputil.NewClient(60 * time.Second)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -337,4 +338,60 @@ func downloadZIP(ctx context.Context, url string) ([]byte, error) {
 		return nil, fmt.Errorf("zip file exceeds %d bytes", maxZIPSize)
 	}
 	return data, nil
+}
+
+// --- Settings: GET/PUT /api/v1/settings/http-proxy ---
+
+const httpProxyConfigKey = "http_proxy"
+
+// httpProxySetting HTTP 代理配置。
+type httpProxySetting struct {
+	Proxy string `json:"proxy"`
+}
+
+// GetHttpProxySetting 获取 HTTP 代理配置
+// @Summary 获取 HTTP 代理配置
+// @Description 获取全局 HTTP 代理地址。所有后端外发请求（插件下载、注册表拉取、升级检查等）会通过此代理转发。未配置时返回空字符串（直连）。
+// @Tags 设置
+// @Produce json
+// @Success 200 {object} httpProxySetting "代理配置"
+// @Security BearerAuth
+// @Router /settings/http-proxy [get]
+func (h *JSPluginHandler) GetHttpProxySetting(w http.ResponseWriter, r *http.Request) {
+	var cfg httpProxySetting
+	if err := h.configService.GetJSON(httpProxyConfigKey, &cfg); err != nil {
+		respondJSON(w, http.StatusOK, httpProxySetting{Proxy: ""})
+		return
+	}
+	respondJSON(w, http.StatusOK, cfg)
+}
+
+// UpdateHttpProxySetting 保存 HTTP 代理配置
+// @Summary 保存 HTTP 代理配置
+// @Description 设置全局 HTTP 代理地址（如 http://192.168.1.1:7890）。设为空字符串则关闭代理。保存后即时生效，无需重启。
+// @Tags 设置
+// @Accept json
+// @Produce json
+// @Param request body httpProxySetting true "代理配置"
+// @Success 200 {object} httpProxySetting "保存后的代理配置"
+// @Failure 400 {object} models.ErrorResponse "请求格式错误或代理地址无效"
+// @Failure 500 {object} models.ErrorResponse "保存配置失败"
+// @Security BearerAuth
+// @Router /settings/http-proxy [put]
+func (h *JSPluginHandler) UpdateHttpProxySetting(w http.ResponseWriter, r *http.Request) {
+	var req httpProxySetting
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "请求格式错误", err)
+		return
+	}
+	if err := httputil.SetGlobalProxy(req.Proxy); err != nil {
+		respondError(w, http.StatusBadRequest, "代理地址无效", err)
+		return
+	}
+	if err := h.configService.SetJSON(httpProxyConfigKey, req); err != nil {
+		respondError(w, http.StatusInternalServerError, "保存配置失败", err)
+		return
+	}
+	slog.Info("HTTP 代理已更新", "proxy", req.Proxy)
+	respondJSON(w, http.StatusOK, req)
 }

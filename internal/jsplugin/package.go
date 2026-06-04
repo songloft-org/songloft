@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"songloft/internal/httputil"
 )
 
 // UpdateInfo 远程更新信息
@@ -411,7 +413,7 @@ func (pm *PackageManager) CheckUpdate(pluginID int64, githubProxy string) (*Upda
 
 	// 请求远程更新信息（应用代理）
 	requestURL := applyProxy(updateURL, githubProxy)
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := httputil.NewClient(15 * time.Second)
 	resp, err := client.Get(requestURL)
 	if err != nil {
 		return nil, fmt.Errorf("fetch update info from %q: %w", requestURL, err)
@@ -463,7 +465,7 @@ func (pm *PackageManager) DownloadUpdate(pluginID int64, githubProxy string) (*J
 	}
 
 	// [2] 下载新 ZIP
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := httputil.NewClient(60 * time.Second)
 	resp, err := client.Get(downloadURL)
 	if err != nil {
 		return nil, fmt.Errorf("download update from %q: %w", downloadURL, err)

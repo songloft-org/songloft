@@ -3449,6 +3449,80 @@ const docTemplate = `{
                 }
             }
         },
+        "/settings/http-proxy": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取全局 HTTP 代理地址。所有后端外发请求（插件下载、注册表拉取、升级检查等）会通过此代理转发。未配置时返回空字符串（直连）。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设置"
+                ],
+                "summary": "获取 HTTP 代理配置",
+                "responses": {
+                    "200": {
+                        "description": "代理配置",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.httpProxySetting"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "设置全局 HTTP 代理地址（如 http://192.168.1.1:7890）。设为空字符串则关闭代理。保存后即时生效，无需重启。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设置"
+                ],
+                "summary": "保存 HTTP 代理配置",
+                "parameters": [
+                    {
+                        "description": "代理配置",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.httpProxySetting"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "保存后的代理配置",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.httpProxySetting"
+                        }
+                    },
+                    "400": {
+                        "description": "请求格式错误或代理地址无效",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "保存配置失败",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/settings/log-level": {
             "get": {
                 "security": [
@@ -5177,6 +5251,14 @@ const docTemplate = `{
             "properties": {
                 "enabled": {
                     "type": "boolean"
+                }
+            }
+        },
+        "handlers.httpProxySetting": {
+            "type": "object",
+            "properties": {
+                "proxy": {
+                    "type": "string"
                 }
             }
         },

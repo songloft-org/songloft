@@ -30,6 +30,11 @@ definitions:
       enabled:
         type: boolean
     type: object
+  handlers.httpProxySetting:
+    properties:
+      proxy:
+        type: string
+    type: object
   handlers.jsPluginBatchUpdateResponse:
     properties:
       failed:
@@ -3080,6 +3085,52 @@ paths:
       summary: 更新 HLS 代理开关
       tags:
       - 电台与 HLS
+  /settings/http-proxy:
+    get:
+      description: 获取全局 HTTP 代理地址。所有后端外发请求（插件下载、注册表拉取、升级检查等）会通过此代理转发。未配置时返回空字符串（直连）。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 代理配置
+          schema:
+            $ref: '#/definitions/handlers.httpProxySetting'
+      security:
+      - BearerAuth: []
+      summary: 获取 HTTP 代理配置
+      tags:
+      - 设置
+    put:
+      consumes:
+      - application/json
+      description: 设置全局 HTTP 代理地址（如 http://192.168.1.1:7890）。设为空字符串则关闭代理。保存后即时生效，无需重启。
+      parameters:
+      - description: 代理配置
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.httpProxySetting'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 保存后的代理配置
+          schema:
+            $ref: '#/definitions/handlers.httpProxySetting'
+        "400":
+          description: 请求格式错误或代理地址无效
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 保存配置失败
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 保存 HTTP 代理配置
+      tags:
+      - 设置
   /settings/log-level:
     get:
       description: 返回当前 slog 全局日志等级

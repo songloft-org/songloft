@@ -130,7 +130,7 @@ func (h *XxxHandler) Method(w http.ResponseWriter, r *http.Request) { ... }
 
 ### `/api/v1/settings/<name>` — 孤立配置端点（前端业务功能默认走这里）
 
-- 路径风格：`/settings/<kebab-case-name>`（如 `/settings/hls-proxy`、`/settings/music-path`、`/settings/auto-convert`）
+- 路径风格：`/settings/<kebab-case-name>`（如 `/settings/hls-proxy`、`/settings/music-path`、`/settings/auto-convert`、`/settings/http-proxy`）
 - 数据形态：**强类型** JSON（如 `{enabled: bool}` 或聚合对象），不是 `{value: string}`
 - 默认值：handler 内部承担（配置缺失时 GET 返回业务默认，PUT 时直接写入即可，**前端无需先 POST 创建**）
 - 副作用：在 PUT 内部直接触发（如 `music_path` PUT 完异步 `onMusicPathChanged` 重建 Scanner）
@@ -245,6 +245,17 @@ Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行
 - 安全：每次端点入口做"同源校验（scheme+host+port 与 song.URL 严格相等）"作第一道防线，`services.IsHostnameAllowed` 作 SSRF 兜底。**非同源 URL 保持原样不改写**，避免成为开放代理
 - player 跨域：改写后的 URL 全部是相对路径（`playlist?u=...` / `segment?u=...`），规避 BASE_PATH 子路径部署问题
 - 上游 4xx/5xx 透传给 player；playlist 体上限 1 MB；首行必须 `#EXTM3U`
+
+### 通用 HTTP Proxy（/settings/http-proxy）
+
+- 业务端点：`GET/PUT /api/v1/settings/http-proxy` 体 `{proxy: string}`，默认 `""`（直连）
+- 设置后所有后端外发 HTTP 请求（插件注册表拉取、插件下载/更新、系统升级检查/下载）通过指定的 HTTP 代理转发
+- 典型值：`http://192.168.1.1:7890`（支持 HTTP/HTTPS/SOCKS5 代理）
+- loopback 地址（`localhost`/`127.0.0.1`/`::1`）自动跳过代理，避免影响内部请求
+- 与 GitHub 镜像加速（`github_proxy` URL 前缀拼接）**共存**：先拼接镜像前缀再经 HTTP Proxy 转发
+- 实现：`internal/httputil/proxy.go` 提供全局 `ProxyConfig` + 共享 `*http.Transport`，`httputil.NewClient(timeout)` 创建代理感知的 client
+- 启动时从 config 表加载已保存的代理地址（`app.go`）；PUT 时即时生效无需重启
+- 当前已接入的 service：`jsplugin/registry.go`、`jsplugin/package.go`、`services/upgrade_service.go`、`handlers/jsplugin_registry.go`（downloadZIP）
 
 ### 歌单转本地（convert_service）
 

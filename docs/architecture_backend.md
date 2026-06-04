@@ -237,6 +237,12 @@ Service 层注入 `database.DB` 接口；单表写直接拿 `db.SongRepository()
 - `/api/v1/playlists/{id}/convert-to-local` - 启动歌单网络歌曲→本地歌曲转换
 - `/api/v1/playlists/{id}/convert-progress` - 查询转换进度（GET）/ 取消（POST `/cancel`）
 - `/api/v1/settings/auto-convert` - 自动转换开关（GET/PUT）
+- `/api/v1/settings/hls-proxy` - HLS 电台代理开关（GET/PUT）
+- `/api/v1/settings/http-proxy` - 通用 HTTP 代理配置（GET/PUT）
+- `/api/v1/settings/music-path` - 音乐路径与扫描排除（GET/PUT）
+- `/api/v1/settings/plugin-registries` - 插件订阅源列表（GET/PUT）
+- `/api/v1/settings/log-level` - 日志等级（GET/PUT）
+- `/api/v1/settings/scan-auto-create-include-subdirs` - 扫描自动创建歌单含子目录（GET/PUT）
 - `/api/v1/version` - 版本信息接口
 - `/api/v1/health` - 健康检查接口
 

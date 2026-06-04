@@ -1,3 +1,8 @@
+## [Unreleased]
+### :sparkles: New Features
+- 插件商店支持自定义代理输入（与插件更新/系统升级对话框一致的 RadioGroup + 自定义输入框）
+- 新增通用 HTTP 代理设置（`/settings/http-proxy`），所有后端外发请求可通过用户配置的代理转发
+
 ## [v2.5.0] - 2026-06-04
 ### :sparkles: New Features
 - [`8cd86bb`](https://github.com/songloft-org/songloft/commit/8cd86bb8657fabcc435004dc1185fb1ae8748a39) - 支持一键更新所有插件 songloft-org/songloft[#61](https://github.com/songloft-org/songloft/pull/61) *(commit by [@hanxi](https://github.com/hanxi))*
