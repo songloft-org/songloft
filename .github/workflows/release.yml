@@ -70,20 +70,31 @@ jobs:
       - name: Get previous tag
         id: prev-tag
         run: |
-          # 获取当前 tag 之前的上一个 tag
           CURRENT_TAG="${{ steps.parse.outputs.version }}"
-          
-          # 获取所有按创建时间排序的 tag，找到当前 tag 的前一个
-          PREV_TAG=$(git --no-pager tag --sort=creatordate --merged HEAD | grep '^v' | grep -v "^${CURRENT_TAG}$" | tail -1)
-          
+          HEAD_SHA=$(git rev-parse HEAD)
+
+          if [[ "$CURRENT_TAG" == "dev" ]]; then
+            # dev 构建：排除指向 HEAD 同一 commit 的 tag，防止 fromTag==toTag 导致 changelog 为空报错
+            PREV_TAG=""
+            for tag in $(git --no-pager tag --sort=-creatordate --merged HEAD | grep '^v'); do
+              TAG_SHA=$(git rev-list -n1 "$tag")
+              if [[ "$TAG_SHA" != "$HEAD_SHA" ]]; then
+                PREV_TAG="$tag"
+                break
+              fi
+            done
+          else
+            # release 构建：按名称排除当前 tag
+            PREV_TAG=$(git --no-pager tag --sort=creatordate --merged HEAD | grep '^v' | grep -v "^${CURRENT_TAG}$" | tail -1)
+          fi
+
           if [ -z "$PREV_TAG" ]; then
-            # 如果没有上一个 tag，使用第一个 commit
             PREV_TAG=$(git rev-list --max-parents=0 HEAD)
             echo "No previous tag found, using first commit: ${PREV_TAG}"
           else
             echo "Previous tag: ${PREV_TAG}"
           fi
-          
+
           echo "previous_tag=${PREV_TAG}" >> $GITHUB_OUTPUT
 
   # ============================================================
