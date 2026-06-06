@@ -454,12 +454,20 @@ globalThis.WebSocket = function(url, options) {
         resolve: function(connId) {
             self._connId = connId;
             __wsRegistry.set(connId, self);
+            if (self.readyState >= 2) {
+                __go_ws_close(connId, 1000, '');
+                self.readyState = 3;
+                __wsRegistry.delete(connId);
+                self._emit('close', { code: 1000, reason: '' });
+                return;
+            }
             self.readyState = 1;
             self._emit('open', {});
         },
         reject: function(err) {
             self.readyState = 3;
             self._emit('error', {message: err.message || String(err)});
+            self._emit('close', {code: 1006, reason: err.message || String(err)});
         }
     });
 };

@@ -353,6 +353,14 @@ func (m *JSEnvManager) ExecuteJS(ctx context.Context, envID, code string, timeou
 	vm.SetEvalTimeout(timeout)
 	slog.Debug("ExecuteJS: eval start", "envID", envID, "codeLen", len(code))
 
+	// 在 eval 前排空异步结果通道：WebSocket 读循环 goroutine 不计入 asyncInflight，
+	// 如果不在此处 pump，后续 quick path 会跳过事件分发，导致 WebSocket 回调永远不触发。
+	if len(env.asyncResults) > 0 {
+		if pumped := pumpAsyncResults(vm); pumped > 0 {
+			ExecutePendingJobs(vm)
+		}
+	}
+
 	val, evalErr := vm.EvalValue(code, quickjs.EvalGlobal)
 	ExecutePendingJobs(vm)
 
