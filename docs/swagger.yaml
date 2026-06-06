@@ -966,7 +966,7 @@ info:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
   title: Songloft API
-  version: 2.6.1
+  version: 2.6.2
 paths:
   /api/v1/songs/{id}/tags:
     put:
