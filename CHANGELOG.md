@@ -1,3 +1,18 @@
+## [v2.6.4] - 2026-06-07
+### :sparkles: New Features
+- [`27aeb03`](https://github.com/songloft-org/songloft/commit/27aeb035197f23454c3d6f39772dd6d13edf8871) - **jsplugin**: 支持插件强制更新（跳过版本检查） *(commit by [@hanxi](https://github.com/hanxi))*
+- [`0cce183`](https://github.com/songloft-org/songloft/commit/0cce183868bdd5a916e4ed0f1a94db767f6af57b) - **fingerprint**: 支持重新计算全部音频指纹 *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :bug: Bug Fixes
+- [`d617b20`](https://github.com/songloft-org/songloft/commit/d617b20efacc85d6d7c3abd09eedc80cc0e04b05) - 修复 WAV/APE 标签及文件名的中文编码乱码问题 *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :memo: Documentation Changes
+- [`f63c93a`](https://github.com/songloft-org/songloft/commit/f63c93aa6ad8a3765eada72f6d6d31baa0d414b0) - update CHANGELOG for v2.6.3 *(commit by [@github-actions[bot]](https://github.com/apps/github-actions))*
+
+### :wrench: Chores
+- [`cd1a65f`](https://github.com/songloft-org/songloft/commit/cd1a65f5fef294d4f2648a4428bbf5d6b6485715) - release version 2.6.4 *(commit by [@hanxi](https://github.com/hanxi))*
+
+
 ## [v2.6.3] - 2026-06-07
 ### :sparkles: New Features
 - [`5dbbff9`](https://github.com/songloft-org/songloft/commit/5dbbff9f8833b0d44c0fe4989f9d56cbc7a5401d) - 用 ffmpeg chromaprint 替代 fpcalc，扫描后自动计算指纹 *(commit by [@hanxi](https://github.com/hanxi))*
@@ -1155,3 +1170,4 @@
 [v2.6.0]: https://github.com/songloft-org/songloft/compare/v2.5.1...v2.6.0
 [v2.6.2]: https://github.com/songloft-org/songloft/compare/v2.6.1...v2.6.2
 [v2.6.3]: https://github.com/songloft-org/songloft/compare/v2.6.2...v2.6.3
+[v2.6.4]: https://github.com/songloft-org/songloft/compare/v2.6.3...v2.6.4
