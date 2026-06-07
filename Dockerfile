@@ -1,8 +1,6 @@
 # syntax=docker/dockerfile:1
 # 启用 BuildKit 高级特性，支持缓存挂载
-
 FROM golang:1.26-alpine AS go-builder
-
 WORKDIR /app
 
 RUN apk add --no-cache gcc musl-dev make upx git || \
@@ -21,9 +19,11 @@ ENV GOPROXY=${GOPROXY}
 
 # 先复制 go.mod 和 go.sum，利用 Docker 层缓存加速依赖下载
 COPY go.mod go.sum ./
+
 # 创建目录并复制子模块的 go.mod/go.sum
 RUN mkdir -p pkg/tag
 COPY pkg/tag/go.mod pkg/tag/go.sum ./pkg/tag/
+
 # 仅下载依赖，此层会被缓存（除非 go.mod/go.sum 变化）
 RUN go mod download && go mod verify
 
@@ -47,11 +47,18 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates tzdata
+# 增加 ALSA 用户态运行时，解决容器内 MPD 打开 ALSA 设备时报
+# "No such file or directory" 的问题
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata \
+    alsa-lib \
+    alsa-plugins \
+    alsa-utils \
+    alsa-ucm-conf
 
 # 设置默认时区为东八区
 ENV TZ=Asia/Shanghai
-
 WORKDIR /app
 
 COPY --from=hanxi/ffmpeg /ffmpeg /bin/ffmpeg
@@ -75,6 +82,5 @@ ENV ADMIN_PASSWORD=admin
 ENV IN_DOCKER=true
 
 VOLUME ["/app/music", "/app/data"]
-
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD []
