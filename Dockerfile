@@ -21,11 +21,9 @@ ENV GOPROXY=${GOPROXY}
 
 # 先复制 go.mod 和 go.sum，利用 Docker 层缓存加速依赖下载
 COPY go.mod go.sum ./
-
 # 创建目录并复制子模块的 go.mod/go.sum
 RUN mkdir -p pkg/tag
 COPY pkg/tag/go.mod pkg/tag/go.sum ./pkg/tag/
-
 # 仅下载依赖，此层会被缓存（除非 go.mod/go.sum 变化）
 RUN go mod download && go mod verify
 
