@@ -47,7 +47,15 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates tzdata
+# 增加 ALSA 用户态运行时，解决容器内 MPD 打开 ALSA 设备时报
+# "No such file or directory" 的问题
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata \
+    alsa-lib \
+    alsa-plugins \
+    alsa-utils \
+    alsa-ucm-conf
 
 # 设置默认时区为东八区
 ENV TZ=Asia/Shanghai
