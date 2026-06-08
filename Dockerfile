@@ -59,6 +59,7 @@ RUN apk add --no-cache \
 
 # 设置默认时区为东八区
 ENV TZ=Asia/Shanghai
+
 WORKDIR /app
 
 COPY --from=hanxi/ffmpeg /ffmpeg /bin/ffmpeg
@@ -82,5 +83,6 @@ ENV ADMIN_PASSWORD=admin
 ENV IN_DOCKER=true
 
 VOLUME ["/app/music", "/app/data"]
+
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD []
