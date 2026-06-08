@@ -2,6 +2,7 @@
 # 启用 BuildKit 高级特性，支持缓存挂载
 
 FROM golang:1.26-alpine AS go-builder
+
 WORKDIR /app
 
 RUN apk add --no-cache gcc musl-dev make upx git || \
