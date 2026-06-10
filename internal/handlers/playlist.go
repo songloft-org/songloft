@@ -651,7 +651,7 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 
 	// 优先使用本地封面
 	if playlist.CoverPath != "" {
-		h.serveLocalCover(w, playlist)
+		h.serveLocalCover(w, playlist.CoverPath)
 		return
 	}
 
@@ -661,17 +661,14 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// fallback: get cover from first song with valid local CoverPath (issue #147)
-	songs, err := h.playlistService.GetSongs(r.Context(), id, 20, 0)
+	// 回退：取歌单内第一首有本地封面的歌曲
+	const coverFallbackLimit = 20
+	songs, err := h.playlistService.GetSongs(r.Context(), id, coverFallbackLimit, 0)
 	if err == nil {
 		for _, s := range songs {
 			if s.CoverPath != "" {
-				if _, e := os.Stat(s.CoverPath); e == nil {
-					// Format a fake playlist to reuse serveLocalCover
-					fakePl := &models.Playlist{CoverPath: s.CoverPath}
-					h.serveLocalCover(w, fakePl)
-					return
-				}
+				h.serveLocalCover(w, s.CoverPath)
+				return
 			}
 		}
 	}
@@ -680,10 +677,7 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 }
 
 // serveLocalCover 返回本地封面文件
-func (h *PlaylistHandler) serveLocalCover(w http.ResponseWriter, playlist *models.Playlist) {
-	coverPath := playlist.CoverPath
-
-	// 检查封面文件是否存在
+func (h *PlaylistHandler) serveLocalCover(w http.ResponseWriter, coverPath string) {
 	if _, err := os.Stat(coverPath); os.IsNotExist(err) {
 		respondError(w, http.StatusNotFound, "封面文件不存在", err)
 		return
