@@ -1123,10 +1123,17 @@ func (h *SongHandler) WriteTags(w http.ResponseWriter, r *http.Request) {
 	} else if req.CoverURL != "" {
 		if coverPath, err := h.songService.DownloadCover(ctx, req.CoverURL); err != nil {
 			slog.Warn("download cover failed", "url", req.CoverURL, "error", err)
+			// download failed: clear old CoverPath/CoverURL to prevent stale damaged cover
+			song.CoverPath = ""
+			song.CoverURL = ""
 		} else {
 			song.CoverPath = coverPath
 			song.CoverURL = req.CoverURL
 		}
+	} else {
+		// cover_data and cover_url both empty: clear old CoverPath/CoverURL (issue #145)
+		song.CoverPath = ""
+		song.CoverURL = ""
 	}
 
 	if err := h.songService.Update(ctx, song); err != nil {

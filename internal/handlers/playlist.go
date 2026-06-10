@@ -661,6 +661,21 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// fallback: get cover from first song with valid local CoverPath (issue #147)
+	songs, err := h.playlistService.GetSongs(r.Context(), id, 20, 0)
+	if err == nil {
+		for _, s := range songs {
+			if s.CoverPath != "" {
+				if _, e := os.Stat(s.CoverPath); e == nil {
+					// Format a fake playlist to reuse serveLocalCover
+					fakePl := &models.Playlist{CoverPath: s.CoverPath}
+					h.serveLocalCover(w, fakePl)
+					return
+				}
+			}
+		}
+	}
+
 	respondError(w, http.StatusNotFound, "封面不存在", nil)
 }
 
