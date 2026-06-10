@@ -238,7 +238,7 @@ func (h *SongHandler) DeleteSong(w http.ResponseWriter, r *http.Request) {
 
 // BatchDeleteSongs 批量删除歌曲
 // @Summary 批量删除歌曲
-// @Description 根据歌曲 ID 列表批量删除歌曲
+// @Description 根据歌曲 ID 列表批量删除歌曲。设置 delete_files=true 时同步删除本地音频文件（用于去重等场景）
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
@@ -262,7 +262,7 @@ func (h *SongHandler) BatchDeleteSongs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deleted, err := h.songService.BatchDelete(ctx, req.IDs)
+	deleted, err := h.songService.BatchDelete(ctx, req.IDs, req.DeleteFiles)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "批量删除歌曲失败", err)
 		return
@@ -605,7 +605,7 @@ func (h *SongHandler) CleanInvalidSongs(w http.ResponseWriter, r *http.Request) 
 //     字段:lyric / tlyric / rlyric / lxlyric。
 //
 // @Summary 更新歌曲歌词
-// @Description 更新指定歌曲的歌词内容和来源。url 来源传 lyric_remote_url,其它来源传 lyric/tlyric/rlyric/lxlyric 四字段。响应里的 file_write_status 表示是否把元数据回写到本地音频文件:written=已写入,unchanged=未变更(非本地歌曲/无文件路径/不支持的扩展名/url 来源),failed=尝试写入但失败(DB 已成功)。lyric_source=manual 用于标记用户手动调整,scanner 重扫时不会覆盖
+// @Description 更新指定歌曲的歌词内容和来源。url 来源传 lyric_remote_url,其它来源传 lyric/tlyric/rlyric/lxlyric 四字段。响应里的 file_write_status 表示是否把元数据回写到本地音频文件:written=已写入,unchanged=未变更(非本地歌曲/无文件路径/不支持的扩展名/url 来源),skipped=标签已一致无需写入,failed=尝试写入但失败(DB 已成功)。lyric_source=manual 用于标记用户手动调整,scanner 重扫时不会覆盖
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
@@ -1123,10 +1123,17 @@ func (h *SongHandler) WriteTags(w http.ResponseWriter, r *http.Request) {
 	} else if req.CoverURL != "" {
 		if coverPath, err := h.songService.DownloadCover(ctx, req.CoverURL); err != nil {
 			slog.Warn("download cover failed", "url", req.CoverURL, "error", err)
+			// download failed: clear old CoverPath/CoverURL to prevent stale damaged cover
+			song.CoverPath = ""
+			song.CoverURL = ""
 		} else {
 			song.CoverPath = coverPath
 			song.CoverURL = req.CoverURL
 		}
+	} else {
+		// cover_data and cover_url both empty: clear old CoverPath/CoverURL (issue #145)
+		song.CoverPath = ""
+		song.CoverURL = ""
 	}
 
 	if err := h.songService.Update(ctx, song); err != nil {
