@@ -651,7 +651,7 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 
 	// 优先使用本地封面
 	if playlist.CoverPath != "" {
-		h.serveLocalCover(w, playlist.CoverPath)
+		h.serveLocalCover(w, playlist)
 		return
 	}
 
@@ -667,7 +667,7 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 	if err == nil {
 		for _, s := range songs {
 			if s.CoverPath != "" {
-				h.serveLocalCover(w, s.CoverPath)
+				h.serveLocalCover(w, &models.Playlist{CoverPath: s.CoverPath})
 				return
 			}
 		}
@@ -677,7 +677,8 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 }
 
 // serveLocalCover 返回本地封面文件
-func (h *PlaylistHandler) serveLocalCover(w http.ResponseWriter, coverPath string) {
+func (h *PlaylistHandler) serveLocalCover(w http.ResponseWriter, playlist *models.Playlist) {
+	coverPath := playlist.CoverPath
 	if _, err := os.Stat(coverPath); os.IsNotExist(err) {
 		respondError(w, http.StatusNotFound, "封面文件不存在", err)
 		return
