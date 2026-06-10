@@ -1037,19 +1037,20 @@ func (h *SongHandler) GetSongLyric(w http.ResponseWriter, r *http.Request) {
 
 // WriteSongTagsRequest 写入歌曲标签的请求体。
 type WriteSongTagsRequest struct {
-	Title     string `json:"title"`
-	Artist    string `json:"artist"`
-	Album     string `json:"album"`
-	Year      int    `json:"year"`
-	Genre     string `json:"genre"`
-	Lyrics    string `json:"lyrics"`
-	CoverData string `json:"cover_data"`
-	CoverURL  string `json:"cover_url"`
+	Title      string `json:"title"`
+	Artist     string `json:"artist"`
+	Album      string `json:"album"`
+	Year       int    `json:"year"`
+	Genre      string `json:"genre"`
+	Lyrics     string `json:"lyrics"`
+	CoverData  string `json:"cover_data"`
+	CoverURL   string `json:"cover_url"`
+	ClearCover bool   `json:"clear_cover"`
 }
 
 // WriteTags 写入歌曲标签
 // @Summary 写入歌曲标签
-// @Description 将元数据写入数据库和本地音频文件标签（仅本地歌曲）。cover_data(base64) 优先于 cover_url。非空字段覆盖，空值保留原值。
+// @Description 将元数据写入数据库和本地音频文件标签（仅本地歌曲）。cover_data(base64) 优先于 cover_url。非空字段覆盖，空值保留原值。设置 clear_cover=true 可显式清空封面。
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
@@ -1117,21 +1118,21 @@ func (h *SongHandler) WriteTags(w http.ResponseWriter, r *http.Request) {
 		}
 		if coverPath, err := h.songService.SaveCoverFromData(data, ext); err != nil {
 			slog.Warn("save cover from data failed", "error", err)
+			song.CoverPath = ""
+			song.CoverURL = ""
 		} else {
 			song.CoverPath = coverPath
 		}
 	} else if req.CoverURL != "" {
 		if coverPath, err := h.songService.DownloadCover(ctx, req.CoverURL); err != nil {
 			slog.Warn("download cover failed", "url", req.CoverURL, "error", err)
-			// download failed: clear old CoverPath/CoverURL to prevent stale damaged cover
 			song.CoverPath = ""
 			song.CoverURL = ""
 		} else {
 			song.CoverPath = coverPath
 			song.CoverURL = req.CoverURL
 		}
-	} else {
-		// cover_data and cover_url both empty: clear old CoverPath/CoverURL (issue #145)
+	} else if req.ClearCover {
 		song.CoverPath = ""
 		song.CoverURL = ""
 	}

@@ -32,25 +32,6 @@ definitions:
       reimport:
         type: boolean
     type: object
-  handlers.WriteSongTagsRequest:
-    properties:
-      album:
-        type: string
-      artist:
-        type: string
-      cover_data:
-        type: string
-      cover_url:
-        type: string
-      genre:
-        type: string
-      lyrics:
-        type: string
-      title:
-        type: string
-      year:
-        type: integer
-    type: object
   handlers.hlsProxySettingRequest:
     properties:
       enabled:
@@ -917,6 +898,46 @@ definitions:
     - ScanStatusFailed
     - ScanStatusCancelling
     - ScanStatusCancelled
+  songloft_internal_handlers.WriteSongTagsRequest:
+    properties:
+      album:
+        type: string
+      artist:
+        type: string
+      clear_cover:
+        type: boolean
+      cover_data:
+        type: string
+      cover_url:
+        type: string
+      genre:
+        type: string
+      lyrics:
+        type: string
+      title:
+        type: string
+      year:
+        type: integer
+    type: object
+  songloft_jsplugins-src_songloft-plugin-tag_internal_handlers.WriteSongTagsRequest:
+    properties:
+      album:
+        type: string
+      artist:
+        type: string
+      cover_data:
+        type: string
+      cover_url:
+        type: string
+      genre:
+        type: string
+      lyrics:
+        type: string
+      title:
+        type: string
+      year:
+        type: integer
+    type: object
   source.HealthClass:
     enum:
     - green
@@ -1044,7 +1065,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.WriteSongTagsRequest'
+          $ref: '#/definitions/songloft_jsplugins-src_songloft-plugin-tag_internal_handlers.WriteSongTagsRequest'
       produces:
       - application/json
       responses:

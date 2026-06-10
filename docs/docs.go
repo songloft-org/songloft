@@ -144,7 +144,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.WriteSongTagsRequest"
+                            "$ref": "#/definitions/songloft_jsplugins-src_songloft-plugin-tag_internal_handlers.WriteSongTagsRequest"
                         }
                     }
                 ],
@@ -6068,35 +6068,6 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.WriteSongTagsRequest": {
-            "type": "object",
-            "properties": {
-                "album": {
-                    "type": "string"
-                },
-                "artist": {
-                    "type": "string"
-                },
-                "cover_data": {
-                    "type": "string"
-                },
-                "cover_url": {
-                    "type": "string"
-                },
-                "genre": {
-                    "type": "string"
-                },
-                "lyrics": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "year": {
-                    "type": "integer"
-                }
-            }
-        },
         "handlers.hlsProxySettingRequest": {
             "type": "object",
             "properties": {
@@ -7304,6 +7275,67 @@ const docTemplate = `{
                 "ScanStatusCancelling",
                 "ScanStatusCancelled"
             ]
+        },
+        "songloft_internal_handlers.WriteSongTagsRequest": {
+            "type": "object",
+            "properties": {
+                "album": {
+                    "type": "string"
+                },
+                "artist": {
+                    "type": "string"
+                },
+                "clear_cover": {
+                    "type": "boolean"
+                },
+                "cover_data": {
+                    "type": "string"
+                },
+                "cover_url": {
+                    "type": "string"
+                },
+                "genre": {
+                    "type": "string"
+                },
+                "lyrics": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "songloft_jsplugins-src_songloft-plugin-tag_internal_handlers.WriteSongTagsRequest": {
+            "type": "object",
+            "properties": {
+                "album": {
+                    "type": "string"
+                },
+                "artist": {
+                    "type": "string"
+                },
+                "cover_data": {
+                    "type": "string"
+                },
+                "cover_url": {
+                    "type": "string"
+                },
+                "genre": {
+                    "type": "string"
+                },
+                "lyrics": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
         },
         "source.HealthClass": {
             "type": "string",
