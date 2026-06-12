@@ -198,10 +198,19 @@ func (h *JSPluginHandler) handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 覆盖更新成功后，若原插件处于活跃状态，热重载使变更立即生效
-	if wasUpdate && plugin.Status == jsplugin.JSPluginStatusActive && h.manager != nil {
-		if reloadErr := h.manager.ReloadPlugin(r.Context(), plugin.EntryPath); reloadErr != nil {
-			slog.Warn("reload plugin after upload-update failed", "entryPath", plugin.EntryPath, "error", reloadErr)
+	if h.manager != nil {
+		if wasUpdate && plugin.Status == jsplugin.JSPluginStatusActive {
+			// 覆盖更新成功后，若原插件处于活跃状态，热重载使变更立即生效
+			if reloadErr := h.manager.ReloadPlugin(r.Context(), plugin.EntryPath); reloadErr != nil {
+				slog.Warn("reload plugin after upload-update failed", "entryPath", plugin.EntryPath, "error", reloadErr)
+			}
+		} else if !wasUpdate {
+			// 新安装的插件默认启用
+			if enableErr := h.manager.EnablePlugin(r.Context(), plugin.ID); enableErr != nil {
+				slog.Warn("auto-enable plugin after install failed", "entryPath", plugin.EntryPath, "error", enableErr)
+			} else {
+				plugin.Status = jsplugin.JSPluginStatusActive
+			}
 		}
 	}
 

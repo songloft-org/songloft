@@ -282,9 +282,17 @@ func (h *JSPluginHandler) handleRegistryInstall(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if wasUpdate && plugin.Status == jsplugin.JSPluginStatusActive && h.manager != nil {
-		if reloadErr := h.manager.ReloadPlugin(r.Context(), plugin.EntryPath); reloadErr != nil {
-			slog.Warn("reload plugin after registry install failed", "entryPath", plugin.EntryPath, "error", reloadErr)
+	if h.manager != nil {
+		if wasUpdate && plugin.Status == jsplugin.JSPluginStatusActive {
+			if reloadErr := h.manager.ReloadPlugin(r.Context(), plugin.EntryPath); reloadErr != nil {
+				slog.Warn("reload plugin after registry install failed", "entryPath", plugin.EntryPath, "error", reloadErr)
+			}
+		} else if !wasUpdate {
+			if enableErr := h.manager.EnablePlugin(r.Context(), plugin.ID); enableErr != nil {
+				slog.Warn("auto-enable plugin after registry install failed", "entryPath", plugin.EntryPath, "error", enableErr)
+			} else {
+				plugin.Status = jsplugin.JSPluginStatusActive
+			}
 		}
 	}
 

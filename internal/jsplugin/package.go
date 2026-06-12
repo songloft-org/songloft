@@ -134,7 +134,7 @@ func (pm *PackageManager) InstallFromUpload(zipData []byte) (*JSPlugin, bool, er
 		Icon:           manifest.Icon,
 		UpdateURL:      manifest.UpdateURL,
 		DownloadURL:    manifest.DownloadURL,
-		Status:         JSPluginStatusInactive,
+		Status:         JSPluginStatusActive,
 		ZipHash:        zipHash,
 		EntryHash:      entryHash,
 		FileModTime:    fileModTime,

@@ -515,8 +515,8 @@ func TestPackageManager_InstallFromUpload(t *testing.T) {
 	if plugin.EntryPath != "test-upload" {
 		t.Errorf("expected entryPath 'test-upload', got %q", plugin.EntryPath)
 	}
-	if plugin.Status != JSPluginStatusInactive {
-		t.Errorf("expected status inactive after install, got %s", plugin.Status)
+	if plugin.Status != JSPluginStatusActive {
+		t.Errorf("expected status active after install, got %s", plugin.Status)
 	}
 	if plugin.ZipHash == "" {
 		t.Error("expected ZipHash to be computed")
