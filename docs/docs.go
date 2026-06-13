@@ -5498,7 +5498,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "客户端播放完一首歌后调用此端点，后端将事件广播给已订阅播放事件的 JS 插件（通过 songloft.events.onPlayEvent 注册）。",
+                "description": "客户端播放完一首歌后调用此端点，后端将事件广播给已订阅播放事件的 JS 插件（通过 songloft.events.onPlayEvent 注册）。source 参数标识调用来源，如 songloft-player（官方客户端）、miot（小爱音箱插件）等。",
                 "produces": [
                     "application/json"
                 ],
@@ -5513,6 +5513,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "调用来源标识，如 songloft-player、miot",
+                        "name": "source",
+                        "in": "query"
                     }
                 ],
                 "responses": {

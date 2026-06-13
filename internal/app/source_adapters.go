@@ -102,12 +102,12 @@ type playEventBroadcastAdapter struct {
 	m *jsplugin.Manager
 }
 
-func (a *playEventBroadcastAdapter) BroadcastPlayEvent(songID int64, title, artist, eventType string) {
+func (a *playEventBroadcastAdapter) BroadcastPlayEvent(songID int64, title, artist, eventType, source string) {
 	a.m.BroadcastPlayEvent(&jsplugin.PlayEventSong{
 		ID:     songID,
 		Title:  title,
 		Artist: artist,
-	}, eventType)
+	}, eventType, source)
 }
 
 // playActivityReassignTracker 把 playactivity.Registry 适配到 source.ReassignTracker，

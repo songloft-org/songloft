@@ -64,6 +64,7 @@ type HTTPResponseData struct {
 type PlayEventData struct {
 	Type      string        `json:"type"`
 	Song      PlayEventSong `json:"song"`
+	Source    string        `json:"source"`
 	Timestamp int64         `json:"timestamp"`
 }
 

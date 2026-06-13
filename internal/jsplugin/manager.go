@@ -460,10 +460,11 @@ func (m *Manager) UnregisterPlayEvent(entryPath string) {
 }
 
 // BroadcastPlayEvent 向所有已订阅的插件异步发送播放事件
-func (m *Manager) BroadcastPlayEvent(song *PlayEventSong, eventType string) {
+func (m *Manager) BroadcastPlayEvent(song *PlayEventSong, eventType, source string) {
 	eventData := &PlayEventData{
 		Type:      eventType,
 		Song:      *song,
+		Source:    source,
 		Timestamp: time.Now().UnixMilli(),
 	}
 

@@ -26,7 +26,7 @@ import (
 
 // PlayEventBroadcaster 向 JS 插件广播播放事件
 type PlayEventBroadcaster interface {
-	BroadcastPlayEvent(songID int64, title, artist, eventType string)
+	BroadcastPlayEvent(songID int64, title, artist, eventType, source string)
 }
 
 // SongHandler 歌曲处理器
@@ -1307,10 +1307,11 @@ func (h *SongHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 
 // SongPlayed 通知歌曲播放完成
 // @Summary 通知歌曲播放完成
-// @Description 客户端播放完一首歌后调用此端点，后端将事件广播给已订阅播放事件的 JS 插件（通过 songloft.events.onPlayEvent 注册）。
+// @Description 客户端播放完一首歌后调用此端点，后端将事件广播给已订阅播放事件的 JS 插件（通过 songloft.events.onPlayEvent 注册）。source 参数标识调用来源，如 songloft-player（官方客户端）、miot（小爱音箱插件）等。
 // @Tags 歌曲管理
 // @Produce json
 // @Param id path int true "歌曲 ID"
+// @Param source query string false "调用来源标识，如 songloft-player、miot"
 // @Success 204 "无内容"
 // @Failure 400 {object} models.ErrorResponse "无效的歌曲 ID"
 // @Failure 404 {object} models.ErrorResponse "歌曲不存在"
@@ -1331,7 +1332,8 @@ func (h *SongHandler) SongPlayed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.playBroadcaster != nil {
-		go h.playBroadcaster.BroadcastPlayEvent(song.ID, song.Title, song.Artist, "finish")
+		source := r.URL.Query().Get("source")
+		go h.playBroadcaster.BroadcastPlayEvent(song.ID, song.Title, song.Artist, "finish", source)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

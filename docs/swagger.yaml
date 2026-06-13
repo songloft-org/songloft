@@ -4250,13 +4250,17 @@ paths:
   /songs/{id}/played:
     post:
       description: 客户端播放完一首歌后调用此端点，后端将事件广播给已订阅播放事件的 JS 插件（通过 songloft.events.onPlayEvent
-        注册）。
+        注册）。source 参数标识调用来源，如 songloft-player（官方客户端）、miot（小爱音箱插件）等。
       parameters:
       - description: 歌曲 ID
         in: path
         name: id
         required: true
         type: integer
+      - description: 调用来源标识，如 songloft-player、miot
+        in: query
+        name: source
+        type: string
       produces:
       - application/json
       responses:
