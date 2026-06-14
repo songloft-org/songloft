@@ -233,9 +233,19 @@ Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行
 
 ### tag 写入（pkg/tag）
 
-- `tag.WriteTag(filePath, opts)` 按扩展名 dispatch：MP3 → ID3v2.3，FLAC → Vorbis Comment + PICTURE
-- M4A/OGG 暂未实现 → 返回 `ErrUnsupportedWrite`，调用方**必须**降级为日志，**不要**阻塞主流程
-- 写入用临时文件 + `os.Rename`，原子化
+- `tag.WriteTag(filePath, opts)` 按扩展名 dispatch，所有格式均使用临时文件 + `os.Rename` 原子写入
+- 支持矩阵：
+
+| 格式 | 文本字段 | 歌词 | 封面 |
+|------|---------|------|------|
+| MP3 | ID3v2.3 text frames | USLT | APIC |
+| FLAC | Vorbis Comment | LYRICS | PICTURE block |
+| M4A/MP4/M4B | iTunes atoms (©nam 等) | ©lyr | covr |
+| OGG/Opus | Vorbis Comment | LYRICS | METADATA_BLOCK_PICTURE (base64) |
+| APE | APEv2 text items | Lyrics | Cover Art (Front) (binary item) |
+| WAV | RIFF LIST INFO | ICMT | **不支持**（格式限制） |
+
+- 不支持的格式 → 返回 `ErrUnsupportedWrite`，调用方**必须**降级为日志，**不要**阻塞主流程
 
 ### HLS 电台代理模式（/settings/hls-proxy）
 
@@ -276,7 +286,8 @@ Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行
 
 - 将用户自有网络存储（WebDAV/Subsonic 等）中的歌曲下载到服务端本地 `music_path`，转为 `local` 类型
 - **仅适用于用户自有的本地网络资源**，不支持第三方音乐平台歌曲下载（版权规避）
-- 核心服务 `SongDownloader.Download`：获取音频（缓存命中直接 copy，否则同步下载）→ 路径模板渲染 → 可选元数据嵌入（MP3/FLAC）→ 更新 DB（type=local）
+- 核心服务 `SongDownloader.Download`：获取音频（缓存命中直接 copy，否则同步下载）→ 路径模板渲染 → 可选元数据嵌入（所有支持的格式）→ 更新 DB（type=local）
+- **URL 歌词自动拉取**：`embed_metadata=true` 且 `lyric_source=url` 时，通过 `LyricFetcher` 拉取歌词 → 主歌词写入文件标签 → 完整 payload（含翻译/罗马音）缓存到 DB → `lyric_source` 更新为 `embedded`。拉取失败仅 warn 不阻塞下载
 - 通过 Bridge API `songs.download` 暴露给 JS 插件，权限映射到 `PermSongsWrite`
 - 完整插件 `songloft-plugin-downloader`（独立仓库 `songloft-org/songloft-plugin-downloader`）：UI 页面 + 设置（路径模板、元数据开关）+ 批量下载 + 进度跟踪
 
