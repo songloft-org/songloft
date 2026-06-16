@@ -991,7 +991,7 @@ info:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
   title: Songloft API
-  version: 2.8.4
+  version: 2.8.5
 paths:
   /api/v1/jsplugin-assets/{path}:
     get:
