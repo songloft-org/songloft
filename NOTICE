@@ -44,6 +44,7 @@ module for the full license text.
   - modernc.org/libc                       (BSD-3-Clause)
   - modernc.org/quickjs                    (BSD-3-Clause)
   - modernc.org/libquickjs                 (BSD-3-Clause)
+  - github.com/gorilla/websocket             (BSD-2-Clause)
   - github.com/hanxi/tracely/sdk/go/tracely (MIT)
 
 --------------------------------------------------------------------------------
@@ -76,6 +77,23 @@ under LGPL section 4 / GPL section 3.
 The plugin SDK and builder bundle a number of TypeScript / Node.js
 libraries under MIT / BSD / Apache-2.0. See that repository's
 package.json and LICENSE files for details.
+
+--------------------------------------------------------------------------------
+7. Embedded Fonts  (internal/jsplugin/assets/fonts/)
+--------------------------------------------------------------------------------
+The following Google fonts are embedded in the Go binary for JS plugin
+pages:
+
+  Roboto (weights 400, 500, 700)
+    License: Apache License 2.0
+    Copyright 2011 Google Inc. All Rights Reserved.
+    Designer: Christian Robertson
+
+  Material Symbols Outlined
+    License: Apache License 2.0
+    Copyright 2016-2024 Google LLC
+
+See internal/jsplugin/assets/fonts/LICENSE for the full license text.
 
 ================================================================================
 TRADEMARK NOTICE

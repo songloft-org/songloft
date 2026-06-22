@@ -711,7 +711,7 @@ type RemoteSongInput struct {
 	Album           string
 	CoverURL        string
 	Duration        float64
-	PluginEntryPath string // 插件 entryPath(如 "lxmusic");纯外链留空
+	PluginEntryPath string // 插件 entryPath(如 "subsonic");纯外链留空
 	SourceData      string // 插件音源元数据(JSON 字符串,opaque)
 	DedupKey        string // 去重 key(由插件定义,典型形态 "<platform>:<platform_id>");空时不去重
 	Lyric           string // 歌词内容或歌词获取 URL

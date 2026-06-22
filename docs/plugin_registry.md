@@ -78,7 +78,7 @@
   ],
   "plugins": [
     "https://raw.githubusercontent.com/songloft-org/songloft-plugin-miot/main/plugin.json",
-    "https://raw.githubusercontent.com/songloft-org/songloft-plugin-lxmusic/main/plugin.json"
+    "https://raw.githubusercontent.com/songloft-org/songloft-plugin-subsonic/main/plugin.json"
   ]
 }
 ```

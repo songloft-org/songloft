@@ -1278,9 +1278,9 @@ func TestUpsertRemoteSongDedup(t *testing.T) {
 		Album:           "叶惠美",
 		CoverURL:        "https://example.com/cover-old.jpg",
 		Duration:        269,
-		PluginEntryPath: "lxmusic",
-		SourceData:      `{"platform":"qq","quality":"128k","songInfo":{"songmid":"abc"}}`,
-		DedupKey:        "qq:abc",
+		PluginEntryPath: "subsonic",
+		SourceData:      `{"serverId":"nas1","songId":"abc"}`,
+		DedupKey:        "nas1:abc",
 	}
 	if err := db.SongRepository().UpsertRemote(ctx, first); err != nil {
 		t.Fatalf("first UpsertRemoteSong error: %v", err)
@@ -1298,9 +1298,9 @@ func TestUpsertRemoteSongDedup(t *testing.T) {
 		Album:           "叶惠美 2024",
 		CoverURL:        "https://example.com/cover-new.jpg",
 		Duration:        270,
-		PluginEntryPath: "lxmusic",
-		SourceData:      `{"platform":"qq","quality":"320k","songInfo":{"songmid":"abc"}}`, // quality 变了
-		DedupKey:        "qq:abc",
+		PluginEntryPath: "subsonic",
+		SourceData:      `{"serverId":"nas1","songId":"abc","quality":"high"}`, // quality 变了
+		DedupKey:        "nas1:abc",
 	}
 	if err := db.SongRepository().UpsertRemote(ctx, second); err != nil {
 		t.Fatalf("second UpsertRemoteSong error: %v", err)
@@ -1328,9 +1328,9 @@ func TestUpsertRemoteSongDedup(t *testing.T) {
 		Type:            models.TypeRemote,
 		Title:           "稻香",
 		Artist:          "周杰伦",
-		PluginEntryPath: "lxmusic",
-		SourceData:      `{"platform":"qq","quality":"128k","songInfo":{"songmid":"xyz"}}`,
-		DedupKey:        "qq:xyz",
+		PluginEntryPath: "subsonic",
+		SourceData:      `{"serverId":"nas1","songId":"xyz"}`,
+		DedupKey:        "nas1:xyz",
 	}
 	if err := db.SongRepository().UpsertRemote(ctx, other); err != nil {
 		t.Fatalf("other UpsertRemoteSong error: %v", err)

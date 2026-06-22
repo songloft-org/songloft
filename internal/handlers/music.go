@@ -451,7 +451,7 @@ func (h *SongHandler) AddRemoteSongs(w http.ResponseWriter, r *http.Request) {
 		Album           string  `json:"album"`
 		CoverURL        string  `json:"cover_url"`
 		Duration        float64 `json:"duration"`
-		PluginEntryPath string  `json:"plugin_entry_path"` // 音源插件 entryPath(如 "lxmusic");纯外链留空
+		PluginEntryPath string  `json:"plugin_entry_path"` // 音源插件 entryPath(如 "subsonic");纯外链留空
 		SourceData      string  `json:"source_data"`       // 音源元数据 JSON(opaque);纯外链留空
 		DedupKey        string  `json:"dedup_key"`         // 去重 key(由插件定义);空时不去重直接 INSERT
 		Lyric           string  `json:"lyric"`

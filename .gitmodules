@@ -7,9 +7,6 @@
 [submodule "plugin-toolchain"]
 	path = plugin-toolchain
 	url = https://github.com/songloft-org/plugin-toolchain.git
-[submodule "jsplugins-src/jsplugin-musicsdk"]
-	path = jsplugins-src/jsplugin-musicsdk
-	url = https://github.com/songloft-org/jsplugin-musicsdk.git
 [submodule "jsplugins-src/songloft-plugin-miot"]
 	path = jsplugins-src/songloft-plugin-miot
 	url = https://github.com/songloft-org/songloft-plugin-miot.git
@@ -19,9 +16,6 @@
 [submodule "jsplugins-src/songloft-plugin-subsonic"]
 	path = jsplugins-src/songloft-plugin-subsonic
 	url = https://github.com/songloft-org/songloft-plugin-subsonic.git
-[submodule "jsplugins-src/songloft-plugin-tag"]
-	path = jsplugins-src/songloft-plugin-tag
-	url = https://github.com/songloft-org/songloft-plugin-tag.git
 [submodule "jsplugins-src/songloft-plugin-cloudflared"]
 	path = jsplugins-src/songloft-plugin-cloudflared
 	url = https://github.com/songloft-org/songloft-plugin-cloudflared.git

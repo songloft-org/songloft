@@ -284,11 +284,11 @@ Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行
 
 ### 歌曲持久化（song_downloader — 插件基础设施）
 
-- **定位**：插件基础设施能力，不是主程序面向用户的功能。主程序提供 `songs.download` Bridge API，允许插件将远程歌曲持久化到服务端本地 `music_path`，转为 `local` 类型
+- **定位**：插件基础设施能力，不是主程序面向用户的功能。主程序提供 `songs.download` Bridge API，允许插件将用户自有网络存储（NAS/WebDAV/Subsonic 等）中的远程歌曲持久化到服务端本地 `music_path`，转为 `local` 类型。**此能力仅用于用户合法拥有的音乐资源，不得用于下载第三方商业音乐平台的受版权保护内容**
 - 核心服务 `SongDownloader.Download`：获取音频（缓存命中直接 copy，否则同步下载）→ 路径模板渲染 → 可选元数据嵌入（所有支持的格式）→ 更新 DB（type=local）
 - **URL 歌词自动拉取**：`embed_metadata=true` 且 `lyric_source=url` 时，通过 `LyricFetcher` 拉取歌词 → 主歌词写入文件标签 → 完整 payload（含翻译/罗马音）缓存到 DB → `lyric_source` 更新为 `embedded`。拉取失败仅 warn 不阻塞持久化
 - 通过 Bridge API `songs.download` 暴露给 JS 插件，权限映射到 `PermSongsWrite`
-- 示例插件 `songloft-plugin-downloader`（独立仓库 `songloft-org/songloft-plugin-downloader`）展示了如何使用此 API。**该插件为示例/参考实现，不上架官方插件仓库**
+- 官方插件 `songloft-plugin-downloader`（独立仓库 `songloft-org/songloft-plugin-downloader`）基于此 API，提供将用户自有网络存储中的远程歌曲下载到本地的功能
 
 ### 文件搬移：跨设备 rename 陷阱
 

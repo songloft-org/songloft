@@ -15,7 +15,7 @@ import (
 // LyricFetcher 从 lyric URL 拉取歌词 payload。
 //
 // 期望上游响应为 JSON: {"code": 0, "data": {"lyric": "...", "tlyric": "...", "rlyric": "...", "lxlyric": "..."}}
-// 这是项目内 JS 插件(lxmusic 等)返回歌词的统一格式。Fetcher 把 data 部分解析成
+// 这是项目内 JS 插件返回歌词的统一格式。Fetcher 把 data 部分解析成
 // models.LyricPayload,让调用方拿到主歌词+翻译+罗马音+逐字四个字段,
 // 后端写库/前端 API 都用同一种载体表达。
 type LyricFetcher struct {

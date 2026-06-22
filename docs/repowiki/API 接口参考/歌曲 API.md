@@ -196,9 +196,9 @@
 | `album` | string | 否 | 专辑 |
 | `cover_url` | string | 否 | 封面 URL |
 | `duration` | number | 否 | 时长（秒） |
-| `plugin_entry_path` | string | 条件 | 插件 entryPath（如 `"lxmusic"`） |
+| `plugin_entry_path` | string | 条件 | 插件 entryPath（如 `"subsonic"`） |
 | `source_data` | string | 条件 | 插件音源元数据 JSON |
-| `dedup_key` | string | 否 | 去重 key（如 `"qq:001234"`）；空时不去重 |
+| `dedup_key` | string | 否 | 去重 key（如 `"nas1:001234"`）；空时不去重 |
 | `lyric` | string | 否 | 歌词内容或 URL |
 | `lyric_source` | string | 否 | 歌词来源类型 |
 

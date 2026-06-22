@@ -68,7 +68,7 @@ var ErrNoOrchestrator = errors.New("source orchestrator not configured")
 //
 // 布局:cache_dir/<id/100%1000>/<id/10000%100>/<id>.<key>
 //
-//	例如 id=1234, key="lxmusic_kg_550109760" → cache_dir/12/0/1234.lxmusic_kg_550109760
+//	例如 id=1234, key="subsonic_srv1_550109760" → cache_dir/12/0/1234.subsonic_srv1_550109760
 //
 // key 用于绑定"该文件属于哪首具体的歌"(取自 plugin_entry_path + dedup_key 或 URL md5),
 // 防止跨 DB 重建后旧 cache 与新 song.ID 偶然碰撞被误命中。key 为空时退化为旧形态
