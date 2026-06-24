@@ -367,9 +367,10 @@ func (m *Manager) DisablePlugin(ctx context.Context, id int64) error {
 	// 卸载插件
 	_ = m.UnloadPlugin(ctx, plugin.EntryPath)
 
-	// 清理因长定时器休眠记下的唤醒计划，避免 disable 后还被自动唤醒。
+	// 清理自愈/唤醒计划，避免 disable 后被自动恢复或唤醒。
 	if m.healthChecker != nil {
 		m.healthChecker.cancelWakeup(plugin.EntryPath)
+		m.healthChecker.ClearRecovery(plugin.EntryPath)
 	}
 
 	// 更新数据库状态

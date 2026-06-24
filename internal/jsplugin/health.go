@@ -499,6 +499,14 @@ func (hc *HealthChecker) runRecoveryAttempts(ctx context.Context) {
 		default:
 		}
 
+		// 在修改 DB 前重新确认当前状态仍为 error：
+		// 用户可能在 GetAll 快照之后调用了 DisablePlugin（status → inactive），
+		// 此时不应覆盖用户意图。
+		fresh, err := hc.manager.repo.GetByID(ctx, plugin.ID)
+		if err != nil || fresh.Status != JSPluginStatusError {
+			continue
+		}
+
 		// 进入恢复尝试。先把 DB 状态推回 active 再调 LoadPlugin：
 		// LoadPlugin 自身不检查 DB status，状态切换的语义保留在 EnablePlugin/Recovery 路径。
 		if err := hc.manager.repo.UpdateStatus(ctx, plugin.ID, JSPluginStatusActive); err != nil {
