@@ -245,9 +245,7 @@ Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行
 | OGG/Opus | Vorbis Comment | LYRICS | METADATA_BLOCK_PICTURE (base64) |
 | APE | APEv2 text items | Lyrics | Cover Art (Front) (binary item) |
 | WAV | RIFF LIST INFO | ICMT | **不支持**（格式限制） |
-| AIFF/AIF | **不支持写入** | — | — |
-
-- AIFF 格式支持**读取**元数据（COMM 音频参数 + NAME/AUTH/ANNO 原生文本块 + ID3 chunk 内的 ID3v2 标签），不支持写入
+| AIFF/AIF | ID3v2.3 (ID3 chunk) + NAME/AUTH | USLT (ID3 chunk) | APIC (ID3 chunk) |
 - 不支持的格式 → 返回 `ErrUnsupportedWrite`，调用方**必须**降级为日志，**不要**阻塞主流程
 
 ### HLS 电台代理模式（/settings/hls-proxy）
