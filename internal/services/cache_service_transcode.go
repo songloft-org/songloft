@@ -279,6 +279,8 @@ func NormalizeFormat(f string) string {
 		return "wma"
 	case "ape":
 		return "ape"
+	case "aif", "aiff":
+		return "aiff"
 	}
 	return f
 }
