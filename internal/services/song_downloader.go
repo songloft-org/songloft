@@ -10,10 +10,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"songloft/internal/models"
 )
+
+// AutoDownloadConfig 自动下载配置（由插件通过 bridge API 注册）
+type AutoDownloadConfig struct {
+	Enabled       bool   `json:"enabled"`
+	PathTemplate  string `json:"path_template"`
+	EmbedMetadata bool   `json:"embed_metadata"`
+}
 
 // SongDownloadOptions 下载选项
 type SongDownloadOptions struct {
@@ -37,6 +45,9 @@ type SongDownloader struct {
 	getMusicPath   func() string
 	lyricFetcher   *LyricFetcher
 	downloadClient *http.Client
+
+	autoDownloadMu     sync.RWMutex
+	autoDownloadConfig *AutoDownloadConfig
 }
 
 // NewSongDownloader 创建下载服务
@@ -179,6 +190,50 @@ func (d *SongDownloader) acquireAudio(ctx context.Context, song *models.Song) (s
 		return p, nil
 	}
 	return d.cacheService.Get(ctx, song)
+}
+
+// SetAutoDownloadConfig 设置自动下载配置（由插件通过 bridge API 调用）。
+func (d *SongDownloader) SetAutoDownloadConfig(config *AutoDownloadConfig) {
+	d.autoDownloadMu.Lock()
+	defer d.autoDownloadMu.Unlock()
+	d.autoDownloadConfig = config
+	slog.Info("auto-download config updated", "enabled", config.Enabled,
+		"pathTemplate", config.PathTemplate, "embedMetadata", config.EmbedMetadata)
+}
+
+// GetAutoDownloadConfig 获取当前自动下载配置。
+func (d *SongDownloader) GetAutoDownloadConfig() AutoDownloadConfig {
+	d.autoDownloadMu.RLock()
+	defer d.autoDownloadMu.RUnlock()
+	if d.autoDownloadConfig == nil {
+		return AutoDownloadConfig{}
+	}
+	return *d.autoDownloadConfig
+}
+
+// TryAutoDownload 在缓存完成后尝试自动下载（由 onCacheComplete 回调调用）。
+// 仅当自动下载已开启且歌曲来自插件源时才执行。
+func (d *SongDownloader) TryAutoDownload(ctx context.Context, song *models.Song) {
+	config := d.GetAutoDownloadConfig()
+	if !config.Enabled {
+		return
+	}
+	if song.PluginEntryPath == "" {
+		return
+	}
+	if song.Type != models.TypeRemote {
+		return
+	}
+
+	result, err := d.Download(ctx, song.ID, SongDownloadOptions{
+		PathTemplate:  config.PathTemplate,
+		EmbedMetadata: config.EmbedMetadata,
+	})
+	if err != nil {
+		slog.Warn("auto-download failed", "songID", song.ID, "title", song.Title, "error", err)
+		return
+	}
+	slog.Info("auto-download completed", "songID", song.ID, "title", song.Title, "path", result.Path)
 }
 
 // copyFile 复制文件。

@@ -356,10 +356,10 @@ func (a *App) Init() error {
 	})
 	a.cacheService.SetCacheCompleteCallback(
 		func(ctx context.Context, song *models.Song, filePath string) {
-			if !services.NeedsMetadata(song) {
-				return
+			if services.NeedsMetadata(song) {
+				a.metadataRefresher.RefreshSongFromFile(ctx, song, filePath)
 			}
-			a.metadataRefresher.RefreshSongFromFile(ctx, song, filePath)
+			songDownloader.TryAutoDownload(ctx, song)
 		},
 	)
 

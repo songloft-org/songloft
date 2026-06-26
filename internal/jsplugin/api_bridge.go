@@ -111,6 +111,9 @@ songloft.songs = {
     },
     delete: async function(id) {
         await __callBridge('songs.delete', JSON.stringify({id: id}));
+    },
+    setAutoDownload: async function(options) {
+        await __callBridge('songs.setAutoDownload', JSON.stringify(options || {}));
     }
 };
 
@@ -385,7 +388,7 @@ func extractPermFromAction(action string) string {
 	switch action {
 	case "songs.list", "songs.getById", "songs.search":
 		return PermSongsRead
-	case "songs.create", "songs.update", "songs.delete", "songs.download":
+	case "songs.create", "songs.update", "songs.delete", "songs.download", "songs.setAutoDownload":
 		return PermSongsWrite
 	}
 
@@ -622,6 +625,17 @@ func (h *BridgeHandler) handleSongs(action, data string) (string, error) {
 			return "", fmt.Errorf("handleSongs: marshal download: %w", err)
 		}
 		return string(result), nil
+
+	case "songs.setAutoDownload":
+		if h.songDownloader == nil {
+			return "", fmt.Errorf("handleSongs: download service not configured")
+		}
+		var config services.AutoDownloadConfig
+		if err := json.Unmarshal([]byte(data), &config); err != nil {
+			return "", fmt.Errorf("handleSongs: parse auto-download config: %w", err)
+		}
+		h.songDownloader.SetAutoDownloadConfig(&config)
+		return "", nil
 
 	case "songs.create":
 		if h.songService == nil {
