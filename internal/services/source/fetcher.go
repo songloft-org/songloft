@@ -64,6 +64,7 @@ type AudioInfoCopy struct {
 
 func (a *AudioInfoCopy) GetDuration() float64 { return a.Duration }
 func (a *AudioInfoCopy) GetSize() int64       { return a.Size }
+func (a *AudioInfoCopy) GetFormat() string    { return a.Format }
 
 // FetcherOpts 注入到 SourceFetcher 的依赖与配置。
 type FetcherOpts struct {
