@@ -170,7 +170,12 @@ func (h *XxxHandler) Method(w http.ResponseWriter, r *http.Request) { ... }
 
 - 提交信息**禁止**添加 `Co-Authored-By` 尾部标记
 - 遵循 Conventional Commits 格式：`type(scope): description`
-- **子模块引用父仓库 issue**：子模块（如 `jsplugins-src/songloft-plugin-miot`、`songloft-player`）的 commit 信息中引用父仓库 issue 时，必须带完整仓库路径，如 `songloft-org/songloft#155`，不能只写 `#155`（否则 GitHub 会解析为子模块自身仓库的 issue）
+- 关联 GitHub issue 的提交信息必须带 issue 引用
+- issue 引用规则：短写 `#123` 永远指向**当前 commit 所在仓库**的 issue；只要引用的不是当前仓库的 issue，就必须写完整 `owner/repo#123`
+  - 父仓库 `songloft-org/songloft` 的 commit 引用父仓库 issue：可写 `#155`，也可写 `songloft-org/songloft#155`
+  - 子仓库（如 `pkg/tag`、`songloft-player`、`plugin-toolchain`、`jsplugins-src/*`）的 commit 引用自身仓库 issue：可写 `#14`，也可写完整仓库路径
+  - 子仓库的 commit 引用父仓库 issue：必须写完整路径，如 `songloft-org/songloft#155`，不能只写 `#155`（否则 GitHub 会解析为子仓库自身的 issue）
+  - 任意跨仓库引用一律写完整路径，如 `songloft-org/songloft-player#14`
 
 ---
 
