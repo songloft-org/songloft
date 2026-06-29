@@ -1063,6 +1063,9 @@ func (h *BridgeHandler) handlePlaylists(action, data string) (string, error) {
 		}
 		for _, songID := range req.SongIDs {
 			if err := h.playlistService.RemoveSong(ctx, req.ID, songID); err != nil {
+				if errors.Is(err, database.ErrNotFound) {
+					continue
+				}
 				return "", fmt.Errorf("handlePlaylists: removeSongs (songId=%d): %w", songID, err)
 			}
 		}

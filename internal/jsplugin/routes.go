@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -615,11 +616,24 @@ func (m *Manager) handleServeFileDirective(w http.ResponseWriter, r *http.Reques
 			http.NotFound(w, r)
 			return
 		}
-		if song.FilePath == "" {
-			http.Error(w, "song has no local file", http.StatusNotFound)
+		if song.FilePath != "" {
+			http.ServeFile(w, r, song.FilePath)
 			return
 		}
-		http.ServeFile(w, r, song.FilePath)
+		// 非本地歌曲（remote/radio）：内部转发到 play 端点，
+		// 由 SongHandler 处理缓存/代理/HLS 等完整播放逻辑。
+		playPath := fmt.Sprintf("/api/v1/songs/%d/play", song.ID)
+		if song.IsHLSStream() {
+			playPath += ".m3u8"
+		}
+		target := playPath + "?access_token=" + m.pluginToken
+		// 清除 chi RouteContext 让 router 重新路由到 play 端点
+		cleanCtx := context.WithValue(r.Context(), chi.RouteCtxKey, nil)
+		proxyReq, _ := http.NewRequestWithContext(cleanCtx, r.Method, target, nil)
+		if rng := r.Header.Get("Range"); rng != "" {
+			proxyReq.Header.Set("Range", rng)
+		}
+		m.router.ServeHTTP(w, proxyReq)
 		return
 	}
 
