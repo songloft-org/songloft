@@ -32,6 +32,7 @@
 - 🎵 **本地音乐管理** — 扫描本地目录，自动提取 MP3/FLAC/WAV/APE/OGG/M4A 等格式的封面和元数据
 - 🧩 **JS 插件体系** — 基于 QuickJS 沙箱运行，支持权限模型、健康检查、热更新，可自由扩展音源 / 元数据 / 设备控制等能力
 - 📱 **跨平台客户端** — Flutter 客户端支持 Android、iOS、macOS、Windows、Linux、Web 六端
+- 📺 **Kodi 插件客户端** — 支持 Xbox、Apple TV、树莓派、Android TV 等大屏设备，专为遥控器操作优化，带来流畅的客厅影音体验
 - 🌐 **Web 界面** — 完整版内置 Web 前端，开箱即用
 - 🔑 **JWT 认证** — 双 Token 机制（Access Token + Refresh Token），支持多设备管理
 - 📡 **网络歌曲 & 电台** — 支持添加网络音频 URL 与电台流，播放时透明缓存到服务端
@@ -127,6 +128,13 @@ Songloft 提供两种版本，满足不同使用场景：
 📥 **下载**：[GitHub Releases](https://github.com/songloft-org/songloft-player/releases/latest)
 
 > 💡 使用 **精简版（-lite）** 服务端时，推荐直接搭配 Flutter 客户端使用（无需额外部署 Web 前端）；如确实需要独立 Web 前端，可参考 [songloft-player](https://github.com/songloft-org/songloft-player) 仓库的 `flutter build web` 流程自行构建并由 Nginx 等反向代理静态托管。
+
+### 📺 Kodi 插件
+
+除 Flutter 客户端外，Songloft 还提供官方 **Kodi 插件**，让你在 Kodi 媒体中心中直接播放 Songloft 音乐库。适合 **Xbox**、Apple TV、树莓派、Android TV 等支持 Kodi 的大屏设备，专为遥控器操作优化，带来流畅的客厅影音体验。
+
+🔗 **GitHub 仓库**：[songloft-org/plugin.audio.songloft](https://github.com/songloft-org/plugin.audio.songloft)
+📥 **下载**：[GitHub Releases](https://github.com/songloft-org/plugin.audio.songloft/releases/latest)
 
 ## 🚀 快速开始
 
