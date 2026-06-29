@@ -901,6 +901,9 @@ definitions:
       current_file:
         description: 当前处理的文件
         type: string
+      discovered_files:
+        description: scanning 阶段已发现的音频文件数
+        type: integer
       end_time:
         description: 结束时间
         type: string
@@ -1057,7 +1060,7 @@ info:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
   title: Songloft API
-  version: 2.8.10
+  version: 2.9.0
 paths:
   /api/v1/jsplugin-assets/{path}:
     get:

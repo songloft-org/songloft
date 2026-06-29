@@ -7501,6 +7501,10 @@ const docTemplate = `{
                     "description": "当前处理的文件",
                     "type": "string"
                 },
+                "discovered_files": {
+                    "description": "scanning 阶段已发现的音频文件数",
+                    "type": "integer"
+                },
                 "end_time": {
                     "description": "结束时间",
                     "type": "string"
@@ -7704,7 +7708,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "2.8.10",
+	Version:          "2.9.0",
 	Host:             "localhost:58091",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},

@@ -12,7 +12,7 @@
             "name": "Apache 2.0",
             "url": "https://www.apache.org/licenses/LICENSE-2.0"
         },
-        "version": "2.8.10"
+        "version": "2.9.0"
     },
     "host": "localhost:58091",
     "basePath": "/api/v1",
@@ -7494,6 +7494,10 @@
                 "current_file": {
                     "description": "当前处理的文件",
                     "type": "string"
+                },
+                "discovered_files": {
+                    "description": "scanning 阶段已发现的音频文件数",
+                    "type": "integer"
                 },
                 "end_time": {
                     "description": "结束时间",
