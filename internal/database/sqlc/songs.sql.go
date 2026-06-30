@@ -97,8 +97,9 @@ INSERT INTO songs (
     plugin_entry_path, source_data, dedup_key,
     year, genre,
     fingerprint, fingerprint_duration,
-    isrc
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    isrc,
+    cue_source_path, cue_track_index, cue_audio_path
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateSongParams struct {
@@ -127,6 +128,9 @@ type CreateSongParams struct {
 	Fingerprint         string
 	FingerprintDuration float64
 	Isrc                string
+	CueSourcePath       string
+	CueTrackIndex       int64
+	CueAudioPath        string
 }
 
 func (q *Queries) CreateSong(ctx context.Context, arg CreateSongParams) (int64, error) {
@@ -156,11 +160,26 @@ func (q *Queries) CreateSong(ctx context.Context, arg CreateSongParams) (int64, 
 		arg.Fingerprint,
 		arg.FingerprintDuration,
 		arg.Isrc,
+		arg.CueSourcePath,
+		arg.CueTrackIndex,
+		arg.CueAudioPath,
 	)
 	if err != nil {
 		return 0, err
 	}
 	return result.LastInsertId()
+}
+
+const deleteByCueSource = `-- name: DeleteByCueSource :execrows
+DELETE FROM songs WHERE cue_source_path = ?
+`
+
+func (q *Queries) DeleteByCueSource(ctx context.Context, cueSourcePath string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteByCueSource, cueSourcePath)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const deleteSong = `-- name: DeleteSong :execrows
@@ -199,7 +218,8 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     added_at, updated_at, lyric_remote_url,
     year, genre,
     fingerprint, fingerprint_duration,
-    isrc, cache_path
+    isrc, cache_path,
+    cue_source_path, cue_track_index, cue_audio_path
 FROM songs WHERE id = ?
 `
 
@@ -236,6 +256,9 @@ func (q *Queries) GetSongByID(ctx context.Context, id int64) (Song, error) {
 		&i.FingerprintDuration,
 		&i.Isrc,
 		&i.CachePath,
+		&i.CueSourcePath,
+		&i.CueTrackIndex,
+		&i.CueAudioPath,
 	)
 	return i, err
 }
@@ -254,6 +277,62 @@ func (q *Queries) GetSongTimestamps(ctx context.Context, id int64) (GetSongTimes
 	var i GetSongTimestampsRow
 	err := row.Scan(&i.AddedAt, &i.UpdatedAt)
 	return i, err
+}
+
+const listCueAudioPaths = `-- name: ListCueAudioPaths :many
+SELECT DISTINCT cue_audio_path
+FROM songs WHERE cue_source_path = ? AND cue_audio_path != ''
+`
+
+func (q *Queries) ListCueAudioPaths(ctx context.Context, cueSourcePath string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listCueAudioPaths, cueSourcePath)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var cue_audio_path string
+		if err := rows.Scan(&cue_audio_path); err != nil {
+			return nil, err
+		}
+		items = append(items, cue_audio_path)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCueSources = `-- name: ListCueSources :many
+SELECT DISTINCT cue_source_path
+FROM songs WHERE cue_source_path != ''
+`
+
+func (q *Queries) ListCueSources(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listCueSources)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var cue_source_path string
+		if err := rows.Scan(&cue_source_path); err != nil {
+			return nil, err
+		}
+		items = append(items, cue_source_path)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDuplicateFingerprints = `-- name: ListDuplicateFingerprints :many
@@ -293,13 +372,14 @@ func (q *Queries) ListDuplicateFingerprints(ctx context.Context) ([]ListDuplicat
 }
 
 const listLocalSongPaths = `-- name: ListLocalSongPaths :many
-SELECT id, file_path, duration FROM songs WHERE type = 'local'
+SELECT id, file_path, duration, cue_source_path FROM songs WHERE type = 'local'
 `
 
 type ListLocalSongPathsRow struct {
-	ID       int64
-	FilePath string
-	Duration float64
+	ID            int64
+	FilePath      string
+	Duration      float64
+	CueSourcePath string
 }
 
 func (q *Queries) ListLocalSongPaths(ctx context.Context) ([]ListLocalSongPathsRow, error) {
@@ -311,7 +391,12 @@ func (q *Queries) ListLocalSongPaths(ctx context.Context) ([]ListLocalSongPathsR
 	items := []ListLocalSongPathsRow{}
 	for rows.Next() {
 		var i ListLocalSongPathsRow
-		if err := rows.Scan(&i.ID, &i.FilePath, &i.Duration); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.FilePath,
+			&i.Duration,
+			&i.CueSourcePath,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -494,7 +579,8 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     added_at, updated_at, lyric_remote_url,
     year, genre,
     fingerprint, fingerprint_duration,
-    isrc, cache_path
+    isrc, cache_path,
+    cue_source_path, cue_track_index, cue_audio_path
 FROM songs WHERE cache_path != ''
 `
 
@@ -537,6 +623,9 @@ func (q *Queries) ListSongsWithCache(ctx context.Context) ([]Song, error) {
 			&i.FingerprintDuration,
 			&i.Isrc,
 			&i.CachePath,
+			&i.CueSourcePath,
+			&i.CueTrackIndex,
+			&i.CueAudioPath,
 		); err != nil {
 			return nil, err
 		}
@@ -635,7 +724,8 @@ UPDATE songs SET
     plugin_entry_path = ?, source_data = ?, dedup_key = ?,
     year = ?, genre = ?,
     fingerprint = ?, fingerprint_duration = ?,
-    isrc = ?
+    isrc = ?,
+    cue_source_path = ?, cue_track_index = ?, cue_audio_path = ?
 WHERE id = ?
 `
 
@@ -665,6 +755,9 @@ type UpdateSongParams struct {
 	Fingerprint         string
 	FingerprintDuration float64
 	Isrc                string
+	CueSourcePath       string
+	CueTrackIndex       int64
+	CueAudioPath        string
 	ID                  int64
 }
 
@@ -695,6 +788,9 @@ func (q *Queries) UpdateSong(ctx context.Context, arg UpdateSongParams) (int64, 
 		arg.Fingerprint,
 		arg.FingerprintDuration,
 		arg.Isrc,
+		arg.CueSourcePath,
+		arg.CueTrackIndex,
+		arg.CueAudioPath,
 		arg.ID,
 	)
 	if err != nil {

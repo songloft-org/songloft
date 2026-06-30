@@ -150,8 +150,9 @@ func (r *SongRepository) ListTypesByIDs(ctx context.Context, ids []int64) (map[i
 
 // LocalPathInfo 本地歌曲路径信息，用于扫描去重与不完整记录检测。
 type LocalPathInfo struct {
-	SongID   int64
-	Duration float64
+	SongID        int64
+	Duration      float64
+	CueSourcePath string
 }
 
 // ListLocalPaths 返回所有本地歌曲的 file_path → LocalPathInfo 映射，用于扫描去重。
@@ -162,7 +163,7 @@ func (r *SongRepository) ListLocalPaths(ctx context.Context) (map[string]LocalPa
 	}
 	paths := make(map[string]LocalPathInfo, len(rows))
 	for _, row := range rows {
-		paths[row.FilePath] = LocalPathInfo{SongID: row.ID, Duration: row.Duration}
+		paths[row.FilePath] = LocalPathInfo{SongID: row.ID, Duration: row.Duration, CueSourcePath: row.CueSourcePath}
 	}
 	return paths, nil
 }
@@ -442,6 +443,7 @@ func songSelectBuilder() sq.SelectBuilder {
 		"year", "genre",
 		"fingerprint", "fingerprint_duration",
 		"isrc",
+		"cue_source_path", "cue_track_index", "cue_audio_path",
 	).From("songs")
 }
 
@@ -484,6 +486,7 @@ func scanSongRow(scanner interface {
 		&s.Year, &s.Genre,
 		&s.Fingerprint, &s.FingerprintDuration,
 		&s.ISRC,
+		&s.CueSourcePath, &s.CueTrackIndex, &s.CueAudioPath,
 	); err != nil {
 		return nil, fmt.Errorf("scan song: %w", err)
 	}
@@ -519,6 +522,9 @@ func songRowToModel(row sqlc.Song) *models.Song {
 		Fingerprint:         row.Fingerprint,
 		FingerprintDuration: row.FingerprintDuration,
 		ISRC:                row.Isrc,
+		CueSourcePath:       row.CueSourcePath,
+		CueTrackIndex:       int(row.CueTrackIndex),
+		CueAudioPath:        row.CueAudioPath,
 		AddedAt:             row.AddedAt,
 		UpdatedAt:           row.UpdatedAt,
 	}
@@ -551,6 +557,9 @@ func songCreateParams(s *models.Song) sqlc.CreateSongParams {
 		Fingerprint:         s.Fingerprint,
 		FingerprintDuration: s.FingerprintDuration,
 		Isrc:                s.ISRC,
+		CueSourcePath:       s.CueSourcePath,
+		CueTrackIndex:       int64(s.CueTrackIndex),
+		CueAudioPath:        s.CueAudioPath,
 	}
 }
 
@@ -581,8 +590,38 @@ func songUpdateParams(s *models.Song) sqlc.UpdateSongParams {
 		Fingerprint:         s.Fingerprint,
 		FingerprintDuration: s.FingerprintDuration,
 		Isrc:                s.ISRC,
+		CueSourcePath:       s.CueSourcePath,
+		CueTrackIndex:       int64(s.CueTrackIndex),
+		CueAudioPath:        s.CueAudioPath,
 		ID:                  s.ID,
 	}
+}
+
+// ListCueSources 返回所有已存在的 CUE 来源路径集合。
+func (r *SongRepository) ListCueSources(ctx context.Context) (map[string]bool, error) {
+	rows, err := r.queries.ListCueSources(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list cue sources: %w", err)
+	}
+	sources := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		sources[row] = true
+	}
+	return sources, nil
+}
+
+// ListCueAudioPaths 返回某个 CUE 来源下所有引用的音频文件路径。
+func (r *SongRepository) ListCueAudioPaths(ctx context.Context, cueSourcePath string) ([]string, error) {
+	return r.queries.ListCueAudioPaths(ctx, cueSourcePath)
+}
+
+// DeleteByCueSource 按 cue_source_path 批量删除所有 track。
+func (r *SongRepository) DeleteByCueSource(ctx context.Context, cueSourcePath string) (int, error) {
+	n, err := r.queries.DeleteByCueSource(ctx, cueSourcePath)
+	if err != nil {
+		return 0, fmt.Errorf("delete by cue source: %w", err)
+	}
+	return int(n), nil
 }
 
 // UpdateFingerprint 更新歌曲的音频指纹。

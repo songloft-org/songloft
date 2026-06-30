@@ -26,6 +26,7 @@ type Querier interface {
 	CreateSong(ctx context.Context, arg CreateSongParams) (int64, error)
 	CreateToken(ctx context.Context, arg CreateTokenParams) (int64, error)
 	DeleteAllPluginStorage(ctx context.Context, pluginEntryPath string) error
+	DeleteByCueSource(ctx context.Context, cueSourcePath string) (int64, error)
 	DeleteConfig(ctx context.Context, key string) (int64, error)
 	DeleteJSPlugin(ctx context.Context, id int64) error
 	DeletePlaylist(ctx context.Context, id int64) (int64, error)
@@ -50,6 +51,8 @@ type Querier interface {
 	InsertAutoCreatedPlaylist(ctx context.Context, arg InsertAutoCreatedPlaylistParams) (int64, error)
 	IsTokenRevoked(ctx context.Context, arg IsTokenRevokedParams) (bool, error)
 	ListAllPlaylistNames(ctx context.Context) ([]string, error)
+	ListCueAudioPaths(ctx context.Context, cueSourcePath string) ([]string, error)
+	ListCueSources(ctx context.Context) ([]string, error)
 	ListDuplicateFingerprints(ctx context.Context) ([]ListDuplicateFingerprintsRow, error)
 	ListJSPlugins(ctx context.Context) ([]JsPlugin, error)
 	ListLocalSongPaths(ctx context.Context) ([]ListLocalSongPathsRow, error)

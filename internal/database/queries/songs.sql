@@ -6,7 +6,8 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     added_at, updated_at, lyric_remote_url,
     year, genre,
     fingerprint, fingerprint_duration,
-    isrc, cache_path
+    isrc, cache_path,
+    cue_source_path, cue_track_index, cue_audio_path
 FROM songs WHERE id = ?;
 
 -- name: CreateSong :execlastid
@@ -17,8 +18,9 @@ INSERT INTO songs (
     plugin_entry_path, source_data, dedup_key,
     year, genre,
     fingerprint, fingerprint_duration,
-    isrc
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    isrc,
+    cue_source_path, cue_track_index, cue_audio_path
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateSong :execrows
 UPDATE songs SET
@@ -29,7 +31,8 @@ UPDATE songs SET
     plugin_entry_path = ?, source_data = ?, dedup_key = ?,
     year = ?, genre = ?,
     fingerprint = ?, fingerprint_duration = ?,
-    isrc = ?
+    isrc = ?,
+    cue_source_path = ?, cue_track_index = ?, cue_audio_path = ?
 WHERE id = ?;
 
 -- name: DeleteSong :execrows
@@ -47,7 +50,7 @@ UPDATE songs SET plugin_entry_path = ?, source_data = ?, updated_at = CURRENT_TI
 WHERE id = ?;
 
 -- name: ListLocalSongPaths :many
-SELECT id, file_path, duration FROM songs WHERE type = 'local';
+SELECT id, file_path, duration, cue_source_path FROM songs WHERE type = 'local';
 
 -- name: CountPlaylistsContainingSong :one
 SELECT COUNT(*) FROM playlist_songs WHERE song_id = ?;
@@ -125,7 +128,8 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     added_at, updated_at, lyric_remote_url,
     year, genre,
     fingerprint, fingerprint_duration,
-    isrc, cache_path
+    isrc, cache_path,
+    cue_source_path, cue_track_index, cue_audio_path
 FROM songs WHERE cache_path != '';
 
 -- name: ListSongsNeedingMetadata :many
@@ -158,3 +162,14 @@ UPDATE songs SET
     album  = CASE WHEN ? != '' THEN ? ELSE album END,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?;
+
+-- name: ListCueSources :many
+SELECT DISTINCT cue_source_path
+FROM songs WHERE cue_source_path != '';
+
+-- name: ListCueAudioPaths :many
+SELECT DISTINCT cue_audio_path
+FROM songs WHERE cue_source_path = ? AND cue_audio_path != '';
+
+-- name: DeleteByCueSource :execrows
+DELETE FROM songs WHERE cue_source_path = ?;

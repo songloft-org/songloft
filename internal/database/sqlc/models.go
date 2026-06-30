@@ -114,4 +114,7 @@ type Song struct {
 	FingerprintDuration float64
 	Isrc                string
 	CachePath           string
+	CueSourcePath       string
+	CueTrackIndex       int64
+	CueAudioPath        string
 }

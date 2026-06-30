@@ -37,6 +37,9 @@ type SongRepository interface {
 	ListLocalPaths(ctx context.Context) (map[string]database.LocalPathInfo, error)
 	ListTypesByIDs(ctx context.Context, ids []int64) (map[int64]string, error)
 	CountCoverPathReferences(ctx context.Context, coverPath string) (int, error)
+	ListCueSources(ctx context.Context) (map[string]bool, error)
+	ListCueAudioPaths(ctx context.Context, cueSourcePath string) ([]string, error)
+	DeleteByCueSource(ctx context.Context, cueSourcePath string) (int, error)
 	UpdateFingerprint(ctx context.Context, id int64, fingerprint string, duration float64) error
 	ClearAllFingerprints(ctx context.Context) error
 	ListLocalWithoutFingerprint(ctx context.Context) ([]database.SongIDPath, error)
@@ -66,6 +69,7 @@ type SongService struct {
 	playlistAutoCreator PlaylistAutoCreator
 	cacheService        *CacheService       // 可选;由 app.go 通过 SetCacheService 注入,Delete 时清理 cache 残留
 	fingerprintService  *FingerprintService // 可选;扫描完成后自动计算指纹
+	cueSplitter         *CueSplitter        // 可选;CUE 整轨切片器
 }
 
 // NewSongService 创建歌曲服务
@@ -97,6 +101,11 @@ func (s *SongService) SetScanner(scanner *Scanner) {
 // 避免歌曲被删后 cache 残留,在 DB 重置/ID 复用场景下被新 song 误命中。
 func (s *SongService) SetCacheService(cs *CacheService) {
 	s.cacheService = cs
+}
+
+// SetCueSplitter 注入 CUE 切片器。
+func (s *SongService) SetCueSplitter(cs *CueSplitter) {
+	s.cueSplitter = cs
 }
 
 // SetFingerprintService 注入指纹服务，扫描完成后自动计算缺失指纹。
@@ -338,13 +347,14 @@ const (
 func (s *SongService) doScanAndImport(ctx context.Context, reimport bool) {
 	cancelCh := s.scanProgressManager.GetCancelChannel()
 
-	files, err := s.scanner.ScanFiles(ctx, func(count int) {
+	scanResult, err := s.scanner.ScanFilesWithCue(ctx, func(count int) {
 		s.scanProgressManager.SetDiscoveredFiles(count)
 	})
 	if err != nil {
 		s.scanProgressManager.Fail(fmt.Errorf("failed to scan files: %w", err))
 		return
 	}
+	files := scanResult.AudioFiles
 
 	select {
 	case <-cancelCh:
@@ -408,6 +418,11 @@ func (s *SongService) doScanAndImport(ctx context.Context, reimport bool) {
 	}
 
 	if len(toProcess) == 0 {
+		if s.cueSplitter != nil {
+			s.processCueFiles(ctx, scanResult.CueFiles, reimport)
+			s.processEmbeddedCueSheets(ctx, files, reimport)
+			s.cleanStaleCueRecords(ctx)
+		}
 		if s.configService != nil && s.configService.GetBool("scan_auto_create_playlists", true) {
 			s.runAutoCreatePlaylists(ctx)
 		} else {
@@ -519,6 +534,13 @@ func (s *SongService) doScanAndImport(ctx context.Context, reimport bool) {
 		s.scanProgressManager.SetCancelled()
 		return
 	default:
+	}
+
+	// CUE 整轨处理
+	if s.cueSplitter != nil {
+		s.processCueFiles(ctx, scanResult.CueFiles, reimport)
+		s.processEmbeddedCueSheets(ctx, files, reimport)
+		s.cleanStaleCueRecords(ctx)
 	}
 
 	if s.configService != nil && s.configService.GetBool("scan_auto_create_playlists", true) {
@@ -740,6 +762,10 @@ func (s *SongService) cleanStaleRecords(ctx context.Context, scannedFiles []stri
 
 	var staleIDs []int64
 	for path, info := range existingPaths {
+		// CUE 来源的歌曲由 cleanStaleCueRecords 单独处理
+		if info.CueSourcePath != "" {
+			continue
+		}
 		if _, found := scannedPathSet[path]; !found {
 			if _, err := os.Stat(path); os.IsNotExist(err) {
 				staleIDs = append(staleIDs, info.SongID)

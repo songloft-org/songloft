@@ -317,11 +317,38 @@ func (r *PlaylistRepository) AutoCreate(ctx context.Context, playlistMode string
 		return false
 	}
 
+	// 分离 CUE 歌曲和普通歌曲
+	type cueAlbumInfo struct {
+		name     string // 专辑名
+		desc     string // 描述
+		songIDs  []int64
+	}
+	cueAlbums := make(map[string]*cueAlbumInfo) // key: cue_source_path
+
 	dirToSongs := make(map[string][]int64)
 	for _, song := range songs {
 		if song.FilePath == "" {
 			continue
 		}
+
+		// CUE 歌曲按 cue_source_path 分组
+		if song.CueSourcePath != "" {
+			album, ok := cueAlbums[song.CueSourcePath]
+			if !ok {
+				albumName := song.Album
+				if albumName == "" {
+					albumName = strings.TrimSuffix(filepath.Base(song.CueSourcePath), filepath.Ext(song.CueSourcePath))
+				}
+				album = &cueAlbumInfo{
+					name: albumName,
+					desc: filepath.Base(song.CueSourcePath),
+				}
+				cueAlbums[song.CueSourcePath] = album
+			}
+			album.songIDs = append(album.songIDs, song.ID)
+			continue
+		}
+
 		dir := filepath.ToSlash(filepath.Dir(song.FilePath))
 		if shouldExcludeDir(dir) {
 			continue
@@ -398,6 +425,45 @@ func (r *PlaylistRepository) AutoCreate(ctx context.Context, playlistMode string
 			existingNames[name] = struct{}{}
 		}
 
+		// CUE 专辑歌单：按 cue_track_index 排序
+		for _, album := range cueAlbums {
+			sort.SliceStable(album.songIDs, func(i, j int) bool {
+				si, sj := songIDToSong[album.songIDs[i]], songIDToSong[album.songIDs[j]]
+				return si.CueTrackIndex < sj.CueTrackIndex
+			})
+
+			coverPath, coverURL := pickRandomSongCover(album.songIDs, songIDToSong)
+			playlistName := resolveAutoCreatedName(album.name, existingNames)
+			existingNames[playlistName] = struct{}{}
+
+			playlistID, err := q.InsertAutoCreatedPlaylist(ctx, sqlc.InsertAutoCreatedPlaylistParams{
+				Type:        models.PlaylistTypeNormal,
+				Name:        playlistName,
+				Description: album.desc,
+				CoverPath:   coverPath,
+				CoverUrl:    coverURL,
+				Labels:      labelsStr,
+			})
+			if err != nil {
+				return fmt.Errorf("create CUE playlist %s: %w", album.name, err)
+			}
+
+			for i, songID := range album.songIDs {
+				allPlaylistSongs = append(allPlaylistSongs, playlistSongEntry{
+					playlistID: playlistID,
+					songID:     songID,
+					position:   i + 1,
+				})
+			}
+
+			response.Playlists = append(response.Playlists, models.PlaylistInfo{
+				PlaylistID: playlistID,
+				Name:       playlistName,
+				SongCount:  len(album.songIDs),
+			})
+		}
+
+		// 目录歌单
 		for dir, songIDs := range dirToSongs {
 			// 按数字前缀排序歌曲，与 Flutter 端展示顺序一致。
 			sort.SliceStable(songIDs, func(i, j int) bool {

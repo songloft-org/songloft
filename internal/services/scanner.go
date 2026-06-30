@@ -56,6 +56,86 @@ func (s *Scanner) ScanFiles(ctx context.Context, onProgress func(count int)) ([]
 	return files, nil
 }
 
+// ScanResult 扫描结果
+type ScanResult struct {
+	AudioFiles []string
+	CueFiles   []string // .cue 文件绝对路径
+}
+
+// ScanFilesWithCue 扫描音频文件和 .cue 文件。
+func (s *Scanner) ScanFilesWithCue(ctx context.Context, onProgress func(count int)) (*ScanResult, error) {
+	if _, err := os.Stat(s.config.MusicPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("music directory does not exist: %s", s.config.MusicPath)
+	}
+
+	result := &ScanResult{}
+	visited := make(map[string]bool)
+
+	err := s.scanDirWithCue(ctx, s.config.MusicPath, visited, result, onProgress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan directory: %w", err)
+	}
+
+	return result, nil
+}
+
+func (s *Scanner) scanDirWithCue(ctx context.Context, dirPath string, visited map[string]bool, result *ScanResult, onProgress func(count int)) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	realPath, err := filepath.EvalSymlinks(dirPath)
+	if err != nil {
+		realPath = dirPath
+	}
+	if visited[realPath] {
+		return nil
+	}
+	visited[realPath] = true
+
+	if s.ShouldExcludeDir(dirPath) {
+		return nil
+	}
+
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		entryPath := filepath.Join(dirPath, entry.Name())
+		info, err := os.Stat(entryPath)
+		if err != nil {
+			continue
+		}
+
+		if info.IsDir() {
+			if err := s.scanDirWithCue(ctx, entryPath, visited, result, onProgress); err != nil {
+				return err
+			}
+		} else {
+			if s.IsAudioFile(entryPath) {
+				result.AudioFiles = append(result.AudioFiles, entryPath)
+				if onProgress != nil && len(result.AudioFiles)%scanProgressInterval == 0 {
+					onProgress(len(result.AudioFiles))
+				}
+			} else if strings.EqualFold(filepath.Ext(entryPath), ".cue") {
+				result.CueFiles = append(result.CueFiles, entryPath)
+			}
+		}
+	}
+
+	return nil
+}
+
 const scanProgressInterval = 100
 
 // scanDir 递归扫描目录，支持软链接并防止循环
