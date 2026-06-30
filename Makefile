@@ -5,7 +5,7 @@ GO_VERSION=1.26
 GOFLAGS=-v
 
 # 版本信息
-VERSION ?= 2.9.2
+VERSION ?= 2.9.3
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 BUILD_TYPE ?=
