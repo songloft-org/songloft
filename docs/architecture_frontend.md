@@ -2,7 +2,7 @@
 
 > **独立仓库**: [https://github.com/songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
 
-Songloft 前端是一个基于 Flutter 的跨平台音乐播放器，支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。Flutter Web 构建产物可嵌入到 Go 后端二进制中一起分发。
+Songloft 前端是一个基于 Flutter 的跨平台音乐播放器，支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。Flutter Web 构建产物可嵌入到 Go 后端二进制中一起分发。同时支持 **Bundle 本地模式**：将 Go 后端嵌入客户端（移动端通过 gomobile 原生库，桌面端通过子进程），无需单独部署服务器即可播放本地音乐。
 
 ## 技术栈
 
@@ -37,6 +37,11 @@ songloft-player/lib/
 │   ├── audio/
 │   │   ├── audio_service.dart       # SongloftAudioHandler（音频播放、通知栏控制）
 │   │   └── system_volume_provider.dart  # 系统音量 Provider（基于 volume_controller）
+│   ├── backend/                     # Bundle 本地模式（嵌入后端抽象层）
+│   │   ├── embedded_backend_service.dart   # 统一接口（移动端 MethodChannel / 桌面端子进程分发）
+│   │   ├── desktop_backend_service.dart    # 桌面端：启动 songloft-server 子进程
+│   │   ├── run_mode_provider.dart          # RunMode 枚举（local/remote）+ 持久化 Provider
+│   │   └── backend_lifecycle.dart          # WidgetsBindingObserver：前台恢复自动重启后端
 │   ├── network/
 │   │   ├── api_client.dart          # Dio HTTP 客户端封装
 │   │   ├── api_exceptions.dart      # API 异常定义
@@ -65,9 +70,12 @@ songloft-player/lib/
 │   │   ├── domain/
 │   │   │   └── auth_state.dart      # 认证状态定义
 │   │   └── presentation/
-│   │       ├── login_page.dart      # 登录页面
+│   │       ├── login_page.dart      # 登录页面（含「使用本地模式」按钮）
 │   │       └── providers/
 │   │           └── auth_provider.dart
+│   ├── startup/                     # 启动流程模块
+│   │   └── presentation/
+│   │       └── startup_gate.dart    # 启动守门：本地模式自动引导 / 远程模式探测服务器
 │   ├── home/                        # 首页模块
 │   │   └── presentation/
 │   │       ├── home_page.dart       # 首页（歌单轮播、JS 插件网格）
@@ -268,6 +276,26 @@ flutter build web --dart-define=DEPLOY_MODE=standalone
 - **显示** API 地址配置 UI，支持用户手动填写后端地址
 - API 地址持久化到本地存储
 
+### Bundle 本地模式
+
+```bash
+# 编译时启用（配合 Go 后端原生库 / 可执行文件）
+flutter build apk --dart-define=HAS_BACKEND=true     # Android
+flutter build ios --dart-define=HAS_BACKEND=true      # iOS
+flutter build macos --dart-define=HAS_BACKEND=true    # macOS
+flutter build linux --dart-define=HAS_BACKEND=true    # Linux
+flutter build windows --dart-define=HAS_BACKEND=true  # Windows
+```
+
+- Go 后端嵌入客户端，无需单独部署服务器
+- `AppConfig.hasEmbeddedBackend` 编译时常量控制是否显示「使用本地模式」入口
+- 支持 `local`（本地）和 `remote`（远程）两种运行模式，持久化到 SharedPreferences
+- **移动端**：Go 后端通过 gomobile 编译为 `.aar`（Android）/ `.xcframework`（iOS），Flutter 通过 `MethodChannel('com.songloft/backend')` 调用 `Start/Stop/IsRunning/GetPort`
+- **桌面端**：Go 后端编译为 `songloft-server` 可执行文件，Flutter 启动时作为子进程运行，通过 stdout 解析监听端口
+- **Web**：不支持 Bundle 模式
+- 本地模式启动流程：申请存储权限 → 启动嵌入后端 `127.0.0.1:<port>` → 健康检查轮询 → 自动 `admin/admin` 登录
+- `BackendLifecycle`（WidgetsBindingObserver）监听 App 生命周期，前台恢复时自动重启后端
+
 ## 音频播放架构
 
 ```
@@ -323,6 +351,19 @@ make build-frontend-ios
 
 # 当前系统支持的所有平台
 make build-frontend-all
+
+# Bundle 本地模式（先编译 Go 后端，再构建 Flutter 客户端）
+# 1. 编译 Go 后端为移动端库 / 桌面端可执行文件
+make build-go-mobile-android       # → songloft-player/android/app/libs/songloft.aar
+make build-go-mobile-ios           # → songloft-player/ios/Songloft.xcframework（仅 macOS）
+make build-go-desktop-linux        # → songloft-player/linux/songloft-server
+make build-go-desktop-windows      # → songloft-player/windows/songloft-server.exe
+make build-go-desktop-macos-arm64  # → songloft-player/macos/Runner/songloft-server
+
+# 2. 构建 Flutter 客户端（需加 --dart-define=HAS_BACKEND=true）
+# CI 中由 release.yml 的 build-bundled-{android,linux,apple,windows} Job 自动完成
 ```
 
-预编译安装包下载: [https://github.com/songloft-org/songloft-player/releases](https://github.com/songloft-org/songloft-player/releases)
+预编译安装包下载:
+- 标准版（需连接服务器）: [https://github.com/songloft-org/songloft-player/releases](https://github.com/songloft-org/songloft-player/releases)
+- Bundle 版（内嵌后端）: [https://github.com/songloft-org/songloft/releases](https://github.com/songloft-org/songloft/releases)（`songloft-bundled-*` 文件）

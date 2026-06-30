@@ -31,8 +31,8 @@ features:
     title: 极致轻量
     details: Go 编写，单文件部署，无 C 依赖，10MB 内存即可运行，NAS / 树莓派 / 迷你主机皆宜
   - icon: 📱
-    title: 六端覆盖
-    details: Flutter 跨平台客户端一套代码跑 Android、iOS、macOS、Windows、Linux、Web
+    title: 全平台覆盖
+    details: Flutter 客户端一套代码跑 Android、iOS、macOS、Windows、Linux、Web；Bundle 版内嵌后端，无需服务器即可本地播放
   - icon: 🧩
     title: 沙箱插件体系
     details: QuickJS 隔离运行，按需扩展音源 / 元数据 / 设备控制，权限模型 + 热更新 + 健康检查
@@ -44,7 +44,7 @@ features:
     details: 实时监测音乐目录变更，新增 / 修改 / 删除自动同步，支持定时扫描与手动触发
   - icon: 🚀
     title: 一键部署 & 升级
-    details: Docker / 二进制两种方式秒启动，容器内支持在线热升级，无需重建
+    details: Docker / 二进制 / Bundle 三种方式灵活部署，容器内支持在线热升级，无需重建
   - icon: 🎨
     title: 沉浸式播放体验
     details: 从专辑封面实时提取配色，每首歌拥有独特视觉氛围，支持后台播放与媒体控制

@@ -13,12 +13,13 @@
 
 ## 项目概述
 
-Songloft 是自托管本地音乐服务器，多仓库结构：
+Songloft 是自托管本地音乐服务器，支持**服务器部署**和**Bundle 本地模式**（将 Go 后端嵌入客户端，无需单独部署服务器）。多仓库结构：
 
 | 目录 | 技术 | 说明 |
 |------|------|------|
 | `/` | Go 1.26 + Chi v5 + SQLite | 后端 API 服务（默认端口 58091，账号 admin/admin） |
-| `/songloft-player` ([独立仓库](https://github.com/songloft-org/songloft-player)) | Flutter 3.29+ / Dart 3.7+ | 跨平台前端（6 平台） |
+| `/mobile` | Go + gomobile | Go 后端的移动端绑定入口（gomobile bind 用，导出 Start/Stop/IsRunning/GetPort） |
+| `/songloft-player` ([独立仓库](https://github.com/songloft-org/songloft-player)) | Flutter 3.29+ / Dart 3.7+ | 跨平台前端（6 平台），支持 Bundle 本地模式 |
 | `/plugin-toolchain` ([独立仓库](https://github.com/songloft-org/plugin-toolchain)) | TS + pnpm | JS 插件开发工具链（SDK / Builder / 脚手架） |
 | `/jsplugins-src` | TS | JS 插件源码（子模块集合，每个插件在自己仓库下分发 release） |
 | `/pkg/tag` | Go | 音频元数据**读写**库（基于上游 tag 库扩展 MP3/FLAC 写入） |
@@ -43,6 +44,14 @@ make swagger        # 重新生成 API 文档
 make build-frontend-web-embedded   # 嵌入 Go 二进制用（隐藏 API 地址 UI）
 make build-frontend-web            # 独立部署 web
 make build-frontend-{linux,windows,macos,android,ios,all}
+
+# Bundle 本地模式（Go 后端编译为移动端库 / 桌面端可执行文件）
+make build-go-mobile-android       # Android .aar（gomobile bind，arm64 + arm）
+make build-go-mobile-ios           # iOS .xcframework（gomobile bind，arm64，仅 macOS）
+make build-go-desktop-linux        # Linux 可执行文件
+make build-go-desktop-windows      # Windows .exe
+make build-go-desktop-macos        # macOS x86_64
+make build-go-desktop-macos-arm64  # macOS ARM64
 
 # 前端开发
 cd songloft-player && flutter run -d chrome          # standalone
@@ -189,6 +198,19 @@ func (h *XxxHandler) Method(w http.ResponseWriter, r *http.Request) { ... }
 - 部署模式由 `--dart-define=DEPLOY_MODE=embedded|standalone` 切换，`AppConfig.isEmbedded` 是编译时常量，tree-shaking 会移除独立模式下的 API 地址 UI
 - 子路径部署：启动时通过 `-base-path /xxx` 或 `BASE_PATH=/xxx` 配置；后端用 `http.StripPrefix` 在最外层剥离前缀，`embed.go` 运行时将 `<base href="/">` 替换为 `<base href="/xxx/">`；前端嵌入模式从 `Uri.base.path` 自动检测子路径
 
+### Bundle 本地模式（v2.9.0+）
+
+将 Go 后端嵌入 Flutter 客户端，用户无需单独部署服务器即可使用。编译时 `--dart-define=HAS_BACKEND=true` 启用。
+
+- **移动端（Android/iOS）**：通过 `gomobile bind` 将 Go 后端编译为原生库（`.aar` / `.xcframework`），Flutter 通过 `MethodChannel('com.songloft/backend')` 调用
+- **桌面端（macOS/Windows/Linux）**：Go 后端编译为独立可执行文件 `songloft-server`，Flutter 启动时作为子进程运行
+- **Web**：不支持 Bundle 模式（仅远程服务器）
+- 运行模式：`RunMode.local`（本地）/ `RunMode.remote`（远程），持久化到 SharedPreferences，启动时自动恢复
+- 本地模式启动流程：申请存储权限 → 启动嵌入后端（`127.0.0.1:<port>`）→ 健康检查轮询（最多 10 次 × 300ms）→ 自动使用 `admin/admin` 登录
+- `BackendLifecycle`（WidgetsBindingObserver）：App 前台恢复时自动重启后端，detached 时停止
+- 关键入口：`mobile/mobile.go`（gomobile 绑定）、`songloft-player/lib/core/backend/`（Flutter 侧抽象层）
+- CI 产物命名：`songloft-bundled-{platform}-{arch}.{ext}`，4 个并行 Job（Android/Linux/Apple/Windows），失败不阻塞主 Release
+
 ### Docker 热替换规则（`scripts/docker-entrypoint.sh`）
 
 Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行的 `/app/data/songloft`。容器启动时 entrypoint 决定是否用底包覆盖 data 目录：
@@ -211,6 +233,9 @@ Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行
 - Android 构建前需 `sdkmanager --licenses`；Android 13+ 需运行时申请通知权限
 - Windows/Linux 音频后端走 `just_audio_media_kit`（libmpv）
 - HyperOS3 等需 `androidStopForegroundOnPause: false` 防后台回收
+- **Bundle 模式 Android**：CWD 是 `/`，covers 目录路径必须相对于 `DBPath` 而非 CWD 解析（`da65db1` 修复）
+- **Bundle 模式原生桥接**：Android 用 `Class.forName("mobile.Mobile")` 反射调用 gomobile 生成类，未打包 `.aar` 时 `isAvailable()` 返回 false（优雅降级）；iOS 同理用 Swift 调用 `MobileStart` 等 Objective-C 函数
+- **Bundle 桌面子进程**：`DesktopBackendService` 在 Flutter 可执行文件**同目录**（macOS 在 `Contents/Resources/`）查找 `songloft-server`，通过 stdout 解析实际监听端口
 
 ---
 
