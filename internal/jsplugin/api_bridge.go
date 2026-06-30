@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"songloft/internal/database"
@@ -318,6 +319,35 @@ songloft.lyrics = {
         __callBridge('plugin.unregisterLyricProvider', '');
     }
 };
+
+// === songloft.net — 网络 socket（UDP）===
+songloft.net = {
+    _handlers: {},
+    udpBind: async function(options) {
+        var s = await __callBridge('net.udpBind', JSON.stringify(options || {}));
+        return s ? JSON.parse(s) : {};
+    },
+    udpSend: async function(socketId, data, addr) {
+        await __callBridge('net.udpSend', JSON.stringify({socketId: socketId, data: btoa(data), addr: addr}));
+    },
+    udpJoinMulticast: async function(socketId, group) {
+        await __callBridge('net.udpJoinMulticast', JSON.stringify({socketId: socketId, group: group}));
+    },
+    udpLeaveMulticast: async function(socketId, group) {
+        await __callBridge('net.udpLeaveMulticast', JSON.stringify({socketId: socketId, group: group}));
+    },
+    udpGetLocalAddr: async function(socketId) {
+        var s = await __callBridge('net.udpGetLocalAddr', JSON.stringify({socketId: socketId}));
+        return s ? JSON.parse(s) : {};
+    },
+    udpClose: async function(socketId) {
+        await __callBridge('net.udpClose', JSON.stringify({socketId: socketId}));
+        delete songloft.net._handlers[socketId];
+    },
+    onData: function(socketId, handler) {
+        songloft.net._handlers[socketId] = handler;
+    }
+};
 `
 
 // GetBootstrapCode 返回插件引导 JS 代码（含通信 API）
@@ -337,6 +367,8 @@ type BridgeHandler struct {
 	pluginToken               string                    // 插件专用的永久 JWT Token
 	port                      string                    // 服务器监听端口（用于构造宿主 URL）
 	processes                 sync.Map                  // map[name]*managedProcess — 后台进程跟踪
+	udpSockets                sync.Map                  // map[socketID]*managedUDPSocket — UDP socket 跟踪
+	socketIDSeq               atomic.Uint64             // UDP socket ID 递增序号
 	onPlayEventRegister       func(entryPath string)    // 播放事件订阅回调
 	onPlayEventUnregister     func(entryPath string)    // 播放事件取消订阅回调
 	onLyricProviderRegister   func(entryPath string)    // 歌词提供者注册回调
@@ -393,6 +425,8 @@ func (h *BridgeHandler) HandleBridgeCall(action, data string) (string, error) {
 		return h.handleCommand(action, data)
 	case strings.HasPrefix(action, "fs."):
 		return h.handleFS(action, data)
+	case strings.HasPrefix(action, "net."):
+		return h.handleNet(action, data)
 	default:
 		return "", fmt.Errorf("unknown action: %s", action)
 	}
@@ -444,6 +478,11 @@ func extractPermFromAction(action string) string {
 	// 文件系统权限（songloft.fs.*）
 	if strings.HasPrefix(action, "fs.") {
 		return PermFS
+	}
+
+	// 网络 socket 权限（songloft.net.*）
+	if strings.HasPrefix(action, "net.") {
+		return PermNet
 	}
 
 	// 未明确分类的 action：返回原样，仅对应的通配符声明者能通过。

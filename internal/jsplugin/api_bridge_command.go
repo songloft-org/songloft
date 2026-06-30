@@ -54,6 +54,7 @@ func (h *BridgeHandler) Cleanup() {
 		slog.Info("killed background process on cleanup", "name", key, "plugin", h.service.plugin.EntryPath)
 		return true
 	})
+	h.cleanupUDPSockets()
 }
 
 func (h *BridgeHandler) handleCommand(action, data string) (string, error) {

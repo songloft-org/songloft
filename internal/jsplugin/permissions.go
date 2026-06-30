@@ -24,6 +24,7 @@ const (
 	PermFSExternal        = "fs:external"        // 可访问管理员配置的外部目录
 	PermWebSocket         = "websocket"          // WebSocket 连接
 	PermPersistentStorage = "persistent-storage" // 持久化存储（卸载后保留）
+	PermNet               = "net"                // 原始网络 socket（UDP）
 )
 
 // AllPermissions 所有合法权限列表（声明层白名单）。
@@ -36,7 +37,7 @@ var AllPermissions = []string{
 	PermPlaylistsRead, PermPlaylistsWrite,
 	PermInterPlugin, PermCommand,
 	PermJSEnv, PermFS, PermFSMusic, PermFSExternal,
-	PermWebSocket, PermPersistentStorage,
+	PermWebSocket, PermPersistentStorage, PermNet,
 	// 通配符糖
 	"songs.*",
 	"playlists.*",

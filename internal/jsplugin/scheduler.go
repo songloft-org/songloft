@@ -21,6 +21,7 @@ const (
 	MsgHostCall                       // 宿主函数调用结果
 	MsgHealthCheck                    // 健康检查
 	MsgPlayEvent                      // 播放事件（play/finish/skip）
+	MsgNetData                        // 网络数据事件（UDP 收包推送）
 )
 
 const (

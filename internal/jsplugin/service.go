@@ -82,6 +82,13 @@ type ServeFileDirective struct {
 	FilePath string `json:"filePath,omitempty"` // serve 文件（路径解析规则见 resolveServeFilePath）
 }
 
+// NetDataEvent 是 MsgNetData 消息的 Data 类型（Go 侧 UDP readLoop 推送）
+type NetDataEvent struct {
+	SocketID   string `json:"socketId"`
+	Data       string `json:"data"`       // base64 编码的原始数据
+	RemoteAddr string `json:"remoteAddr"` // "ip:port"
+}
+
 // JSService 代表一个运行中的 JS 插件实例（Actor）
 type JSService struct {
 	plugin        *JSPlugin               // 插件元数据
@@ -370,6 +377,8 @@ func (s *JSService) HandleMessage(msg *Message) *Message {
 		return s.handleHealthCheck(msg)
 	case MsgPlayEvent:
 		return s.handlePlayEvent(msg)
+	case MsgNetData:
+		return s.handleNetData(msg)
 	default:
 		return nil
 	}
@@ -419,6 +428,20 @@ func (s *JSService) HasRunningProcesses() bool {
 		return false
 	})
 	return hasProc
+}
+
+// HasActiveUDPSockets 检查插件是否有活跃的 UDP socket。
+// 由 HealthChecker.checkIdle 调用，防止有活跃 socket 的插件被休眠。
+func (s *JSService) HasActiveUDPSockets() bool {
+	if s.bridgeHandler == nil {
+		return false
+	}
+	hasSocket := false
+	s.bridgeHandler.udpSockets.Range(func(_, _ any) bool {
+		hasSocket = true
+		return false
+	})
+	return hasSocket
 }
 
 // --- 内部消息处理方法 ---
@@ -610,6 +633,29 @@ func (s *JSService) handlePlayEvent(msg *Message) *Message {
 	_, err = s.jsManager.ExecuteJS(context.Background(), s.envID, code, 5000)
 	if err != nil {
 		slog.Warn("onPlayEvent failed", "plugin", s.plugin.EntryPath, "error", err)
+	}
+	return nil
+}
+
+func (s *JSService) handleNetData(msg *Message) *Message {
+	eventData, ok := msg.Data.(*NetDataEvent)
+	if !ok {
+		slog.Warn("net data: invalid data type", "plugin", s.plugin.EntryPath)
+		return nil
+	}
+
+	eventJSON, err := json.Marshal(eventData)
+	if err != nil {
+		slog.Warn("net data: marshal failed", "plugin", s.plugin.EntryPath, "error", err)
+		return nil
+	}
+
+	code := fmt.Sprintf(`(async function(){var h=songloft.net._handlers['%s'];if(typeof h==='function'){await h(%s);}})()`,
+		eventData.SocketID, string(eventJSON))
+
+	_, err = s.jsManager.ExecuteJS(context.Background(), s.envID, code, 5000)
+	if err != nil {
+		slog.Debug("onNetData failed", "plugin", s.plugin.EntryPath, "socketId", eventData.SocketID, "error", err)
 	}
 	return nil
 }
