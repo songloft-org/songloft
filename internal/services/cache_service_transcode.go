@@ -112,7 +112,6 @@ func (c *CacheService) GetOrTranscode(ctx context.Context, srcPath string, song 
 		return "", err
 	}
 
-	c.touchSongLRU(song.ID)
 	go c.EvictLRU()
 	return finalPath, nil
 }
@@ -127,7 +126,6 @@ func (c *CacheService) FindTranscodedFile(song *models.Song, targetFormat string
 	dir, _ := c.getCachePath(song.ID, "")
 	path := filepath.Join(dir, name)
 	if _, err := os.Stat(path); err == nil {
-		c.touchSongLRU(song.ID)
 		return path, true
 	}
 	return "", false

@@ -56,6 +56,7 @@ type App struct {
 	webDist            embed.FS
 	tracelyClient      *tracely.Client
 	logLevelVar        *slog.LevelVar // 全局 slog 等级动态切换；由 /settings/log-level 即时 Set
+	server             *http.Server
 }
 
 // NewApp 创建新的应用程序实例
@@ -78,11 +79,24 @@ func (a *App) Close() error {
 	if a.autoScanner != nil {
 		a.autoScanner.Stop()
 	}
+	if a.authService != nil {
+		a.authService.Close()
+	}
 	if a.db != nil {
 		slog.Info("关闭数据库连接")
 		return a.db.Close()
 	}
 	return nil
+}
+
+// Shutdown 优雅关闭 HTTP 服务器并释放所有资源
+func (a *App) Shutdown(ctx context.Context) error {
+	if a.server != nil {
+		if err := a.server.Shutdown(ctx); err != nil {
+			slog.Warn("HTTP server shutdown error", "error", err)
+		}
+	}
+	return a.Close()
 }
 
 func (a *App) Init() error {
@@ -547,7 +561,11 @@ func (a *App) Start() error {
 		"port", a.config.Port,
 		"base_path", a.config.BasePath)
 
-	return http.ListenAndServe(":"+a.config.Port, a.BuildHandler())
+	a.server = &http.Server{
+		Addr:    ":" + a.config.Port,
+		Handler: a.BuildHandler(),
+	}
+	return a.server.ListenAndServe()
 }
 
 // initJWTSecret 初始化JWT密钥

@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"time"
+
 	"songloft/internal/app"
 	"syscall"
 )
@@ -59,20 +64,24 @@ func main() {
 	}
 
 	// 设置信号处理，确保程序优雅退出
+	shutdownDone := make(chan struct{})
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigChan
 		slog.Info("收到退出信号，正在关闭...")
-		if err := a.Close(); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := a.Shutdown(ctx); err != nil {
 			slog.Error("关闭应用失败", "error", err)
 		}
-		os.Exit(0)
+		close(shutdownDone)
 	}()
 
-	err = a.Start()
-	if err != nil {
+	if err := a.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("应用启动失败", "error", err)
+		a.Close()
 		return
 	}
+	<-shutdownDone
 }

@@ -48,6 +48,7 @@ type SongHandler struct {
 	metadataRefresher *services.MetadataRefresher
 	configService     *services.ConfigService
 	urlResolver       *services.InternalURLResolver // 把插件相对路径解析为本机绝对 URL + access_token（封面代理用）
+	radioClient       *http.Client
 }
 
 // NewSongHandler 创建歌曲处理器
@@ -66,6 +67,14 @@ func NewSongHandler(
 		lyricFetcher: lyricFetcher,
 		hlsHandler:   hlsHandler,
 		playActivity: playActivity,
+		radioClient: &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 10 {
+					return http.ErrUseLastResponse
+				}
+				return nil
+			},
+		},
 	}
 }
 
@@ -670,7 +679,7 @@ func (h *SongHandler) GetSongCover(w http.ResponseWriter, r *http.Request) {
 
 	// 优先使用本地封面
 	if song.CoverPath != "" {
-		h.serveLocalCover(w, song)
+		h.serveLocalCover(w, r, song)
 		return
 	}
 
@@ -690,41 +699,9 @@ func (h *SongHandler) GetSongCover(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveLocalCover 返回本地封面文件
-func (h *SongHandler) serveLocalCover(w http.ResponseWriter, song *models.Song) {
-	coverPath := song.CoverPath
-
-	// 检查封面文件是否存在
-	if _, err := os.Stat(coverPath); os.IsNotExist(err) {
-		respondError(w, http.StatusNotFound, "封面文件不存在", err)
-		return
-	}
-
-	// 读取封面文件
-	coverData, err := os.ReadFile(coverPath)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "读取封面文件失败", err)
-		return
-	}
-
-	// 根据文件扩展名设置 Content-Type
-	ext := filepath.Ext(coverPath)
-	contentType := "image/jpeg" // 默认
-	switch ext {
-	case ".png":
-		contentType = "image/png"
-	case ".gif":
-		contentType = "image/gif"
-	case ".bmp":
-		contentType = "image/bmp"
-	case ".webp":
-		contentType = "image/webp"
-	}
-
-	// 返回封面图片
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Cache-Control", "public, max-age=31536000") // 缓存一年
-	w.WriteHeader(http.StatusOK)
-	w.Write(coverData)
+func (h *SongHandler) serveLocalCover(w http.ResponseWriter, r *http.Request, song *models.Song) {
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	http.ServeFile(w, r, song.CoverPath)
 }
 
 // CleanInvalidSongs 清理无效的本地歌曲
@@ -1043,16 +1020,7 @@ func (h *SongHandler) serveRadio(w http.ResponseWriter, r *http.Request, song *m
 	}
 	httputil.ApplyBasicAuthFromURL(upstreamReq)
 
-	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= 10 {
-				return http.ErrUseLastResponse
-			}
-			return nil
-		},
-	}
-
-	resp, err := client.Do(upstreamReq)
+	resp, err := h.radioClient.Do(upstreamReq)
 	if err != nil {
 		slog.Warn("radio stream fetch failed", "url", song.URL, "error", err)
 		http.Error(w, "resource fetch failed", http.StatusBadGateway)

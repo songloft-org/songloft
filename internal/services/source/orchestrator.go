@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"math/rand"
+	"os"
 	"sync"
 	"time"
 )
@@ -201,9 +202,11 @@ func (o *SourceOrchestrator) AsyncReassign(songID int64, sk ReassignSessionKey, 
 			slog.Info("async reassign: all sources failed", "songId", songID, "error", err)
 			return
 		}
-		// 清理临时文件:reassign 不下载到 cache,只是为了更新 song.plugin_entry_path/source_data
-		// (这个目的在 Fetcher 走完 + persistIfChanged 已经完成)
-		_ = res
+		// reassign 只需要更新 song.plugin_entry_path/source_data(已在 persistIfChanged 完成),
+		// Fetch 产生的临时音频文件不需要保留,立即清理防止泄漏。
+		if res.TempPath != "" {
+			_ = os.Remove(res.TempPath)
+		}
 		slog.Info("async reassign succeeded", "songId", songID)
 	}()
 }
@@ -249,6 +252,13 @@ func (o *SourceOrchestrator) sleepFallback(ctx context.Context) {
 func (o *SourceOrchestrator) tryAcquireReassign(songID int64) bool {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	// 顺带清理过期条目,防止 map 无限增长
+	threshold := 2 * o.opts.AsyncReassignDedupe
+	for id, last := range o.reassignActive {
+		if time.Since(last) > threshold {
+			delete(o.reassignActive, id)
+		}
+	}
 	if last, ok := o.reassignActive[songID]; ok {
 		if time.Since(last) < o.opts.AsyncReassignDedupe {
 			return false
@@ -259,7 +269,7 @@ func (o *SourceOrchestrator) tryAcquireReassign(songID int64) bool {
 }
 
 func (o *SourceOrchestrator) releaseReassign(songID int64) {
-	// 不立刻删除——保留 timestamp 作为去重窗口
-	// 真正的清理由下次 tryAcquireReassign 检查时进行
+	// 不立刻删除——保留 timestamp 作为去重窗口。
+	// 过期条目在 tryAcquireReassign 中统一清理(2×AsyncReassignDedupe 阈值)。
 	_ = songID
 }

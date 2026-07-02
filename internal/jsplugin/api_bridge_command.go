@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"songloft/internal/httputil"
 )
 
 const (
@@ -261,7 +263,8 @@ func (h *BridgeHandler) commandDownload(data string) (string, error) {
 		}
 	}
 
-	resp, err := http.Get(req.URL)
+	client := httputil.NewClient(120 * time.Second)
+	resp, err := client.Get(req.URL)
 	if err != nil {
 		return "", fmt.Errorf("commandDownload: fetch: %w", err)
 	}

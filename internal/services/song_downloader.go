@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"songloft/internal/httputil"
 	"songloft/internal/models"
 )
 
@@ -64,9 +65,7 @@ func NewSongDownloader(
 		configService: configService,
 		getMusicPath:  getMusicPath,
 		lyricFetcher:  lyricFetcher,
-		downloadClient: &http.Client{
-			Timeout: 120 * time.Second,
-		},
+		downloadClient: httputil.NewClient(120 * time.Second),
 	}
 }
 

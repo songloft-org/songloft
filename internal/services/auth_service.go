@@ -39,6 +39,8 @@ type AuthService struct {
 	password string
 	// Token 内存缓存，key 为 token 字符串，value 为缓存条目
 	tokenCache sync.Map // map[string]*TokenCacheEntry
+	done       chan struct{}
+	closeOnce  sync.Once
 }
 
 // Claims JWT声明结构
@@ -74,6 +76,7 @@ func NewAuthService(configs ConfigRepository, tokens TokenRepository, username, 
 		secret:   secret,
 		username: username,
 		password: password,
+		done:     make(chan struct{}),
 	}
 
 	// 启动缓存清理协程
@@ -201,21 +204,33 @@ func (s *AuthService) deleteTokenCache(tokenString string) {
 	s.tokenCache.Delete(tokenString)
 }
 
+// Close 关闭 AuthService，停止缓存清理协程
+func (s *AuthService) Close() {
+	s.closeOnce.Do(func() {
+		close(s.done)
+	})
+}
+
 // startCacheCleanup 启动缓存清理协程，每分钟清理一次过期缓存
 func (s *AuthService) startCacheCleanup() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		now := time.Now()
-		s.tokenCache.Range(func(key, value interface{}) bool {
-			entry := value.(*TokenCacheEntry)
-			// 如果缓存已过期或 token 已被撤销，删除它
-			if now.After(entry.ExpiresAt) || entry.Revoked {
-				s.tokenCache.Delete(key)
-			}
-			return true
-		})
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now()
+			s.tokenCache.Range(func(key, value interface{}) bool {
+				entry := value.(*TokenCacheEntry)
+				// 如果缓存已过期或 token 已被撤销，删除它
+				if now.After(entry.ExpiresAt) || entry.Revoked {
+					s.tokenCache.Delete(key)
+				}
+				return true
+			})
+		case <-s.done:
+			return
+		}
 	}
 }
 

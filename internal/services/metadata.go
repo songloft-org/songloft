@@ -320,6 +320,7 @@ func (m *MetadataExtractor) ProbeForValidation(ctx context.Context, filePath str
 
 	// 优先用 tag 库(快)
 	if file, err := os.Open(filePath); err == nil {
+		defer file.Close()
 		if tagMeta, err := tag.ReadFrom(file); err == nil {
 			info.Format = NormalizeFormat(strings.TrimPrefix(filepath.Ext(filePath), "."))
 			if d := tagMeta.Duration(); d > 0 {
@@ -332,7 +333,6 @@ func (m *MetadataExtractor) ProbeForValidation(ctx context.Context, filePath str
 				info.SampleRate = sr
 			}
 		}
-		file.Close()
 	}
 
 	// duration / bitrate / sample_rate 任一缺失就回退 ffprobe

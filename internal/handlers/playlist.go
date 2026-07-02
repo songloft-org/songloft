@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -675,7 +674,7 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 
 	// 优先使用本地封面
 	if playlist.CoverPath != "" {
-		h.serveLocalCover(w, playlist)
+		h.serveLocalCover(w, r, playlist)
 		return
 	}
 
@@ -691,7 +690,7 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 	if err == nil {
 		for _, s := range songs {
 			if s.CoverPath != "" {
-				h.serveLocalCover(w, &models.Playlist{CoverPath: s.CoverPath})
+				h.serveLocalCover(w, r, &models.Playlist{CoverPath: s.CoverPath})
 				return
 			}
 		}
@@ -701,39 +700,9 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 }
 
 // serveLocalCover 返回本地封面文件
-func (h *PlaylistHandler) serveLocalCover(w http.ResponseWriter, playlist *models.Playlist) {
-	coverPath := playlist.CoverPath
-	if _, err := os.Stat(coverPath); os.IsNotExist(err) {
-		respondError(w, http.StatusNotFound, "封面文件不存在", err)
-		return
-	}
-
-	// 读取封面文件
-	coverData, err := os.ReadFile(coverPath)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "读取封面文件失败", err)
-		return
-	}
-
-	// 根据文件扩展名设置 Content-Type
-	ext := filepath.Ext(coverPath)
-	contentType := "image/jpeg" // 默认
-	switch ext {
-	case ".png":
-		contentType = "image/png"
-	case ".gif":
-		contentType = "image/gif"
-	case ".bmp":
-		contentType = "image/bmp"
-	case ".webp":
-		contentType = "image/webp"
-	}
-
-	// 返回封面图片
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Cache-Control", "public, max-age=31536000") // 缓存一年
-	w.WriteHeader(http.StatusOK)
-	w.Write(coverData)
+func (h *PlaylistHandler) serveLocalCover(w http.ResponseWriter, r *http.Request, playlist *models.Playlist) {
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	http.ServeFile(w, r, playlist.CoverPath)
 }
 
 // SetPlaylistVisibility 设置歌单可见性

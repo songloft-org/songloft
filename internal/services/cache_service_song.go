@@ -35,8 +35,6 @@ type songCacheState struct {
 	inflight            map[int64]*inflightDownload // songID → 同步等待 channel
 	transcodeInflightMu sync.Mutex
 	transcodeInflight   map[string]*inflightDownload // "tc_{songID}_{format}" → 同步等待 channel
-	lruMu               sync.RWMutex
-	lru                 map[int64]time.Time // songID → 最后访问时间
 }
 
 var (
@@ -49,7 +47,6 @@ func getSongState() *songCacheState {
 		songState = &songCacheState{
 			inflight:          make(map[int64]*inflightDownload),
 			transcodeInflight: make(map[string]*inflightDownload),
-			lru:               make(map[int64]time.Time),
 		}
 	})
 	return songState
@@ -138,7 +135,6 @@ func (c *CacheService) FindCachedFileBySong(song *models.Song) (string, bool) {
 	// 优先：DB 中记录的结构化缓存路径
 	if song.CachePath != "" {
 		if _, err := os.Stat(song.CachePath); err == nil {
-			c.touchSongLRU(song.ID)
 			return song.CachePath, true
 		}
 		// 文件不存在，惰性清理
@@ -167,7 +163,6 @@ func (c *CacheService) FindCachedFileBySong(song *models.Song) (string, bool) {
 		}
 		if name == base || (len(name) > len(base) && name[len(base)] == '.') {
 			p := filepath.Join(dir, name)
-			c.touchSongLRU(song.ID)
 			return p, true
 		}
 	}
@@ -212,10 +207,6 @@ func (c *CacheService) EvictSong(songID int64, cachePath string) error {
 			}
 		}
 	}
-	state := getSongState()
-	state.lruMu.Lock()
-	delete(state.lru, songID)
-	state.lruMu.Unlock()
 	return nil
 }
 
@@ -326,7 +317,6 @@ func (c *CacheService) Get(ctx context.Context, song *models.Song) (string, erro
 		dl.err = err
 		return "", err
 	}
-	c.touchSongLRU(song.ID)
 	// 触发 LRU 淘汰
 	go c.EvictLRU()
 	return finalPath, nil
@@ -382,7 +372,6 @@ func (c *CacheService) FinalizeCache(ctx context.Context, song *models.Song, tmp
 		}()
 	}
 
-	c.touchSongLRU(song.ID)
 	c.EvictLRU()
 }
 
@@ -453,15 +442,6 @@ func (c *CacheService) downloadExternalToTemp(ctx context.Context, url string) (
 		return "", "", fmt.Errorf("downloaded too small: %d", written)
 	}
 	return tmpPath, ext, nil
-}
-
-// touchSongLRU 更新 song-id-indexed LRU 时间戳。
-// 与原 hash-indexed LRU 并存,EvictLRU 会同时考虑两者(但实现上仍以原 hash 索引为主)。
-func (c *CacheService) touchSongLRU(songID int64) {
-	state := getSongState()
-	state.lruMu.Lock()
-	state.lru[songID] = time.Now()
-	state.lruMu.Unlock()
 }
 
 // songInfoOf 把 models.Song 投影成 source.SongInfo(避免 source 包依赖 models)

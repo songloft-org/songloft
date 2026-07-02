@@ -122,6 +122,16 @@ func (s *JSService) Load(pluginsDir, dataDir string) error {
 
 	// [1] 读取 ZIP 文件
 	zipPath := filepath.Join(pluginsDir, s.plugin.FilePath)
+
+	const maxPluginZipSize = 50 << 20 // 50MB
+	zipInfo, err := os.Stat(zipPath)
+	if err != nil {
+		return fmt.Errorf("stat zip file %q: %w", zipPath, err)
+	}
+	if zipInfo.Size() > maxPluginZipSize {
+		return fmt.Errorf("zip file %q too large: %d bytes (max %d)", zipPath, zipInfo.Size(), maxPluginZipSize)
+	}
+
 	zipData, err := os.ReadFile(zipPath)
 	if err != nil {
 		return fmt.Errorf("read zip file %q: %w", zipPath, err)
