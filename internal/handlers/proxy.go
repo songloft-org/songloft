@@ -181,6 +181,7 @@ func ServeRemoteResourceWithCache(
 	w http.ResponseWriter,
 	r *http.Request,
 	resourceURL string,
+	headers map[string]string,
 	onCached func(tmpPath, contentType string),
 	onCacheMiss func(),
 ) {
@@ -204,6 +205,10 @@ func ServeRemoteResourceWithCache(
 	upstreamReq.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 	if accept := r.Header.Get("Accept"); accept != "" {
 		upstreamReq.Header.Set("Accept", accept)
+	}
+	// 应用插件返回的自定义头(如 Referer / User-Agent)，覆盖默认值
+	for k, v := range headers {
+		upstreamReq.Header.Set(k, v)
 	}
 	httputil.ApplyBasicAuthFromURL(upstreamReq)
 

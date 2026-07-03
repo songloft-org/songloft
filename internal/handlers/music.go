@@ -1089,6 +1089,7 @@ func (h *SongHandler) serveRemote(w http.ResponseWriter, r *http.Request, song *
 
 	// 2. 缓存未命中：解析播放 URL
 	var playURL string
+	var upstreamHeaders map[string]string
 	if song.IsPluginSourced() {
 		resolved, err := h.cacheService.ResolveURL(r.Context(), song)
 		if err != nil {
@@ -1100,7 +1101,8 @@ func (h *SongHandler) serveRemote(w http.ResponseWriter, r *http.Request, song *
 			http.Error(w, "source unavailable: "+err.Error(), http.StatusBadGateway)
 			return
 		}
-		playURL = resolved
+		playURL = resolved.URL
+		upstreamHeaders = resolved.Headers
 	} else if song.URL != "" {
 		playURL = song.URL
 	} else {
@@ -1120,13 +1122,13 @@ func (h *SongHandler) serveRemote(w http.ResponseWriter, r *http.Request, song *
 
 	// 4. 流式代理 + 后台缓存
 	songCopy := *song
-	ServeRemoteResourceWithCache(w, r, playURL,
+	ServeRemoteResourceWithCache(w, r, playURL, upstreamHeaders,
 		func(tmpPath, contentType string) {
 			ext := services.GetExtFromContentType(contentType)
 			h.cacheService.FinalizeCache(context.Background(), &songCopy, tmpPath, ext)
 		},
 		func() {
-			h.cacheService.AsyncDownloadAndCache(context.Background(), &songCopy, playURL)
+			h.cacheService.AsyncDownloadAndCache(context.Background(), &songCopy, playURL, upstreamHeaders)
 		},
 	)
 }

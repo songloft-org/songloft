@@ -25,7 +25,7 @@ import (
 // 解耦 cache_service 与 source 包的具体类型,便于后续替换或单测 mock。
 type CacheSongFetcher interface {
 	Fetch(ctx context.Context, song *source.SongInfo, mode source.FetchMode) (*source.FetchResult, error)
-	ResolveURL(ctx context.Context, song *source.SongInfo) (string, error)
+	ResolveURL(ctx context.Context, song *source.SongInfo) (*source.ResolvedURL, error)
 }
 
 // 全局唯一(per process)的 song-id-indexed 状态。
@@ -300,7 +300,7 @@ func (c *CacheService) Get(ctx context.Context, song *models.Song) (string, erro
 		ext = extensionFromFormat(res.Info)
 	case song.URL != "":
 		// 纯外链:简化下载,无 fallback
-		tmpPath, ext, fetchErr = c.downloadExternalToTemp(ctx, song.URL)
+		tmpPath, ext, fetchErr = c.downloadExternalToTemp(ctx, song.URL, nil)
 		if fetchErr != nil {
 			dl.err = fetchErr
 			return "", fetchErr
@@ -377,8 +377,8 @@ func (c *CacheService) FinalizeCache(ctx context.Context, song *models.Song, tmp
 
 // AsyncDownloadAndCache 在后台全量下载远程歌曲并缓存。
 // 用于 206 场景：客户端已在接收代理流，此方法独立发起全量 GET。
-func (c *CacheService) AsyncDownloadAndCache(ctx context.Context, song *models.Song, url string) {
-	tmpPath, ext, err := c.downloadExternalToTemp(ctx, url)
+func (c *CacheService) AsyncDownloadAndCache(ctx context.Context, song *models.Song, url string, headers map[string]string) {
+	tmpPath, ext, err := c.downloadExternalToTemp(ctx, url, headers)
 	if err != nil {
 		slog.Warn("async cache download failed", "songId", song.ID, "error", err)
 		return
@@ -387,9 +387,9 @@ func (c *CacheService) AsyncDownloadAndCache(ctx context.Context, song *models.S
 }
 
 // ResolveURL 解析插件歌曲的可下载音频 URL（不下载）。
-func (c *CacheService) ResolveURL(ctx context.Context, song *models.Song) (string, error) {
+func (c *CacheService) ResolveURL(ctx context.Context, song *models.Song) (*source.ResolvedURL, error) {
 	if c.orchestrator == nil {
-		return "", ErrNoOrchestrator
+		return nil, ErrNoOrchestrator
 	}
 	return c.orchestrator.ResolveURL(ctx, songInfoOf(song))
 }
@@ -403,12 +403,16 @@ func (c *CacheService) ClearStaleCachePath(songID int64) {
 
 // downloadExternalToTemp 纯外链歌曲的简化下载:直接 HTTP GET,无 fallback、无元数据校验。
 // 因为纯外链没有"插件源"概念,Orchestrator 也无能为力。
-func (c *CacheService) downloadExternalToTemp(ctx context.Context, url string) (string, string, error) {
+func (c *CacheService) downloadExternalToTemp(ctx context.Context, url string, headers map[string]string) (string, string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", "", fmt.Errorf("new request: %w", err)
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	// 应用插件返回的自定义头(如 Referer / User-Agent)，覆盖默认值
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	httputil.ApplyBasicAuthFromURL(req)
 	resp, err := c.downloadClient.Do(req)
 	if err != nil {

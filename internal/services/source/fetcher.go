@@ -113,9 +113,17 @@ type musicURLFallback struct {
 
 // musicURLResponse 插件 /api/music/url 的响应。
 type musicURLResponse struct {
-	URL          string          `json:"url"`
-	SourceData   json.RawMessage `json:"source_data,omitempty"` // L1 自搜后返回的新音源(可空)
-	UsedFallback bool            `json:"used_fallback,omitempty"`
+	URL          string            `json:"url"`
+	Headers      map[string]string `json:"headers,omitempty"`     // 拉取该 URL 时需携带的自定义请求头(如 Referer / User-Agent)
+	SourceData   json.RawMessage   `json:"source_data,omitempty"` // L1 自搜后返回的新音源(可空)
+	UsedFallback bool              `json:"used_fallback,omitempty"`
+}
+
+// ResolvedURL 音源解析结果:可下载 URL + 拉取时需携带的自定义请求头。
+// Headers 为空时上游拉取行为与旧版一致。
+type ResolvedURL struct {
+	URL     string
+	Headers map[string]string
 }
 
 // ResolveURL 仅调用插件 /api/music/url 解析出可下载的音频 URL，不下载、不探测、不校验。
@@ -125,12 +133,12 @@ func (f *SourceFetcher) ResolveURL(
 	entryPath, sourceData string,
 	song *SongInfo,
 	allowPluginFallback bool,
-) (string, error) {
+) (*ResolvedURL, error) {
 	resp, err := f.invokePluginMusicURL(ctx, entryPath, sourceData, song, allowPluginFallback)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return resp.URL, nil
+	return &ResolvedURL{URL: resp.URL, Headers: resp.Headers}, nil
 }
 
 // invokePluginMusicURL 调用插件 /api/music/url 接口解析真实下载 URL。
@@ -223,7 +231,7 @@ func (f *SourceFetcher) Fetch(
 	// 2. HTTP 下载到临时文件
 	dlCtx, cancel := context.WithTimeout(ctx, f.opts.HTTPTimeout)
 	defer cancel()
-	tmpPath, size, err := f.downloadToTemp(dlCtx, resp.URL)
+	tmpPath, size, err := f.downloadToTemp(dlCtx, resp.URL, resp.Headers)
 	if err != nil {
 		report(OutcomeNetworkFail, err.Error(), 0)
 		return nil, &NetworkError{Op: "get", URL: resp.URL, Err: err}
@@ -277,12 +285,16 @@ func (f *SourceFetcher) Fetch(
 // downloadToTemp 把 url 流式拉到临时文件,返回路径与写入字节数。
 // 不做 Content-Type 校验,所有内容审计由后续 Probe + Validate 兜底,
 // 因为部分 CDN 返回 application/octet-stream 是正常的。
-func (f *SourceFetcher) downloadToTemp(ctx context.Context, url string) (string, int64, error) {
+func (f *SourceFetcher) downloadToTemp(ctx context.Context, url string, headers map[string]string) (string, int64, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", 0, fmt.Errorf("new request: %w", err)
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	// 应用插件返回的自定义头(如 Referer / User-Agent)，覆盖默认值
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	httputil.ApplyBasicAuthFromURL(req)
 
 	resp, err := f.opts.HTTPClient.Do(req)

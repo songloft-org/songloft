@@ -382,7 +382,11 @@ func (a *App) Init() error {
 		songRepo.UpdateTagFields,
 		func(ctx context.Context, song *models.Song) (string, error) {
 			if song.IsPluginSourced() {
-				return a.cacheService.ResolveURL(ctx, song)
+				resolved, err := a.cacheService.ResolveURL(ctx, song)
+				if err != nil {
+					return "", err
+				}
+				return resolved.URL, nil
 			}
 			return song.URL, nil
 		},
