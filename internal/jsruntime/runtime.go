@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/rc4"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/sha256"
 
 	"crypto/x509"
@@ -1509,6 +1510,16 @@ func registerBridgeFunctions(vm *quickjs.VM, env *JSEnv) error {
 		return hex.EncodeToString(h[:])
 	}, false); err != nil {
 		return fmt.Errorf("register __go_crypto_sha256: %w", err)
+	}
+
+	// __go_crypto_sha1(str) — SHA1 hex（输入按 UTF-8 字节）。仅为兼容小米等旧 API
+	// 的签名（clientSign = base64(sha1("nonce=...&ssecurity"))）；SHA1 已不安全，
+	// 不要用于新的安全场景。
+	if err := vm.RegisterFunc("__go_crypto_sha1", func(str string) string {
+		h := sha1.Sum([]byte(str))
+		return hex.EncodeToString(h[:])
+	}, false); err != nil {
+		return fmt.Errorf("register __go_crypto_sha1: %w", err)
 	}
 
 	// __go_crypto_sha256_bytes(dataHex) — 对任意二进制做 SHA256（hex 入，hex 出）。

@@ -36,7 +36,7 @@ globalThis.console = {
     // Mark Go bridge functions as native
     var bridgeNames = ['__go_send', '__go_console', '__go_fetch_async', '__go_now_ms',
         '__go_buffer_from', '__go_buffer_to_string', '__go_crypto_md5', '__go_crypto_sha256',
-        '__go_crypto_sha256_bytes', '__go_crypto_rc4',
+        '__go_crypto_sha1', '__go_crypto_sha256_bytes', '__go_crypto_rc4',
         '__go_crypto_random_bytes', '__go_crypto_aes_encrypt', '__go_crypto_rsa_encrypt',
         '__go_zlib_inflate', '__go_zlib_deflate', '__go_raw_inflate',
         '__go_pop_async_result',
@@ -452,6 +452,8 @@ globalThis.Buffer = {
 // crypto polyfill
 globalThis.crypto = {
     md5: function(str) { return __go_crypto_md5(str || ''); },
+    // sha1(str) — SHA1 hex（原生）。仅兼容旧 API 签名；SHA1 不安全，勿用于新场景。
+    sha1: function(str) { return __go_crypto_sha1(str || ''); },
     // sha256Bytes(buffer) — 对任意二进制做 SHA256（原生），返回 {_hex, toString}。
     // buffer 可为 {_hex} 对象或字符串（按 utf8 编码）。用于替代插件的纯 JS sha256。
     sha256Bytes: function(buffer) {

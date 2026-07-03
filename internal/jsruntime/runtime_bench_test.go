@@ -234,6 +234,47 @@ func BenchmarkMiotCrypto_NativeRC4SHA(b *testing.B) {
 	}
 }
 
+// BenchmarkMiotPollLogging 量 miot 轮询每 tick 的日志开销：steady-state（0 新消息）
+// 下 monitor.ts + client.ts 仍打 ~15 条 console.log（含模板字符串 + substring +
+// map/join 摘要）。console.log → __go_console bridge。模拟一次空轮询的日志成本。
+func BenchmarkMiotPollLogging(b *testing.B) {
+	m := NewJSEnvManager()
+	defer m.SignalShutdown()
+	envID := "bench-miot-poll-log"
+	if err := m.CreateEnv(envID, polyfillJS, 1); err != nil {
+		b.Fatalf("CreateEnv: %v", err)
+	}
+	defer m.DestroyEnv(envID)
+
+	// 代表一次空轮询的日志：约 15 条 console.log + 摘要字符串构造。
+	code := `(function(){
+		var deviceId='blt.3.abcdefghij';var hardware='LX06';var limit=5;
+		console.log('[ConversationMonitor] getLatestAskFromXiaoai deviceId='+deviceId+' hardware='+hardware+' limit='+limit);
+		var apiUrl='https://api.mina.mi.com/remote/ubus?deviceId='+deviceId;
+		console.log('[ConversationMonitor] getLatestAskFromXiaoai apiUrl='+apiUrl);
+		for(var attempt=1;attempt<=1;attempt++){ console.log('[ConversationMonitor] getLatestAskFromXiaoai attempt='+attempt+' success, 0 messages'); }
+		console.log('[ConversationMonitor] doGetLatestAskFromXiaoai status=200');
+		var text='{"code":0,"data":"{\\"records\\":[]}"}';
+		console.log('[ConversationMonitor] doGetLatestAskFromXiaoai raw response ('+text.length+' chars): '+text.substring(0,1000));
+		console.log('[ConversationMonitor] doGetLatestAskFromXiaoai parsed 0 messages');
+		var askMessages=[];
+		console.log('[ConversationMonitor] pollDevice device='+deviceId+' returned 0 messages');
+		console.log('[ConversationMonitor] pollDevice device='+deviceId+' after filter: 0 new (lastTimestampMs=1700000000000)');
+		var summary=askMessages.map(function(m){return '[ts='+m.ts+']';}).join(', ');
+		console.log('[ConversationMonitor] getLatestAskByUbus result: 0 messages');
+		console.log('[MinaClient] poll cycle done for '+deviceId);
+		return 1;
+	})()`
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := m.ExecuteJS(context.Background(), envID, code, 5000); err != nil {
+			b.Fatalf("ExecuteJS: %v", err)
+		}
+	}
+}
+
 // makeLargeSongListJSON 构造一个近似 payloadBytes 大小的 JSON 数组字符串，
 // 模拟 subsonic 插件 songloft.songs.list({limit:100000}) 返回的整库列表。
 func makeLargeSongListJSON(payloadBytes int) string {

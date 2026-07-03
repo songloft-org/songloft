@@ -32,6 +32,33 @@ func TestNativeSHA256Bytes(t *testing.T) {
 	}
 }
 
+// TestNativeSHA1 用已知向量验证 __go_crypto_sha1（UTF-8 字符串入，hex 出）。
+func TestNativeSHA1(t *testing.T) {
+	m := NewJSEnvManager()
+	defer m.SignalShutdown()
+	envID := "test-sha1"
+	if err := m.CreateEnv(envID, polyfillJS, 1); err != nil {
+		t.Fatalf("CreateEnv: %v", err)
+	}
+	defer m.DestroyEnv(envID)
+
+	cases := []struct{ in, wantHex string }{
+		{"", "da39a3ee5e6b4b0d3255bfef95601890afd80709"},
+		{"abc", "a9993e364706816aba3e25717850c26c9cd0d89d"},
+	}
+	for _, c := range cases {
+		res, err := m.ExecuteJS(context.Background(), envID, `crypto.sha1(`+jsQuote(c.in)+`)`, 1000)
+		if err != nil {
+			t.Fatalf("ExecuteJS(%q): %v", c.in, err)
+		}
+		if res.Result != c.wantHex {
+			t.Errorf("sha1(%q) = %q, want %q", c.in, res.Result, c.wantHex)
+		}
+	}
+}
+
+func jsQuote(s string) string { return "\"" + s + "\"" }
+
 // TestNativeRC4 用维基百科 RC4 测试向量验证 __go_crypto_rc4（hex 入 hex 出）。
 func TestNativeRC4(t *testing.T) {
 	m := NewJSEnvManager()
