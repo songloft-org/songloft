@@ -37,7 +37,7 @@ globalThis.console = {
     var bridgeNames = ['__go_send', '__go_console', '__go_fetch_async', '__go_now_ms',
         '__go_buffer_from', '__go_buffer_to_string', '__go_crypto_md5', '__go_crypto_sha256',
         '__go_crypto_sha1', '__go_crypto_sha256_bytes', '__go_crypto_rc4',
-        '__go_crypto_random_bytes', '__go_crypto_aes_encrypt', '__go_crypto_rsa_encrypt',
+        '__go_crypto_random_bytes', '__go_crypto_aes_encrypt', '__go_crypto_aes_decrypt', '__go_crypto_rsa_encrypt',
         '__go_zlib_inflate', '__go_zlib_deflate', '__go_raw_inflate',
         '__go_pop_async_result',
         '__go_ws_connect_async', '__go_ws_send', '__go_ws_close', '__go_ws_state'];
@@ -475,6 +475,13 @@ globalThis.crypto = {
         var ivHex = (iv && iv._hex) ? iv._hex : (iv ? __go_buffer_from(String(iv), 'utf8') : '');
         return { _hex: __go_crypto_aes_encrypt(dataHex, mode || 'cbc', keyHex, ivHex),
                  toString: function(fmt) { return __go_buffer_to_string(this._hex, fmt || 'base64'); } };
+    },
+    aesDecrypt: function(buffer, mode, key, iv) {
+        var dataHex = (buffer && buffer._hex) ? buffer._hex : __go_buffer_from(String(buffer), 'base64');
+        var keyHex = (key && key._hex) ? key._hex : __go_buffer_from(String(key), 'utf8');
+        var ivHex = (iv && iv._hex) ? iv._hex : (iv ? __go_buffer_from(String(iv), 'utf8') : '');
+        return { _hex: __go_crypto_aes_decrypt(dataHex, mode || 'cbc', keyHex, ivHex),
+                 toString: function(fmt) { return __go_buffer_to_string(this._hex, fmt || 'utf8'); } };
     },
     rsaEncrypt: function(buffer, key) {
         var dataHex = (buffer && buffer._hex) ? buffer._hex : __go_buffer_from(String(buffer), 'utf8');

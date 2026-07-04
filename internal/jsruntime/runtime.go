@@ -23,6 +23,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1582,6 +1583,11 @@ func registerBridgeFunctions(vm *quickjs.VM, env *JSEnv) error {
 		return fmt.Errorf("register __go_crypto_aes_encrypt: %w", err)
 	}
 
+	// __go_crypto_aes_decrypt(dataHex, mode, keyHex, ivHex) — AES 解密
+	if err := vm.RegisterFunc("__go_crypto_aes_decrypt", goCryptoAesDecrypt, false); err != nil {
+		return fmt.Errorf("register __go_crypto_aes_decrypt: %w", err)
+	}
+
 	// __go_crypto_rsa_encrypt(dataHex, keyPEM) — RSA 公钥加密
 	if err := vm.RegisterFunc("__go_crypto_rsa_encrypt", goCryptoRsaEncrypt, false); err != nil {
 		return fmt.Errorf("register __go_crypto_rsa_encrypt: %w", err)
@@ -1850,10 +1856,37 @@ func registerBridgeFunctions(vm *quickjs.VM, env *JSEnv) error {
 //
 // 支持 X-Fetch-No-Redirect 请求头：存在时不自动跟随重定向，让 JS 侧处理
 // 重定向链（如 xiaomi 登录流程的 Cookie 收集）。
+// 支持 X-Fetch-Timeout-Ms 请求头：设置单次请求超时（100-30000ms），该内部头不会转发。
 func doHTTPRequest(url, method, headersJSON, bodyHex string) string {
 	slog.Debug("doHTTPRequest", "url", url, "method", method, "headers", headersJSON)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// 解析并设置请求头
+	var headers map[string]string
+	noRedirect := false
+	timeout := 30 * time.Second
+	if headersJSON != "" && headersJSON != "{}" {
+		if jsonErr := json.Unmarshal([]byte(headersJSON), &headers); jsonErr == nil {
+			for k, v := range headers {
+				if strings.EqualFold(k, "X-Fetch-No-Redirect") {
+					noRedirect = true
+					continue // 不传递此内部控制头
+				}
+				if strings.EqualFold(k, "X-Fetch-Timeout-Ms") {
+					if ms, parseErr := strconv.Atoi(strings.TrimSpace(v)); parseErr == nil && ms > 0 {
+						if ms < 100 {
+							ms = 100
+						} else if ms > 30000 {
+							ms = 30000
+						}
+						timeout = time.Duration(ms) * time.Millisecond
+					}
+					continue
+				}
+			}
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	var reqBody io.Reader
@@ -1870,18 +1903,12 @@ func doHTTPRequest(url, method, headersJSON, bodyHex string) string {
 		return marshalFetchError(err.Error())
 	}
 
-	// 解析并设置请求头
-	var headers map[string]string
-	noRedirect := false
-	if headersJSON != "" && headersJSON != "{}" {
-		if jsonErr := json.Unmarshal([]byte(headersJSON), &headers); jsonErr == nil {
-			for k, v := range headers {
-				if strings.EqualFold(k, "X-Fetch-No-Redirect") {
-					noRedirect = true
-					continue // 不传递此内部控制头
-				}
-				req.Header.Set(k, v)
+	if headers != nil {
+		for k, v := range headers {
+			if strings.EqualFold(k, "X-Fetch-No-Redirect") || strings.EqualFold(k, "X-Fetch-Timeout-Ms") {
+				continue
 			}
+			req.Header.Set(k, v)
 		}
 	}
 
@@ -1893,7 +1920,7 @@ func doHTTPRequest(url, method, headersJSON, bodyHex string) string {
 	httputil.ApplyBasicAuthFromURL(req)
 	url = req.URL.String()
 
-	// 诊断日志：记录实际发送的请求头（X-Fetch-No-Redirect 已剥离，默认头已补充）
+	// 诊断日志：记录实际发送的请求头（内部控制头已剥离，默认头已补充）
 	// header map 构造仅在 Debug 级别时进行，避免热路径无谓分配。
 	if slog.Default().Enabled(ctx, slog.LevelDebug) {
 		actualHeaders := make(map[string]string, len(req.Header))
@@ -1902,7 +1929,7 @@ func doHTTPRequest(url, method, headersJSON, bodyHex string) string {
 				actualHeaders[k] = vals[0]
 			}
 		}
-		slog.Debug("doHTTPRequest actual request headers", "url", url, "noRedirect", noRedirect, "headers", actualHeaders)
+		slog.Debug("doHTTPRequest actual request headers", "url", url, "noRedirect", noRedirect, "timeout", timeout, "headers", actualHeaders)
 	}
 
 	// 根据是否需要跟随重定向选择客户端
@@ -2091,6 +2118,71 @@ func goCryptoAesEncrypt(dataHex, mode, keyHex, ivHex string) string {
 	}
 
 	return hex.EncodeToString(encrypted)
+}
+
+// goCryptoAesDecrypt AES 解密
+// 注意：返回值必须是 string（不能是 (string, error)），
+// 因为 QuickJS 的 RegisterFunc 会将多返回值包装为数组 [value, error]。
+func goCryptoAesDecrypt(dataHex, mode, keyHex, ivHex string) string {
+	data, err := hex.DecodeString(dataHex)
+	if err != nil {
+		slog.Error("goCryptoAesDecrypt data hex decode error", "error", err)
+		return ""
+	}
+	key, err := hex.DecodeString(keyHex)
+	if err != nil {
+		slog.Error("goCryptoAesDecrypt key hex decode error", "error", err)
+		return ""
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		slog.Error("goCryptoAesDecrypt aes new cipher error", "error", err)
+		return ""
+	}
+
+	blockSize := block.BlockSize()
+	if len(data) == 0 || len(data)%blockSize != 0 {
+		slog.Error("goCryptoAesDecrypt invalid data length", "dataLen", len(data), "blockSize", blockSize)
+		return ""
+	}
+
+	decrypted := make([]byte, len(data))
+	switch strings.ToLower(mode) {
+	case "cbc":
+		iv, err := hex.DecodeString(ivHex)
+		if err != nil {
+			slog.Error("goCryptoAesDecrypt iv hex decode error", "error", err)
+			return ""
+		}
+		if len(iv) != blockSize {
+			slog.Error("goCryptoAesDecrypt invalid iv length", "ivLen", len(iv), "blockSize", blockSize)
+			return ""
+		}
+		cbc := cipher.NewCBCDecrypter(block, iv)
+		cbc.CryptBlocks(decrypted, data)
+	case "ecb":
+		for i := 0; i < len(data); i += blockSize {
+			block.Decrypt(decrypted[i:i+blockSize], data[i:i+blockSize])
+		}
+	default:
+		slog.Error("goCryptoAesDecrypt unsupported mode", "mode", mode)
+		return ""
+	}
+
+	padding := int(decrypted[len(decrypted)-1])
+	if padding <= 0 || padding > blockSize || padding > len(decrypted) {
+		slog.Error("goCryptoAesDecrypt invalid pkcs7 padding", "padding", padding, "dataLen", len(decrypted))
+		return ""
+	}
+	for i := len(decrypted) - padding; i < len(decrypted); i++ {
+		if int(decrypted[i]) != padding {
+			slog.Error("goCryptoAesDecrypt invalid pkcs7 padding content")
+			return ""
+		}
+	}
+
+	return hex.EncodeToString(decrypted[:len(decrypted)-padding])
 }
 
 // goCryptoRsaEncrypt RSA 公钥加密
