@@ -92,6 +92,38 @@ func TestNativeRC4(t *testing.T) {
 	}
 }
 
+// TestNativeAESDecrypt 验证 AES 解密桥接与现有 AES 加密桥接对称可用。
+func TestNativeAESDecrypt(t *testing.T) {
+	m := NewJSEnvManager()
+	defer m.SignalShutdown()
+	envID := "test-aes-decrypt"
+	if err := m.CreateEnv(envID, polyfillJS, 1); err != nil {
+		t.Fatalf("CreateEnv: %v", err)
+	}
+	defer m.DestroyEnv(envID)
+
+	code := `
+		var data = __go_buffer_from("hello aes decrypt", "utf8");
+		var key = __go_buffer_from("1234567890abcdef", "utf8");
+		var iv = __go_buffer_from("abcdef1234567890", "utf8");
+		var cbc = __go_crypto_aes_encrypt(data, "cbc", key, iv);
+		var ecb = __go_crypto_aes_encrypt(data, "ecb", key, "");
+		[
+			__go_buffer_to_string(__go_crypto_aes_decrypt(cbc, "cbc", key, iv), "utf8"),
+			__go_buffer_to_string(__go_crypto_aes_decrypt(ecb, "ecb", key, ""), "utf8"),
+			crypto.aesDecrypt(crypto.aesEncrypt("hello aes decrypt", "ecb", "1234567890abcdef"), "ecb", "1234567890abcdef").toString("utf8")
+		].join("|")
+	`
+	res, err := m.ExecuteJS(context.Background(), envID, code, 1000)
+	if err != nil {
+		t.Fatalf("ExecuteJS: %v", err)
+	}
+	want := "hello aes decrypt|hello aes decrypt|hello aes decrypt"
+	if res.Result != want {
+		t.Errorf("aes decrypt roundtrip = %q, want %q", res.Result, want)
+	}
+}
+
 // TestNativeCryptoWrapper 验证 globalThis.crypto.sha256Bytes / rc4 包装可用。
 func TestNativeCryptoWrapper(t *testing.T) {
 	m := NewJSEnvManager()

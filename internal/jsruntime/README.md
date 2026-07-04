@@ -196,7 +196,8 @@ JS 运行时通过以下 Go 桥接函数提供系统级功能：
 - `__go_console(level, msg)`: 控制台日志输出
 - `__go_fetch_async(url, method, headers, body) -> id`: 真异步 HTTP 请求；
   返回 id，结果通过 asyncResults 通道回投，由事件循环 resolve 对应 Promise
-  （插件代码统一通过 `globalThis.fetch()` 调用，封装好 Promise 包装）
+  （插件代码统一通过 `globalThis.fetch()` 调用，封装好 Promise 包装）；
+  支持内部请求头 `X-Fetch-Timeout-Ms` 设置单次请求超时（100-30000ms，默认 30000ms，不转发给目标服务器）
 - `__go_bridge(action, data) -> id`: 真异步桥接调用（storage/songs/playlists/comm/jsenv）
 - `__go_pop_async_result() -> json|""`: 主事件循环排空异步结果队列的非阻塞接口
 - `__go_now_ms()`: 当前时间戳（毫秒）
@@ -205,6 +206,7 @@ JS 运行时通过以下 Go 桥接函数提供系统级功能：
 - `__go_crypto_md5(str)`: MD5 哈希
 - `__go_crypto_random_bytes(size)`: 生成随机字节
 - `__go_crypto_aes_encrypt(data, mode, key, iv)`: AES 加密
+- `__go_crypto_aes_decrypt(data, mode, key, iv)`: AES 解密
 - `__go_crypto_rsa_encrypt(data, keyPEM)`: RSA 加密
 - `__go_zlib_inflate(data)`: zlib 解压
 - `__go_zlib_deflate(data)`: zlib 压缩
