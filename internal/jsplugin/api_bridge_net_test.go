@@ -160,7 +160,7 @@ func TestNetUDPSendReceive(t *testing.T) {
 		t.Fatalf("send: %v", err)
 	}
 
-	// Wait a bit for readLoop to process and push to scheduler queue
+	// Wait a bit for readLoop to process and push the host event.
 	time.Sleep(100 * time.Millisecond)
 
 	_, _ = h.netUDPClose(`{"socketId":"` + bindResp.SocketID + `"}`)

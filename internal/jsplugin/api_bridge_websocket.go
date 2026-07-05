@@ -147,13 +147,16 @@ func (h *BridgeHandler) inboundWebSocketReadLoop(connID string) {
 			DataHex:  hex.EncodeToString(data),
 			IsBinary: messageType == websocket.BinaryMessage,
 		}
-		if err := h.service.scheduler.Send(&Message{
-			Type:   MsgWebSocketMessage,
-			Target: entryPath,
-			Data:   event,
-			Ctx:    context.Background(),
-		}); err != nil {
-			slog.Warn("jsplugin websocket push to queue failed",
+		eventJSON, err := json.Marshal(event)
+		if err != nil {
+			slog.Warn("jsplugin websocket message marshal failed",
+				"plugin", entryPath,
+				"connId", connID,
+				"error", err)
+			continue
+		}
+		if err := h.postHostEvent("inbound_ws_message", connID, string(eventJSON)); err != nil {
+			slog.Warn("jsplugin websocket host event push failed",
 				"plugin", entryPath,
 				"connId", connID,
 				"error", err)
@@ -251,21 +254,25 @@ func (h *BridgeHandler) closeInboundWebSocket(connID string, code int, reason st
 }
 
 func (h *BridgeHandler) notifyInboundWebSocketClose(connID string, code int, reason string, wasClean bool) {
-	if h.service == nil || h.service.scheduler == nil || h.service.plugin == nil {
+	if h.service == nil || h.service.plugin == nil {
 		return
 	}
-	if err := h.service.scheduler.Send(&Message{
-		Type:   MsgWebSocketClose,
-		Target: h.service.plugin.EntryPath,
-		Data: &WebSocketCloseData{
-			ConnID:   connID,
-			Code:     code,
-			Reason:   reason,
-			WasClean: wasClean,
-		},
-		Ctx: context.Background(),
-	}); err != nil {
-		slog.Debug("jsplugin websocket close push failed",
+	event := &WebSocketCloseData{
+		ConnID:   connID,
+		Code:     code,
+		Reason:   reason,
+		WasClean: wasClean,
+	}
+	eventJSON, err := json.Marshal(event)
+	if err != nil {
+		slog.Debug("jsplugin websocket close marshal failed",
+			"plugin", h.service.plugin.EntryPath,
+			"connId", connID,
+			"error", err)
+		return
+	}
+	if err := h.postHostEvent("inbound_ws_close", connID, string(eventJSON)); err != nil {
+		slog.Debug("jsplugin websocket close host event push failed",
 			"plugin", h.service.plugin.EntryPath,
 			"connId", connID,
 			"error", err)

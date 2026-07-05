@@ -127,6 +127,16 @@ type asyncResult struct {
 	Data string
 }
 
+// hostEvent 是宿主侧主动推送给 JS 事件循环的事件。
+//
+// 与 asyncResult 不同，它不对应某个 JS Promise 的 resolve/reject，而是浏览器事件
+// 那样分发给已注册的回调，例如 UDP onData 或入站 WebSocket message/close。
+type hostEvent struct {
+	Type string // 如 "net_data" / "inbound_ws_message"
+	ID   string // 事件关联对象 ID，如 socketId / connId
+	Data string // 原始 JSON payload，由插件 bootstrap 解析
+}
+
 // wsConn 封装一条 Go 侧管理的 WebSocket 连接
 type wsConn struct {
 	id     string
@@ -148,15 +158,18 @@ type JSEnv struct {
 	// 真异步基础设施：__go_fetch / __go_bridge_async 等耗时桥接调用
 	// 通过此通道把结果回送给主事件循环（ExecuteJS 内部）。
 	asyncResults chan asyncResult
-	// asyncSignal 是单容量缓冲通道，goroutine 完成异步任务后非阻塞 send 一次，
-	// 用于唤醒 ExecuteJS 的 select。容量 1 足够：多次唤醒会被合并，事件循环
-	// 醒来后会一次性 drain asyncResults。
+	// asyncSignal 是单容量缓冲通道，goroutine 完成异步任务或宿主投递事件后非阻塞
+	// send 一次，用于唤醒 ExecuteJS 的 select。容量 1 足够：多次唤醒会被合并，
+	// 事件循环醒来后会一次性 drain asyncResults/hostEvents。
 	asyncSignal chan struct{}
 	// asyncSeq 单调递增，作为 asyncResult.ID 的序号部分。
 	asyncSeq atomic.Uint64
 	// asyncInflight 记录当前正在飞行的异步任务数；ExecuteJS 事件循环根据
 	// 此计数判断是否仍需等待新结果。
 	asyncInflight atomic.Int32
+	// hostEvents 保存宿主主动投递的事件。独立于 asyncResults，避免 UDP/WebSocket
+	// 高频事件挤占 fetch/bridge 的 Promise 回包通道。
+	hostEvents chan hostEvent
 	// wsConns 管理该 env 下的所有 WebSocket 连接（connId → *wsConn）
 	wsConns sync.Map
 	// wsConnSeq WebSocket 连接 ID 递增序号
@@ -248,6 +261,7 @@ func (m *JSEnvManager) CreateEnv(envID, initCode string, pluginID int64) error {
 		sourceCode:   initCode,
 		asyncResults: make(chan asyncResult, 256),
 		asyncSignal:  make(chan struct{}, 1),
+		hostEvents:   make(chan hostEvent, 512),
 	}
 
 	// 注册 Go 桥接函数
@@ -307,6 +321,8 @@ func (m *JSEnvManager) CreateEnvWithBytecode(envID, bootstrapCode string, byteco
 		created:      time.Now(),
 		events:       make(chan JSEventResult, 64),
 		asyncResults: make(chan asyncResult, 256),
+		asyncSignal:  make(chan struct{}, 1),
+		hostEvents:   make(chan hostEvent, 512),
 		// 字节码模式无源码可编译，sourceCode 留空
 	}
 
@@ -419,10 +435,15 @@ func (m *JSEnvManager) executeInEnv(ctx context.Context, envID string, timeoutMs
 	vm.SetEvalTimeout(timeout)
 	slog.Debug("ExecuteJS: eval start", "envID", envID)
 
-	// 在 eval 前排空异步结果通道：WebSocket 读循环 goroutine 不计入 asyncInflight，
-	// 如果不在此处 pump，后续 quick path 会跳过事件分发，导致 WebSocket 回调永远不触发。
+	// 在 eval 前排空异步结果和宿主事件通道：WebSocket/UDP 读循环 goroutine 不计入
+	// asyncInflight，如果不在此处 pump，后续 quick path 会跳过事件分发。
 	if len(env.asyncResults) > 0 {
 		if pumped := pumpAsyncResults(vm); pumped > 0 {
+			ExecutePendingJobs(vm)
+		}
+	}
+	if len(env.hostEvents) > 0 {
+		if pumped := pumpHostEvents(vm, env); pumped > 0 {
 			ExecutePendingJobs(vm)
 		}
 	}
@@ -463,15 +484,19 @@ func (m *JSEnvManager) executeInEnv(ctx context.Context, envID string, timeoutMs
 		if pumped := pumpAsyncResults(vm); pumped > 0 {
 			ExecutePendingJobs(vm)
 		}
-		// 2) 处理到期定时器（setTimeout-based await 链 / interval 回调）
+		// 2) 处理宿主推送事件（UDP 收包 / 入站 WebSocket message/close）
+		if pumped := pumpHostEvents(vm, env); pumped > 0 {
+			ExecutePendingJobs(vm)
+		}
+		// 3) 处理到期定时器（setTimeout-based await 链 / interval 回调）
 		if processExpiredTimers(vm) > 0 {
 			ExecutePendingJobs(vm)
 		}
-		// 3) 检查 done flag
+		// 4) 检查 done flag
 		if isAwaitDone(vm) {
 			break
 		}
-		// 4) deadline 检查
+		// 5) deadline 检查
 		remaining := time.Until(deadline)
 		if remaining <= 0 {
 			cleanupAwaitProbe(vm)
@@ -483,7 +508,7 @@ func (m *JSEnvManager) executeInEnv(ctx context.Context, envID string, timeoutMs
 			return &ExecuteResult{Events: events}, fmt.Errorf("ExecuteJS wall-clock timeout after %v", timeout)
 		}
 
-		// 5) 释放锁让 goroutine 推结果 / 健康探针抢锁 / 同插件其他请求处理。
+		// 6) 释放锁让 goroutine 推结果/事件、健康探针抢锁、同插件其他请求处理。
 		env.mu.Unlock()
 
 		// 50ms 兜底 tick：处理 setInterval 等仅靠定时器驱动的进展场景；
@@ -564,6 +589,31 @@ func pumpAsyncResults(vm *quickjs.VM) int {
 		return valueAsInt(r)
 	}
 	return 0
+}
+
+// pumpHostEvents 在持锁状态下把宿主主动投递的事件分发到 JS。
+// 分发函数由上层 bootstrap 提供；事件处理采用 fire-and-forget 语义，不复用
+// executeInEnv 的全局 await probe，避免打断当前正在等待的 HTTP/生命周期调用。
+func pumpHostEvents(vm *quickjs.VM, env *JSEnv) int {
+	n := 0
+	for {
+		select {
+		case evt := <-env.hostEvents:
+			val, err := vm.CallValue("__dispatchHostEvent", evt.Type, evt.ID, evt.Data)
+			if err != nil {
+				slog.Debug("pumpHostEvents: dispatch failed",
+					"envID", env.envID,
+					"type", evt.Type,
+					"id", evt.ID,
+					"error", err)
+				continue
+			}
+			val.Free()
+			n++
+		default:
+			return n
+		}
+	}
 }
 
 // valueIsThenable 用 JS 探测 val 是否带 then 函数。把 val 挂到 globalThis 临时槽
@@ -944,6 +994,27 @@ func (m *JSEnvManager) SetBridgeCallback(envID string, cb BridgeCallback) error 
 	return nil
 }
 
+// PostHostEvent 将宿主侧事件非阻塞投递到指定 JS 环境。
+// 事件会在 ExecuteJS 的 await 循环或后台 ProcessTimers tick 中分发给 JS。
+func (m *JSEnvManager) PostHostEvent(envID, eventType, id, data string) error {
+	env, err := m.getEnv(envID)
+	if err != nil {
+		return err
+	}
+
+	select {
+	case env.hostEvents <- hostEvent{Type: eventType, ID: id, Data: data}:
+	default:
+		return fmt.Errorf("host event queue full: env=%s type=%s id=%s", envID, eventType, id)
+	}
+
+	select {
+	case env.asyncSignal <- struct{}{}:
+	default:
+	}
+	return nil
+}
+
 // ProbeStatus 是 HealthProbe 的返回值。直接放在 jsruntime 包以保持
 // runtime 与 jsplugin 包之间无环依赖。
 type ProbeStatus int
@@ -1193,9 +1264,10 @@ func drainEnvEvents(env *JSEnv) []JSEventResult {
 	}
 }
 
-// ProcessTimers 处理指定环境中的到期定时器（非阻塞）。
+// ProcessTimers 推进指定环境中的后台任务（非阻塞）。
 // 使用 TryLock：如果 VM 正忙（HTTP 请求处理中），立即返回 false，不等待。
 // 由外部 ticker goroutine 周期性调用。
+// 返回 true 表示至少推进了一项后台工作（异步回包、宿主事件或定时器）。
 func (m *JSEnvManager) ProcessTimers(envID string) bool {
 	env, err := m.getEnv(envID)
 	if err != nil {
@@ -1210,9 +1282,9 @@ func (m *JSEnvManager) ProcessTimers(envID string) bool {
 
 	vm := env.vm
 	vm.SetEvalTimeout(defaultJSTimeout)
-	didAnyTimerFire := false
+	didAnyWork := false
 
-	// 单轮 pump→jobs→timers，做几次让 fetch().then(setTimeout(...)) 这种链
+	// 单轮 pump→host events→jobs→timers，做几次让 fetch().then(setTimeout(...)) 这种链
 	// 在一个 tick 里推进尽量多步；任何一步无产出即可退出，避免长时间占锁。
 	for range 8 {
 		didWork := false
@@ -1222,20 +1294,25 @@ func (m *JSEnvManager) ProcessTimers(envID string) bool {
 			didWork = true
 		}
 
-		// 2. 执行原生 Promise 微任务（async/await 恢复等）
+		// 2. 分发宿主事件（UDP / 入站 WebSocket）
+		if pumpHostEvents(vm, env) > 0 {
+			didWork = true
+		}
+
+		// 3. 执行原生 Promise 微任务（async/await 恢复等）
 		if ExecutePendingJobs(vm) > 0 {
 			didWork = true
 		}
 
-		// 3. 处理一轮到期定时器
+		// 4. 处理一轮到期定时器
 		if processExpiredTimers(vm) > 0 {
 			didWork = true
-			didAnyTimerFire = true
 		}
 
 		if !didWork {
 			break
 		}
+		didAnyWork = true
 	}
 
 	// 排空事件通道（防止阻塞）
@@ -1243,7 +1320,7 @@ func (m *JSEnvManager) ProcessTimers(envID string) bool {
 	// __go_send 事件在定时器回调中极少产生，安全丢弃
 	drainEnvEvents(env)
 
-	return didAnyTimerFire
+	return didAnyWork
 }
 
 // GetNextTimerDeadline 返回下一个定时器的执行时间。

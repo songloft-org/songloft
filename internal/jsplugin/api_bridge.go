@@ -164,6 +164,12 @@ async function __handleInboundWebSocketClose(payload) {
     });
 }
 
+function __fireAndForgetHostPromise(name, p) {
+    Promise.resolve(p).catch(function(e) {
+        console.error(name + ' host event error:', (e && e.stack) ? e.stack : e);
+    });
+}
+
 // 事件订阅（动态注册/取消注册，可在任意时刻调用）
 songloft.events = {
     onPlayEvent: function(fn) {
@@ -478,6 +484,26 @@ globalThis.__dispatchNetData = async function(socketId, s) {
     var h = songloft.net._handlers[socketId];
     if (typeof h === 'function') { await h(JSON.parse(s)); }
 };
+globalThis.__dispatchHostEvent = function(type, id, s) {
+    try {
+        if (type === 'net_data') {
+            var h = songloft.net._handlers[id];
+            if (typeof h === 'function') { __fireAndForgetHostPromise('net_data', h(JSON.parse(s))); }
+            return;
+        }
+        if (type === 'inbound_ws_message') {
+            __fireAndForgetHostPromise('inbound_ws_message', __handleInboundWebSocketMessage(JSON.parse(s)));
+            return;
+        }
+        if (type === 'inbound_ws_close') {
+            __fireAndForgetHostPromise('inbound_ws_close', __handleInboundWebSocketClose(JSON.parse(s)));
+            return;
+        }
+        console.warn('unknown host event type: ' + type);
+    } catch(e) {
+        console.error(type + ' host event dispatch error:', (e && e.stack) ? e.stack : e);
+    }
+};
 globalThis.__dispatchWSOpen = async function(s) {
     await __handleInboundWebSocketOpen(JSON.parse(s));
 };
@@ -529,6 +555,17 @@ func NewBridgeHandler(service *JSService, dataDir string, db database.DB, songDo
 		pluginToken:     pluginToken,
 		port:            port,
 	}
+}
+
+func (h *BridgeHandler) postHostEvent(eventType, id, data string) error {
+	if h == nil || h.service == nil || h.service.jsManager == nil {
+		return fmt.Errorf("host event runtime unavailable")
+	}
+	envID := h.service.EnvID()
+	if envID == "" {
+		return fmt.Errorf("host event env unavailable")
+	}
+	return h.service.jsManager.PostHostEvent(envID, eventType, id, data)
 }
 
 // HandleBridgeCall 处理桥接调用（由 jsruntime 层回调）

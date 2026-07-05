@@ -81,7 +81,7 @@ type ServeFileDirective struct {
 	FilePath string `json:"filePath,omitempty"` // serve 文件（路径解析规则见 resolveServeFilePath）
 }
 
-// NetDataEvent 是 MsgNetData 消息的 Data 类型（Go 侧 UDP readLoop 推送）
+// NetDataEvent 是 UDP readLoop 推送给 JS 的数据事件。
 type NetDataEvent struct {
 	SocketID   string `json:"socketId"`
 	Data       string `json:"data"`       // base64 编码的原始数据
@@ -103,14 +103,14 @@ type WebSocketOpenData struct {
 	Request *WebSocketRequestData `json:"request"`
 }
 
-// WebSocketMessageData 是 MsgWebSocketMessage 消息的 Data 类型。
+// WebSocketMessageData 是入站 WebSocket 收到消息时推送给 JS 的事件。
 type WebSocketMessageData struct {
 	ConnID   string `json:"connId"`
 	DataHex  string `json:"dataHex"` // 原始消息字节的 hex 编码
 	IsBinary bool   `json:"isBinary"`
 }
 
-// WebSocketCloseData 是 MsgWebSocketClose 消息的 Data 类型。
+// WebSocketCloseData 是入站 WebSocket 关闭时推送给 JS 的事件。
 type WebSocketCloseData struct {
 	ConnID   string `json:"connId"`
 	Code     int    `json:"code"`

@@ -132,14 +132,17 @@ func (h *BridgeHandler) udpReadLoop(ctx context.Context, sock *managedUDPSocket)
 			Data:       base64.StdEncoding.EncodeToString(buf[:n]),
 			RemoteAddr: remoteAddr.String(),
 		}
+		eventJSON, err := json.Marshal(event)
+		if err != nil {
+			slog.Debug("jsplugin: UDP event marshal failed",
+				"plugin", entryPath,
+				"socketId", sock.id,
+				"error", err)
+			continue
+		}
 
-		if err := h.service.scheduler.Send(&Message{
-			Type:   MsgNetData,
-			Target: entryPath,
-			Data:   event,
-			Ctx:    context.Background(),
-		}); err != nil {
-			slog.Debug("jsplugin: UDP push to queue failed (backpressure)",
+		if err := h.postHostEvent("net_data", sock.id, string(eventJSON)); err != nil {
+			slog.Debug("jsplugin: UDP host event push failed",
 				"plugin", entryPath,
 				"socketId", sock.id,
 				"error", err)
