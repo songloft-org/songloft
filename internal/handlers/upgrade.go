@@ -55,6 +55,8 @@ func (h *UpgradeHandler) GetVersions(w http.ResponseWriter, r *http.Request) {
 			"version":    version.GetVersion(),
 			"git_commit": version.GitCommit,
 			"build_time": version.BuildTime,
+			"channel":    h.upgradeService.CurrentVersionType(),
+			"build_type": h.upgradeService.CurrentBuildType(),
 		},
 	}
 
@@ -116,15 +118,19 @@ func (h *UpgradeHandler) CheckUpdate(w http.ResponseWriter, r *http.Request) {
 
 	// 构建响应（同时提供嵌套和扁平字段，方便前端解析）
 	response := map[string]interface{}{
-		"is_docker":       isDocker,
-		"has_update":      len(updates) > 0,
-		"current_version": version.GetVersion(),
-		"latest_version":  latestVersion,
-		"release_notes":   releaseNotes,
+		"is_docker":          isDocker,
+		"has_update":         len(updates) > 0,
+		"current_version":    version.GetVersion(),
+		"current_channel":    h.upgradeService.CurrentVersionType(),
+		"current_build_type": h.upgradeService.CurrentBuildType(),
+		"latest_version":     latestVersion,
+		"release_notes":      releaseNotes,
 		"current": map[string]string{
 			"version":    version.GetVersion(),
 			"git_commit": version.GitCommit,
 			"build_time": version.BuildTime,
+			"channel":    h.upgradeService.CurrentVersionType(),
+			"build_type": h.upgradeService.CurrentBuildType(),
 		},
 		"updates": updates,
 	}
@@ -165,6 +171,11 @@ func (h *UpgradeHandler) StartUpgrade(w http.ResponseWriter, r *http.Request) {
 	// 验证版本类型
 	if req.VersionType != "stable" && req.VersionType != "dev" {
 		respondError(w, http.StatusBadRequest, "无效的版本类型，必须是 stable 或 dev", nil)
+		return
+	}
+
+	if err := h.upgradeService.ValidateVersionTypeForUpgrade(req.VersionType); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 

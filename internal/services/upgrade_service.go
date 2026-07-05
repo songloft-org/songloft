@@ -23,6 +23,10 @@ const (
 	stableVersionURL = "https://github.com/songloft-org/songloft/releases/latest/download/version.json"
 	devVersionURL    = "https://github.com/songloft-org/songloft/releases/download/dev/version.json"
 
+	versionTypeStable = "stable"
+	versionTypeDev    = "dev"
+	buildTypeFull     = "full"
+
 	// 二进制文件路径
 	// 注意：临时文件必须与目标文件在同一目录，才能使用原子 rename 替换正在运行的二进制文件
 	binarySource = "/app/songloft" // Docker 镜像中的原始底包
@@ -74,9 +78,9 @@ func (s *UpgradeService) applyProxy(rawURL, proxyPrefix string) string {
 func (s *UpgradeService) FetchVersionInfo(versionType string, proxyPrefix string) (*models.RemoteVersionInfo, error) {
 	var rawURL string
 	switch versionType {
-	case "stable":
+	case versionTypeStable:
 		rawURL = stableVersionURL
-	case "dev":
+	case versionTypeDev:
 		rawURL = devVersionURL
 	default:
 		return nil, fmt.Errorf("invalid version type: %s", versionType)
@@ -110,36 +114,156 @@ func normalizeVersion(v string) string {
 	return v
 }
 
-// isNewerVersion 判断远程版本是否比当前版本更新
-// 优先用 git_commit 比较，当 commit 为 unknown 时 fallback 到版本号比较
-func (s *UpgradeService) isNewerVersion(remoteInfo *models.RemoteVersionInfo) bool {
-	currentCommit := version.GitCommit
-	currentVersion := version.Version
+func normalizeBuildType(buildType string) string {
+	buildType = strings.TrimSpace(buildType)
+	if buildType == "" {
+		return buildTypeFull
+	}
+	return buildType
+}
 
-	// 如果当前 git_commit 已知，直接用 commit 比较
-	if currentCommit != "unknown" && currentCommit != "" {
-		return remoteInfo.GitCommit != currentCommit
+func isDevVersion(v string) bool {
+	return strings.EqualFold(strings.TrimSpace(v), "dev")
+}
+
+func currentVersionType() string {
+	if isDevVersion(version.Version) {
+		return versionTypeDev
+	}
+	return versionTypeStable
+}
+
+func parseBuildTime(buildTime string) (time.Time, bool) {
+	buildTime = strings.TrimSpace(buildTime)
+	if buildTime == "" || buildTime == "unknown" {
+		return time.Time{}, false
 	}
 
-	// git_commit 未知时，用版本号比较（去掉 v 前缀后比较）
-	return normalizeVersion(remoteInfo.Version) != normalizeVersion(currentVersion)
+	for _, layout := range []string{
+		"2006-01-02_15:04:05",
+		time.RFC3339,
+	} {
+		parsed, err := time.Parse(layout, buildTime)
+		if err == nil {
+			return parsed, true
+		}
+	}
+
+	return time.Time{}, false
+}
+
+func compareBuildTimes(a, b string) int {
+	aTime, aOK := parseBuildTime(a)
+	bTime, bOK := parseBuildTime(b)
+	switch {
+	case aOK && bOK:
+		if aTime.After(bTime) {
+			return 1
+		}
+		if aTime.Before(bTime) {
+			return -1
+		}
+		return 0
+	case aOK && !bOK:
+		return 1
+	case !aOK && bOK:
+		return -1
+	default:
+		return 0
+	}
+}
+
+func numericVersionPart(part string) int {
+	var digits strings.Builder
+	for _, r := range part {
+		if r < '0' || r > '9' {
+			break
+		}
+		digits.WriteRune(r)
+	}
+	if digits.Len() == 0 {
+		return 0
+	}
+
+	var n int
+	for _, r := range digits.String() {
+		n = n*10 + int(r-'0')
+	}
+	return n
+}
+
+func compareReleaseVersions(a, b string) int {
+	aParts := strings.Split(normalizeVersion(a), ".")
+	bParts := strings.Split(normalizeVersion(b), ".")
+	maxLen := len(aParts)
+	if len(bParts) > maxLen {
+		maxLen = len(bParts)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		aPart := 0
+		if i < len(aParts) {
+			aPart = numericVersionPart(aParts[i])
+		}
+		bPart := 0
+		if i < len(bParts) {
+			bPart = numericVersionPart(bParts[i])
+		}
+		if aPart > bPart {
+			return 1
+		}
+		if aPart < bPart {
+			return -1
+		}
+	}
+	return 0
+}
+
+// CurrentVersionType 返回当前运行版本所属通道：stable 或 dev。
+func (s *UpgradeService) CurrentVersionType() string {
+	return currentVersionType()
+}
+
+// CurrentBuildType 返回当前运行版本的构建类型：full 或 lite。
+func (s *UpgradeService) CurrentBuildType() string {
+	return normalizeBuildType(version.BuildType)
+}
+
+// ValidateVersionTypeForUpgrade 确保在线升级不能跨 dev/stable 通道。
+func (s *UpgradeService) ValidateVersionTypeForUpgrade(versionType string) error {
+	expected := s.CurrentVersionType()
+	if versionType == expected {
+		return nil
+	}
+	if expected == versionTypeDev {
+		return fmt.Errorf("当前为开发版，只能升级到开发版")
+	}
+	return fmt.Errorf("当前为正式版，只能升级到正式版")
+}
+
+// isNewerVersion 判断远程版本是否比当前版本更新
+// dev 版本按构建时间比较，正式版按版本号比较。
+func (s *UpgradeService) isNewerVersion(versionType string, remoteInfo *models.RemoteVersionInfo) bool {
+	if remoteInfo == nil || versionType != s.CurrentVersionType() {
+		return false
+	}
+
+	if versionType == versionTypeDev {
+		return compareBuildTimes(remoteInfo.BuildTime, version.BuildTime) > 0
+	}
+
+	return compareReleaseVersions(remoteInfo.Version, version.Version) > 0
 }
 
 // CheckForUpdates 检查是否有可用更新
 // proxyPrefix 为 GitHub 代理前缀，为空则直连
 func (s *UpgradeService) CheckForUpdates(proxyPrefix string) (map[string]*models.RemoteVersionInfo, error) {
 	result := make(map[string]*models.RemoteVersionInfo)
+	versionType := s.CurrentVersionType()
 
-	// 检查正式版
-	stableInfo, err := s.FetchVersionInfo("stable", proxyPrefix)
-	if err == nil && s.isNewerVersion(stableInfo) {
-		result["stable"] = stableInfo
-	}
-
-	// 检查测试版
-	devInfo, err := s.FetchVersionInfo("dev", proxyPrefix)
-	if err == nil && s.isNewerVersion(devInfo) {
-		result["dev"] = devInfo
+	versionInfo, err := s.FetchVersionInfo(versionType, proxyPrefix)
+	if err == nil && s.isNewerVersion(versionType, versionInfo) {
+		result[versionType] = versionInfo
 	}
 
 	return result, nil
@@ -153,7 +277,7 @@ func (s *UpgradeService) getBaseImageBuildType() string {
 		if _, err := os.Stat(binarySource); err != nil {
 			slog.Warn("base image binary not accessible, falling back to current build type",
 				"path", binarySource, "error", err, "fallback", version.BuildType)
-			s.baseImageBuildType = version.BuildType
+			s.baseImageBuildType = s.CurrentBuildType()
 			return
 		}
 
@@ -165,7 +289,7 @@ func (s *UpgradeService) getBaseImageBuildType() string {
 		if err != nil {
 			slog.Warn("failed to get base image version, falling back to current build type",
 				"error", err, "fallback", version.BuildType)
-			s.baseImageBuildType = version.BuildType
+			s.baseImageBuildType = s.CurrentBuildType()
 			return
 		}
 
@@ -176,7 +300,7 @@ func (s *UpgradeService) getBaseImageBuildType() string {
 				buildType := strings.TrimSpace(strings.TrimPrefix(line, "Build Type:"))
 				if buildType != "" {
 					slog.Info("detected base image build type", "buildType", buildType)
-					s.baseImageBuildType = buildType
+					s.baseImageBuildType = normalizeBuildType(buildType)
 					return
 				}
 			}
@@ -184,7 +308,7 @@ func (s *UpgradeService) getBaseImageBuildType() string {
 
 		slog.Warn("Build Type not found in base image version output, falling back to current build type",
 			"fallback", version.BuildType)
-		s.baseImageBuildType = version.BuildType
+		s.baseImageBuildType = s.CurrentBuildType()
 	})
 	return s.baseImageBuildType
 }
@@ -280,10 +404,21 @@ func (s *UpgradeService) UpgradeBinary(versionType, proxyPrefix string) error {
 	// 重置进度
 	s.updateProgress(models.UpgradeStatusDownloading, 0, "开始升级...")
 
+	if err := s.ValidateVersionTypeForUpgrade(versionType); err != nil {
+		s.updateProgress(models.UpgradeStatusFailed, 0, err.Error())
+		return err
+	}
+
 	// 1. 获取版本信息
 	versionInfo, err := s.FetchVersionInfo(versionType, proxyPrefix)
 	if err != nil {
 		s.updateProgress(models.UpgradeStatusFailed, 0, fmt.Sprintf("获取版本信息失败: %v", err))
+		return err
+	}
+
+	if !s.isNewerVersion(versionType, versionInfo) {
+		err := fmt.Errorf("当前已是该通道最新版本")
+		s.updateProgress(models.UpgradeStatusFailed, 0, err.Error())
 		return err
 	}
 

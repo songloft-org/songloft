@@ -111,7 +111,9 @@
   "current": {
     "version": "1.2.0",
     "git_commit": "abc1234",
-    "build_time": "2026-06-12_10:00:00"
+    "build_time": "2026-06-12_10:00:00",
+    "channel": "stable",
+    "build_type": "full"
   },
   "stable": {
     "version": "1.3.0",
@@ -147,7 +149,7 @@
 **路径:** `/api/v1/upgrade/check`
 **认证:** 需要 BearerAuth
 
-**描述:** 检查是否有可用的新版本。同时提供嵌套和扁平字段，方便前端解析。
+**描述:** 检查当前通道是否有可用的新版本。dev 只检查 dev，release 只检查 stable；dev 按 `build_time` 判断，release 按版本号判断。同时提供嵌套和扁平字段，方便前端解析。
 
 **查询参数:**
 
@@ -162,12 +164,16 @@
   "is_docker": true,
   "has_update": true,
   "current_version": "1.2.0",
+  "current_channel": "stable",
+  "current_build_type": "full",
   "latest_version": "1.3.0",
   "release_notes": "修复了若干问题...",
   "current": {
     "version": "1.2.0",
     "git_commit": "abc1234",
-    "build_time": "2026-06-12_10:00:00"
+    "build_time": "2026-06-12_10:00:00",
+    "channel": "stable",
+    "build_type": "full"
   },
   "updates": {
     "stable": {
@@ -184,10 +190,12 @@
 | `is_docker` | boolean | 是否为 Docker 环境 |
 | `has_update` | boolean | 是否有可用更新 |
 | `current_version` | string | 当前版本号 |
-| `latest_version` | string | 最新版本号（优先 stable，其次 dev） |
+| `current_channel` | string | 当前通道：`stable` 或 `dev` |
+| `current_build_type` | string | 当前构建类型：`full` 或 `lite` |
+| `latest_version` | string | 当前通道内的最新版本号 |
 | `release_notes` | string | 最新版本发布说明 |
 | `current` | object | 当前版本详细信息 |
-| `updates` | object | 可用更新详情（按渠道分组） |
+| `updates` | object | 可用更新详情（只包含当前允许升级的渠道） |
 
 **错误响应:**
 
@@ -216,7 +224,7 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `version_type` | string | 是 | 版本类型：`stable` 或 `dev` |
+| `version_type` | string | 是 | 版本类型：`stable` 或 `dev`，必须与当前运行通道一致 |
 | `github_proxy` | string | 否 | GitHub 代理前缀 |
 
 **成功响应 (200):**

@@ -33,6 +33,7 @@ jobs:
       is_prerelease: ${{ steps.parse.outputs.is_prerelease }}
       release_title: ${{ steps.parse.outputs.release_title }}
       previous_tag: ${{ steps.prev-tag.outputs.previous_tag }}
+      build_time: ${{ steps.parse.outputs.build_time }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -56,15 +57,18 @@ jobs:
             TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S')
             RELEASE_TITLE="Development Build dev from ${{ github.ref_name }} (${TIMESTAMP} UTC)"
           fi
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
 
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
           echo "is_prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
           echo "release_title=${RELEASE_TITLE}" >> $GITHUB_OUTPUT
+          echo "build_time=${BUILD_TIME}" >> $GITHUB_OUTPUT
 
           echo "Version: ${VERSION}"
           echo "Version Tag: ${VERSION_TAG}"
           echo "Is Prerelease: ${IS_PRERELEASE}"
+          echo "Build Time: ${BUILD_TIME}"
           echo "Release Title: ${RELEASE_TITLE}"
 
       - name: Get previous tag
@@ -102,6 +106,7 @@ jobs:
   # ============================================================
   build-frontend:
     name: Build Frontend
+    needs: [prepare]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -128,6 +133,11 @@ jobs:
           flutter pub get
 
       - name: Build Flutter Web (embedded mode)
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          FRONTEND_VERSION: ${{ needs.prepare.outputs.version_tag }}
+          FRONTEND_BUILD_TIME: ${{ needs.prepare.outputs.build_time }}
+          BUILD_TIME: ${{ needs.prepare.outputs.build_time }}
         run: make build-frontend-web-embedded
 
       - name: Upload frontend artifact
@@ -570,7 +580,9 @@ jobs:
         run: |
           cd songloft-player
           flutter build apk --release --split-per-abi \
-            --dart-define=HAS_BACKEND=true
+            --dart-define=HAS_BACKEND=true \
+            --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} \
+            --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }}
 
       - name: Collect APKs
         run: |
@@ -636,7 +648,9 @@ jobs:
         run: |
           cd songloft-player
           flutter build linux --release \
-            --dart-define=HAS_BACKEND=true
+            --dart-define=HAS_BACKEND=true \
+            --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} \
+            --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }}
 
       - name: Package tar.gz
         run: |
@@ -708,7 +722,9 @@ jobs:
         run: |
           cd songloft-player
           flutter build macos --release \
-            --dart-define=HAS_BACKEND=true
+            --dart-define=HAS_BACKEND=true \
+            --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} \
+            --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }}
           # build-frontend.sh 中已有逻辑：如果 macos/Runner/songloft-server 存在，自动拷贝到 .app/Contents/MacOS/
           # 但 flutter build macos 不经过 build-frontend.sh，手动拷贝
           for app_dir in build/macos/Build/Products/Release/*.app; do
@@ -724,7 +740,9 @@ jobs:
         run: |
           cd songloft-player
           flutter build ios --release --no-codesign \
-            --dart-define=HAS_BACKEND=true
+            --dart-define=HAS_BACKEND=true \
+            --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} \
+            --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }}
 
       - name: Package iOS as IPA
         run: |
@@ -796,7 +814,7 @@ jobs:
       - name: Build Flutter Windows with embedded backend
         run: |
           cd songloft-player
-          flutter build windows --release --dart-define=HAS_BACKEND=true
+          flutter build windows --release --dart-define=HAS_BACKEND=true --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }}
 
       - name: Package ZIP
         shell: pwsh

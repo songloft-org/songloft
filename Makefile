@@ -9,6 +9,9 @@ VERSION ?= 2.9.6
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 BUILD_TYPE ?=
+FRONTEND_VERSION ?= $(patsubst v%,%,$(VERSION))
+FRONTEND_BUILD_TIME ?= $(BUILD_TIME)
+FRONTEND_ENV = FRONTEND_VERSION=$(FRONTEND_VERSION) FRONTEND_BUILD_TIME=$(FRONTEND_BUILD_TIME)
 
 # Tracely 监控（私有构建时注入；开源构建默认三者为空，运行时不会初始化客户端）
 TRACELY_APP_ID ?=
@@ -56,31 +59,31 @@ help: ## 显示帮助信息
 
 .PHONY: build-frontend-web-embedded
 build-frontend-web-embedded: ## 构建 Flutter Web（嵌入模式）：隐藏 API 地址 UI，输出至 songloft-player-build/web-embedded
-	@bash songloft-player/scripts/build-frontend.sh web-embedded $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
+	@$(FRONTEND_ENV) bash songloft-player/scripts/build-frontend.sh web-embedded $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-web-embedded-debug
 build-frontend-web-embedded-debug: ## 构建 Flutter Web（嵌入模式，含 source map）：仅本地调试用，产物体积会显著增大
-	@DEBUG=1 bash songloft-player/scripts/build-frontend.sh web-embedded $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
+	@$(FRONTEND_ENV) DEBUG=1 bash songloft-player/scripts/build-frontend.sh web-embedded $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-web
 build-frontend-web: ## 构建 Flutter Web 独立部署版（standalone）
-	@bash songloft-player/scripts/build-frontend.sh web $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
+	@$(FRONTEND_ENV) bash songloft-player/scripts/build-frontend.sh web $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-web-debug
 build-frontend-web-debug: ## 构建 Flutter Web 独立部署版（含 source map）：仅本地调试用
-	@DEBUG=1 bash songloft-player/scripts/build-frontend.sh web $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
+	@$(FRONTEND_ENV) DEBUG=1 bash songloft-player/scripts/build-frontend.sh web $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-linux
 build-frontend-linux: ## 构建 Flutter Linux 桌面版
-	@bash songloft-player/scripts/build-frontend.sh linux $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
+	@$(FRONTEND_ENV) bash songloft-player/scripts/build-frontend.sh linux $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-windows
 build-frontend-windows: ## 构建 Flutter Windows 桌面版
-	@bash songloft-player/scripts/build-frontend.sh windows $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
+	@$(FRONTEND_ENV) bash songloft-player/scripts/build-frontend.sh windows $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-macos
 build-frontend-macos: ## 构建 Flutter macOS 桌面版
-	@bash songloft-player/scripts/build-frontend.sh macos $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
+	@$(FRONTEND_ENV) bash songloft-player/scripts/build-frontend.sh macos $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-go-mobile-android
 build-go-mobile-android: ## 编译 Go 后端为 Android .aar（gomobile bind）
@@ -130,15 +133,15 @@ build-go-desktop-linux: ## 编译 Go 后端为 Linux 可执行文件（嵌入桌
 
 .PHONY: build-frontend-android
 build-frontend-android: ## 构建 Flutter Android 版（APK + AAB）
-	@bash songloft-player/scripts/build-frontend.sh android $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
+	@$(FRONTEND_ENV) bash songloft-player/scripts/build-frontend.sh android $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-ios
 build-frontend-ios: ## 构建 Flutter iOS 版（仅 macOS）
-	@bash songloft-player/scripts/build-frontend.sh ios $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
+	@$(FRONTEND_ENV) bash songloft-player/scripts/build-frontend.sh ios $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build-frontend-all
 build-frontend-all: ## 构建 Flutter 前端当前系统支持的所有平台
-	@bash songloft-player/scripts/build-frontend.sh all $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
+	@$(FRONTEND_ENV) bash songloft-player/scripts/build-frontend.sh all $(if $(OUTPUT_DIR),$(OUTPUT_DIR),songloft-player-build)
 
 .PHONY: build
 build: swagger ## 编译项目（开发环境，完整版本，嵌入前端）

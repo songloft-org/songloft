@@ -23,11 +23,17 @@ func NewVersionHandler() *VersionHandler {
 // @Success 200 {object} map[string]string "成功返回版本信息"
 // @Router /version [get]
 func (h *VersionHandler) GetVersion(w http.ResponseWriter, r *http.Request) {
+	buildType := version.BuildType
+	if buildType == "" {
+		buildType = "full"
+	}
+
 	versionInfo := map[string]string{
 		"version":    version.GetVersion(),
 		"full":       version.GetFullVersion(),
 		"git_commit": version.GitCommit,
 		"build_time": version.BuildTime,
+		"build_type": buildType,
 	}
 
 	respondJSON(w, http.StatusOK, versionInfo)

@@ -215,14 +215,16 @@ func (h *XxxHandler) Method(w http.ResponseWriter, r *http.Request) { ... }
 
 Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行的 `/app/data/songloft`。容器启动时 entrypoint 决定是否用底包覆盖 data 目录：
 
-**核心原则：底包代表用户意图，只有「同 BUILD_TYPE + 都是 release + data 版本更高」才保留 data 的二进制。**
+**核心原则：底包代表用户意图；dev/正式或 full/lite 不一致时用底包覆盖。只有「同通道 + 同 BUILD_TYPE」时才比较新旧：dev 按 Build Time，release 按版本号。**
 
 | 场景 | 行为 | 原因 |
 |------|------|------|
-| 任一方 VERSION=dev | 替换 | dev 是滚动构建，始终用底包最新 |
+| dev ↔ release 通道不同 | 替换 | 用户换了镜像通道 |
 | BUILD_TYPE 不同（full↔lite） | 替换 | 用户换了镜像变体 |
-| 同类型 + 底包版本 > data 版本 | 替换 | 版本升级 |
-| 同类型 + data 版本 >= 底包 | 不替换 | data 可能通过 API 在线升级过 |
+| 同为 dev + 同类型 + 底包 Build Time > data Build Time | 替换 | dev 滚动构建按构建时间选最新 |
+| 同为 dev + 同类型 + data Build Time >= 底包 Build Time | 不替换 | data 可能通过 API 在线升级过 |
+| 同为 release + 同类型 + 底包版本 > data 版本 | 替换 | 正式版升级 |
+| 同为 release + 同类型 + data 版本 >= 底包 | 不替换 | data 可能通过 API 在线升级过 |
 
 ---
 
