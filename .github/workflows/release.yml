@@ -734,8 +734,11 @@ jobs:
             if [ ! -x "$app_dir/Contents/MacOS/songloft-server" ]; then
               cp macos/Runner/songloft-server "$app_dir/Contents/MacOS/songloft-server"
               chmod +x "$app_dir/Contents/MacOS/songloft-server"
-              codesign --force --sign "$sign_identity" "$app_dir/Contents/MacOS/songloft-server"
+              # 先深度签名整个 app，再单独给子进程签 inherit entitlements；
+              # 顺序不能反：--deep 重签会覆盖子进程 entitlements，导致沙盒下无
+              # network.server 权限，songloft-server 无法 bind，本地模式报错。
               codesign --force --deep --sign "$sign_identity" --entitlements macos/Runner/Release.entitlements "$app_dir"
+              codesign --force --sign "$sign_identity" --entitlements macos/Runner/GoBackend.entitlements "$app_dir/Contents/MacOS/songloft-server"
             fi
             codesign --verify --deep --strict --verbose=2 "$app_dir"
           done
