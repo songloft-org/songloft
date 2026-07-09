@@ -66,7 +66,8 @@ RUN apk add --no-cache \
     alsa-lib \
     alsa-plugins \
     alsa-utils \
-    alsa-ucm-conf
+    alsa-ucm-conf \
+    pulseaudio-utils
 
 # 设置默认时区为东八区
 ENV TZ=Asia/Shanghai
