@@ -292,6 +292,23 @@ docker-compose logs -f
 docker-compose down
 ```
 
+### 🏠 Method 3: Home Assistant Add-on
+
+If you run Home Assistant OS (HAOS), you can install Songloft as an **add-on** with one click — no manual `docker run` required.
+
+[![Add repository to your Home Assistant.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fsongloft-org%2Fsongloft)
+
+Clicking the badge above opens the "Add add-on repository" dialog in your own Home Assistant; or do it manually:
+
+1. Go to **Settings → Add-ons → Add-on Store**, open the top-right menu **Repositories**, and add: `https://github.com/songloft-org/songloft`
+2. After refreshing, find **Songloft** in the store and install it
+3. On the **Configuration** tab, set the admin username/password and music library path (defaults to `/media`), then start
+4. Use the **Open Web UI** button on the add-on page to access it
+
+Put your music in Home Assistant's media folder (`/media`) or share folder (`/share`) to have it scanned. Data is persisted in the add-on's `/data` directory and survives reinstalls.
+
+> 🔐 **Security**: the default `admin/admin` credentials are for local testing only. Set a strong password on the Configuration tab before exposing this instance.
+
 ## 📋 Usage Flow
 
 ### 1️⃣ Start the Service
@@ -327,8 +344,9 @@ Songloft relies on only a few startup-time settings (credentials, port, database
 | `LISTEN_PORT` | 🔌 Service port | 58091 |
 | `DB_PATH` | 💾 Database file path | data/songloft.db |
 | `BASE_PATH` | 🔗 URL base path (for reverse-proxy subpath deployment, e.g. `/songloft`) | empty (root path) |
+| `MUSIC_DIR` | 🎵 Music directory (overrides the database default when non-empty; equivalent to `-music`) | empty |
 
-> 📁 In the Docker image, the music directory and data directory are fixed at `/app/music` and `/app/data` — just mount them with `-v`, no extra environment variables needed.
+> 📁 In the Docker image, the music directory and data directory default to `/app/music` and `/app/data` — just mount them with `-v`; to point elsewhere, use `MUSIC_DIR` to set the music directory.
 
 ### 💻 Command-Line Arguments
 

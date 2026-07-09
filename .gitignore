@@ -32,14 +32,14 @@ songloft-player-build
 mimusic-player-build
 
 # songloft binaries
-songloft
-songloft-linux
-songloft-linux-amd64
-songloft-linux-arm64
-songloft-linux-armv7
-songloft-darwin
-songloft-darwin-amd64
-songloft-darwin-arm64
+/songloft
+/songloft-linux
+/songloft-linux-amd64
+/songloft-linux-arm64
+/songloft-linux-armv7
+/songloft-darwin
+/songloft-darwin-amd64
+/songloft-darwin-arm64
 # legacy mimusic binaries (kept so leftover dev builds do not get tracked)
 mimusic
 mimusic-linux

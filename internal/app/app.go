@@ -632,8 +632,9 @@ func (a *App) showHelp() {
 	fmt.Println("  LISTEN_PORT     - 监听端口（默认: 58091，可通过 -port 参数指定）")
 	fmt.Println("  DB_PATH         - 数据库文件路径（默认: data/songloft.db，可通过 -db 参数指定）")
 	fmt.Println("  BASE_PATH       - URL 基础路径，用于反向代理子路径部署（如 /songloft，可通过 -base-path 参数指定）")
+	fmt.Println("  MUSIC_DIR       - 音乐目录（非空时覆盖 DB 中的默认值，可通过 -music 参数指定）")
 	fmt.Println()
-	fmt.Println("注意: 其他配置（如音乐目录、扫描配置等）存储在数据库 config 表中")
+	fmt.Println("注意: 其他配置（扫描配置等）存储在数据库 config 表中")
 }
 
 // normalizeBasePath 规范化 base path：确保以 / 开头、不以 / 结尾，空或 "/" 返回空串
@@ -736,9 +737,15 @@ func ParseConfig() (*config.AppConfig, error) {
 		return nil, err
 	}
 
-	// 音乐目录：仅供 Bundle 桌面模式由客户端通过 -music 传入用户选择的绝对路径，
-	// 覆盖 DB 中的相对默认值 "music"。默认空串，server 模式不传即保持原有行为
-	// （相对路径 "music" 按进程 CWD 解析）。
+	// 音乐目录：非空时覆盖 DB 中的相对默认值 "music"（相对路径按进程 CWD 解析）。
+	// 优先使用命令行参数 -music（Bundle 桌面模式由客户端传入），其次使用环境变量
+	// MUSIC_DIR（服务器/容器部署，如 Home Assistant 加载项把 /media 传入）。
+	finalMusicDir := *musicDir
+	if finalMusicDir == "" {
+		if envMusicDir := os.Getenv("MUSIC_DIR"); envMusicDir != "" {
+			finalMusicDir = envMusicDir
+		}
+	}
 	return &config.AppConfig{
 		Port:                    listenPort,
 		DBPath:                  finalDBPath,
@@ -746,6 +753,6 @@ func ParseConfig() (*config.AppConfig, error) {
 		Password:                adminPassword,
 		BasePath:                normalizedBasePath,
 		UsingDefaultCredentials: usingDefaultCredentials,
-		MusicDir:                *musicDir,
+		MusicDir:                finalMusicDir,
 	}, nil
 }

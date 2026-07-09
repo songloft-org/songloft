@@ -1007,3 +1007,28 @@ jobs:
           git add CHANGELOG.md
           git commit -m "docs: update CHANGELOG for ${VERSION}"
           git push origin main
+
+      # ============================================================
+      # 仅 stable：把 HA 加载项的版本号同步为本次发布版本
+      # config.yaml 的 version 决定 HA「有可用更新」提示；build.yaml 的 tag
+      # 决定加载项自构建时拉取的 base image 版本（而非漂移的 :latest）。
+      # ============================================================
+      - name: Sync Home Assistant add-on version to main
+        if: needs.prepare.outputs.is_prerelease == 'false'
+        env:
+          VERSION_TAG: ${{ needs.prepare.outputs.version_tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          sed -i "s/^version:.*/version: \"${VERSION_TAG}\"/" addon/songloft/config.yaml
+          sed -i "s#songloft/songloft:[^\"[:space:]]*#songloft/songloft:${VERSION_TAG}#g" addon/songloft/build.yaml
+
+          if git diff --quiet -- addon/songloft/config.yaml addon/songloft/build.yaml; then
+            echo "HA 加载项版本无变更，跳过 commit"
+            exit 0
+          fi
+
+          git add addon/songloft/config.yaml addon/songloft/build.yaml
+          git commit -m "chore(addon): sync HA add-on version to ${VERSION_TAG}"
+          git push origin main

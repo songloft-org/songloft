@@ -163,6 +163,28 @@ export const INSTALL: InstallMethod[] = [
     ],
   },
   {
+    id: 'homeassistant',
+    label: { zh: 'Home Assistant', en: 'Home Assistant' },
+    tagline: { zh: 'HAOS 加载项 · 一键安装', en: 'HAOS add-on · one-click' },
+    icon: 'home',
+    kind: 'external',
+    note: {
+      zh: '点下方按钮在你的 HA 里弹出「添加加载项仓库」；或手动在「加载项商店 → 仓库」添加 https://github.com/songloft-org/songloft，再安装 Songloft。音乐放入 /media，数据持久化在加载项 /data。',
+      en: 'Click below to open the "Add add-on repository" dialog in your HA; or add https://github.com/songloft-org/songloft under "Add-on Store → Repositories", then install Songloft. Put music in /media; data persists in the add-on /data.',
+    },
+    external: [
+      {
+        label: { zh: '一键添加到 Home Assistant', en: 'Add to Home Assistant' },
+        url: 'https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fsongloft-org%2Fsongloft',
+        primary: true,
+      },
+      {
+        label: { zh: '加载项文档', en: 'Add-on docs' },
+        url: 'https://github.com/songloft-org/songloft/tree/main/addon',
+      },
+    ],
+  },
+  {
     id: 'bundle',
     label: { zh: 'Bundle 版', en: 'Bundle' },
     tagline: { zh: '内嵌后端 · 免部署服务器', en: 'Embedded backend · no server' },

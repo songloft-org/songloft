@@ -1,0 +1,13 @@
+configuration:
+  admin_username:
+    name: 管理员用户名
+    description: Web 界面与 API 的管理员账号用户名。任何对外/多设备访问的部署请务必修改默认值。
+  admin_password:
+    name: 管理员密码
+    description: 管理员账号密码。若本实例可被局域网外访问，请设置强密码。
+  music_path:
+    name: 音乐库路径
+    description: 扫描音乐的目录。默认 /media（Home Assistant 媒体目录），也可使用 /share。
+  base_path:
+    name: 基础路径
+    description: 反向代理子路径部署时的 URL 基础路径（如 /songloft）。根路径部署留空。

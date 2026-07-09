@@ -1,0 +1,13 @@
+configuration:
+  admin_username:
+    name: Admin username
+    description: Administrator account username for the Web UI and API. Change from the default for any non-local deployment.
+  admin_password:
+    name: Admin password
+    description: Administrator account password. Use a strong password if this instance is reachable beyond your local network.
+  music_path:
+    name: Music library path
+    description: Directory scanned for music. Defaults to /media (Home Assistant media folder). You can also use /share.
+  base_path:
+    name: Base path
+    description: URL base path for reverse-proxy sub-path deployments (e.g. /songloft). Leave empty for root.

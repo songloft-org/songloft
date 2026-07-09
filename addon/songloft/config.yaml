@@ -1,0 +1,33 @@
+name: Songloft
+version: "0.0.0"
+slug: songloft
+description: 自托管本地音乐服务器 / Self-hosted local music server
+url: https://github.com/songloft-org/songloft
+# CI 发布时会把 version 同步为实际发布版本号（见 .github/workflows/release.yml）。
+# 未设 image 字段 → HA 走本地 build.yaml 自构建（FROM songloft/songloft + run.sh 薄层）。
+arch:
+  - amd64
+  - aarch64
+  - armv7
+# 用镜像自带进程直接启动（run.sh），不使用 HA 的 s6 init 包装。
+init: false
+ports:
+  "58091/tcp": 58091
+ports_description:
+  "58091/tcp": Web UI 与 API / Web UI and API
+# 加载项详情页「打开 Web UI」按钮（新标签页，非 Ingress）。
+webui: "http://[HOST]:[PORT:58091]"
+# 音乐库来源目录：/media 为主，/share 备选，均可读写（写入用于标签/歌词回写）。
+map:
+  - media:rw
+  - share:rw
+options:
+  admin_username: admin
+  admin_password: admin
+  music_path: /media
+  base_path: ""
+schema:
+  admin_username: str
+  admin_password: password
+  music_path: str
+  base_path: str?
