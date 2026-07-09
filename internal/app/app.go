@@ -658,6 +658,7 @@ func ParseConfig() (*config.AppConfig, error) {
 	var (
 		port     = flag.String("port", "58091", "监听端口")
 		dbPath   = flag.String("db", "data/songloft.db", "数据库文件路径")
+		musicDir = flag.String("music", "", "音乐目录（Bundle 桌面模式由客户端传入，非空时覆盖 DB 中的 music_path）")
 		username = flag.String("username", "", "管理员用户名")
 		password = flag.String("password", "", "管理员密码")
 		basePath = flag.String("base-path", "", "URL 基础路径，用于反向代理子路径部署（如 /songloft）")
@@ -735,6 +736,9 @@ func ParseConfig() (*config.AppConfig, error) {
 		return nil, err
 	}
 
+	// 音乐目录：仅供 Bundle 桌面模式由客户端通过 -music 传入用户选择的绝对路径，
+	// 覆盖 DB 中的相对默认值 "music"。默认空串，server 模式不传即保持原有行为
+	// （相对路径 "music" 按进程 CWD 解析）。
 	return &config.AppConfig{
 		Port:                    listenPort,
 		DBPath:                  finalDBPath,
@@ -742,5 +746,6 @@ func ParseConfig() (*config.AppConfig, error) {
 		Password:                adminPassword,
 		BasePath:                normalizedBasePath,
 		UsingDefaultCredentials: usingDefaultCredentials,
+		MusicDir:                *musicDir,
 	}, nil
 }
