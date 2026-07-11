@@ -170,7 +170,7 @@ INSERT INTO configs (key, value)
 VALUES
     ('music_path', '{"path": "music", "exclude_dirs": ["@eaDir", "tmp"]}'),
     ('cover_storage_path', '{"path": "data/covers"}'),
-    ('scan_config', '{"auto_scan": true, "scan_interval": 3600, "supported_formats": ["mp3", "flac", "wav", "ape", "ogg", "m4a", "wma"]}'),
+    ('scan_config', '{"auto_scan": true, "scan_interval": 3600, "supported_formats": ["mp3", "flac", "wav", "ape", "ogg", "m4a", "mov", "wma"]}'),
     ('ffprobe_path', '{"path": "ffprobe"}'),
     ('jwt_secret', lower(hex(randomblob(32)))),
     ('source_validation', '{"enabled": true, "min_duration": 30, "duration_ratio": 0.85, "max_duration_ratio": 1.5, "min_bitrate": 8}'),

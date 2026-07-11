@@ -298,7 +298,7 @@ The Docker image contains a base package `/app/songloft`, while the persistent d
 |------|---------|------|------|
 | MP3 | ID3v2.3 text frames | USLT | APIC |
 | FLAC | Vorbis Comment | LYRICS | PICTURE block |
-| M4A/MP4/M4B | iTunes atoms (©nam, etc.) | ©lyr | covr |
+| M4A/MP4/M4B/MOV | iTunes atoms (©nam, etc.) | ©lyr | covr |
 | OGG/Opus | Vorbis Comment | LYRICS | METADATA_BLOCK_PICTURE (base64) |
 | APE | APEv2 text items | Lyrics | Cover Art (Front) (binary item) |
 | WAV | RIFF LIST INFO | ICMT | **Not supported** (format limitation) |

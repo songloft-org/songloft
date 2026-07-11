@@ -132,6 +132,8 @@ func GetExtFromContentType(contentType string) string {
 		return ".ogg"
 	case strings.Contains(ct, "audio/x-m4a"), strings.Contains(ct, "audio/mp4"), strings.Contains(ct, "video/mp4"):
 		return ".m4a"
+	case strings.Contains(ct, "video/quicktime"):
+		return ".mov"
 	case strings.Contains(ct, "audio/wav"):
 		return ".wav"
 	default:
