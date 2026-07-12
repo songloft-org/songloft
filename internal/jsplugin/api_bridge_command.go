@@ -105,10 +105,7 @@ func (h *BridgeHandler) commandExec(data string) (string, error) {
 
 	timeout := defaultExecTimeout
 	if req.Timeout > 0 {
-		timeout = time.Duration(req.Timeout) * time.Millisecond
-		if timeout > maxExecTimeout {
-			timeout = maxExecTimeout
-		}
+		timeout = min(time.Duration(req.Timeout)*time.Millisecond, maxExecTimeout)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)

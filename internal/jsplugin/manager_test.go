@@ -315,8 +315,8 @@ func TestManager_LoadPlugin_InvalidHash(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected LoadPlugin to fail with hash mismatch and same mtime")
 	}
-	// Should contain "tampered" in the error
-	if err != nil && !contains(err.Error(), "tampered") {
+	// Should contain "tampered" in the error（此处 err 必非 nil，上面已对 nil 做 Fatal）
+	if !contains(err.Error(), "tampered") {
 		t.Logf("Got error (expected tamper-related): %v", err)
 	}
 }
