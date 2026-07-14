@@ -156,8 +156,14 @@ func (a *AutoUpdater) runOnce(ctx context.Context) {
 		return
 	}
 
-	githubProxy := m.configService.GetString(githubProxyConfigKey, "")
-	result, err := m.RunUpdateAll(ctx, githubProxy, false)
+	// github_proxy 由业务端点以 JSON {"proxy":"..."} 形式存储（handlers/upgrade.go
+	// 的 UpdateGithubProxySetting via SetJSON），必须用 GetJSON 解析。旧代码用
+	// GetString 会把整个 JSON 串当作代理前缀，导致自动更新走代理时 URL 拼接错误。
+	var proxyCfg struct {
+		Proxy string `json:"proxy"`
+	}
+	_ = m.configService.GetJSON(githubProxyConfigKey, &proxyCfg)
+	result, err := m.RunUpdateAll(ctx, proxyCfg.Proxy, false)
 	if err != nil {
 		slog.Warn("auto-update run failed", "error", err)
 		return
