@@ -333,8 +333,8 @@ func TestScanWithMixedFormats(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// 创建不同格式的文件
-	formats := []string{"mp3", "flac", "wav", "ape", "ogg", "m4a", "txt", "jpg"}
+	// 创建不同格式的文件（mp4 为音视频混合容器，应被识别为音频；txt/jpg 应被忽略）
+	formats := []string{"mp3", "flac", "wav", "ape", "ogg", "m4a", "mp4", "txt", "jpg"}
 	for _, format := range formats {
 		file := filepath.Join(tmpDir, "test."+format)
 		if err := os.WriteFile(file, []byte("test"), 0644); err != nil {
@@ -345,7 +345,7 @@ func TestScanWithMixedFormats(t *testing.T) {
 	config := &ScanConfig{
 		MusicPath:        tmpDir,
 		ExcludeDirs:      []string{},
-		SupportedFormats: []string{"mp3", "flac", "wav", "ape", "ogg", "m4a"},
+		SupportedFormats: []string{"mp3", "flac", "wav", "ape", "ogg", "m4a", "mp4"},
 	}
 
 	scanner := NewScanner(config)
@@ -356,9 +356,9 @@ func TestScanWithMixedFormats(t *testing.T) {
 		t.Fatalf("ScanFiles() error = %v", err)
 	}
 
-	// 应该只找到 6 个音频文件
-	if len(files) != 6 {
-		t.Errorf("ScanFiles() found %d files, want 6", len(files))
+	// 应该只找到 7 个音频文件
+	if len(files) != 7 {
+		t.Errorf("ScanFiles() found %d files, want 7", len(files))
 	}
 }
 

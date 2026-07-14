@@ -1174,6 +1174,14 @@ func (h *SongHandler) serveLocal(w http.ResponseWriter, r *http.Request, song *m
 		}
 	}
 	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	// ISO-BMFF 音频容器（mp4/mov/m4a/m4b）显式声明为音频类型:
+	// stdlib http.ServeFile 会按扩展名把 .mp4 标成 video/mp4、.mov 标成 video/quicktime,
+	// 我们只播放其中的音频轨,显式设 audio/mp4 可提升 Web <audio> 及部分客户端按音频处理的稳健性。
+	// 基于最终 srcPath 判断:若已转码为 .mp3 等,则不覆盖,交由 http.ServeFile 给出正确类型。
+	switch strings.ToLower(filepath.Ext(srcPath)) {
+	case ".mp4", ".mov", ".m4a", ".m4b":
+		w.Header().Set("Content-Type", "audio/mp4")
+	}
 	http.ServeFile(w, r, srcPath)
 }
 

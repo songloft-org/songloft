@@ -188,7 +188,7 @@ func (a *App) Init() error {
 	}
 	if err := a.configService.GetJSON("scan_config", &scanConfigData); err != nil {
 		slog.Warn("读取扫描配置失败，使用默认值", "error", err)
-		scanConfigData.SupportedFormats = []string{"mp3", "flac", "wav", "ape", "ogg", "m4a", "mov", "wma", "aif", "aiff"}
+		scanConfigData.SupportedFormats = []string{"mp3", "flac", "wav", "ape", "ogg", "m4a", "mp4", "mov", "wma", "aif", "aiff"}
 	}
 
 	// 读取标题来源配置
@@ -496,7 +496,7 @@ func (a *App) onMusicPathConfigChanged(scanHandler *handlers.ScanHandler) {
 	}
 	if err := a.configService.GetJSON("scan_config", &scanConfigData); err != nil {
 		slog.Warn("配置变更回调：读取 scan_config 失败，使用默认值", "error", err)
-		scanConfigData.SupportedFormats = []string{"mp3", "flac", "wav", "ape", "ogg", "m4a", "mov", "wma", "aif", "aiff"}
+		scanConfigData.SupportedFormats = []string{"mp3", "flac", "wav", "ape", "ogg", "m4a", "mp4", "mov", "wma", "aif", "aiff"}
 	}
 
 	// 重建 Scanner
