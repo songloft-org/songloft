@@ -183,7 +183,8 @@ A: Mainstream audio formats are supported: **MP3, FLAC, WAV, APE, OGG, M4A, MP4,
 Common **video containers** are also scanned: **MKV, WEBM, AVI, TS** (along with MP4/MOV that carry a picture). During scanning the backend uses ffprobe to detect whether a file has a real video track and marks it as `is_video` (an embedded cover image does not count as video). Such files are common in audiobooks, online courses, and other listening-focused mixed audio/video content:
 
 - The **audio track** can always be played;
-- Files with a picture can be **cast to a DLNA TV / box** to watch the video (the real container MIME is declared when casting).
+- Files with a picture can be **cast to a DLNA TV / box** to watch the video (the real container MIME is declared when casting);
+- The **video picture can also be shown in-app**: enabled by default on desktop (Windows/Linux) and Web; on macOS/Android/iOS it requires a dedicated build to turn on (audio-only by default, with the picture falling back to the cover).
 
 You can customize the list of supported formats via the `scan_config` database configuration.
 
