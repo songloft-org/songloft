@@ -984,6 +984,8 @@ func (h *BridgeHandler) handleSongs(action, data string) (string, error) {
 			TargetDir     string `json:"target_dir"`
 			PathTemplate  string `json:"path_template"`
 			EmbedMetadata *bool  `json:"embed_metadata"`
+			Format        string `json:"format"`
+			Quality       string `json:"quality"`
 		}
 		if err := json.Unmarshal([]byte(data), &req); err != nil {
 			return "", fmt.Errorf("handleSongs: parse download: %w", err)
@@ -996,6 +998,8 @@ func (h *BridgeHandler) handleSongs(action, data string) (string, error) {
 			TargetDir:     req.TargetDir,
 			PathTemplate:  req.PathTemplate,
 			EmbedMetadata: embedMeta,
+			Format:        req.Format,
+			Quality:       req.Quality,
 		})
 		if err != nil {
 			return "", fmt.Errorf("handleSongs: download: %w", err)

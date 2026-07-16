@@ -29,6 +29,11 @@ type SongDownloadOptions struct {
 	TargetDir     string `json:"target_dir"`
 	PathTemplate  string `json:"path_template"`
 	EmbedMetadata bool   `json:"embed_metadata"`
+	// Format 目标音频格式（mp3/m4a/ogg/flac/wav）。空=不转码，保留源格式。
+	// 典型用途：B 站等下载源产出 .mov 视频容器，无法刮削歌词，指定 mp3 转码为标准音频容器。
+	Format string `json:"format"`
+	// Quality 目标码率（128/192/320）。空/其他=默认最高质量。Format 为空时忽略。
+	Quality string `json:"quality"`
 }
 
 // SongDownloadResult 下载结果
@@ -113,7 +118,24 @@ func (d *SongDownloader) Download(ctx context.Context, songID int64, opts SongDo
 		return nil, fmt.Errorf("acquire audio: %w", err)
 	}
 
-	ext := filepath.Ext(srcPath)
+	// 可选转码：Format 非空时把源文件转成目标格式（复用播放路径的 GetOrTranscode，
+	// 内部含同格式短路、缓存命中、inflight 去重、LRU、并发串行化）。ffmpeg 缺失或
+	// 转码失败时优雅降级——仅告警并保留源格式，绝不阻塞下载（如 Bundle/移动端无 ffmpeg）。
+	if opts.Format != "" {
+		bitrate := ParseBitrate(opts.Quality) // 仅认 128/192/320，其余为 0（默认最高质量）
+		tcPath, terr := d.cacheService.GetOrTranscode(ctx, srcPath, song, opts.Format, bitrate)
+		if terr != nil {
+			slog.Warn("download: transcode failed, keeping original format",
+				"songId", songID, "format", opts.Format, "error", terr)
+		} else if tcPath != srcPath {
+			// 实际发生了转码（非同格式短路）：改用转码产物，并清空 Format 让其回退到
+			// 新扩展名重新判定，避免播放期按旧格式（如 mov）误判再转一次。
+			srcPath = tcPath
+			song.Format = ""
+		}
+	}
+
+	ext := filepath.Ext(srcPath) // 转码后重新取扩展名，自然得到 .mp3 等目标格式
 	rendered := tpl.Render(song)
 	relPath := filepath.FromSlash(rendered) + ext
 	destPath := filepath.Join(targetDir, relPath)
