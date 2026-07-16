@@ -1056,6 +1056,7 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // @Param quality query string false "目标音质码率（128/192/320），不传或不合法值表示原始音质。指定后默认转码为 mp3（除非同时指定了 format）"
 // @Param prefetch query string false "传 1 时异步预热缓存/转码，立即返回 202"
 // @Param media query string false "传 video 时按视频播放：直出原容器（忽略 format/quality 转码，避免 -vn 丢画面），并按容器真实类型返回 Content-Type（如 video/mp4）。用于应用内视频画面渲染与 DLNA 视频投屏"
+// @Param hls query string false "仅电台(HLS)有效。传 direct 时强制 302 直连源站、绕过本机 HLS 反代（即使 /settings/hls-proxy 已开）。原生 player 无 CORS 限制，直连可避免直播切片经反代往返后过期(404)；浏览器不传此参数以继续走反代解决 CORS"
 // @Success 200 {file} binary "音频文件"
 // @Success 202 {string} string "预拉取已触发"
 // @Success 302 {string} string "电台流重定向"
@@ -1279,8 +1280,14 @@ func (h *SongHandler) serveRadio(w http.ResponseWriter, r *http.Request, song *m
 	}
 
 	if isHLSURL(song.URL) {
+		// hls=direct：原生 player（mpv/ExoPlayer/AVPlayer）自带 HLS 解析且无 CORS 限制，
+		// 让它直接 302 到源站自行拉取切片。经本机反代会多一次「拉列表→改写→客户端回访切片」
+		// 往返，对文件名带时间戳、窗口很短的直播源(#249 brtv-radiolive)会导致切片在回访前
+		// 就滚出直播窗口(404 / expired from playlists)。反代仅为浏览器 CORS 而存在，
+		// 原生端显式请求 direct 即绕过。防盗链 Referer/UA 由原生 player 自身请求头闭环。
+		wantsDirect := r.URL.Query().Get("hls") == "direct"
 		// HLS 反代开关由 HLSHandler 业务封装管理（/settings/hls-proxy），默认 false 走 302
-		if h.hlsHandler != nil && h.hlsHandler.IsEnabled() {
+		if !wantsDirect && h.hlsHandler != nil && h.hlsHandler.IsEnabled() {
 			h.hlsHandler.ServeProxy(w, r, song)
 			return
 		}
@@ -1322,7 +1329,7 @@ func (h *SongHandler) serveRadio(w http.ResponseWriter, r *http.Request, song *m
 	defer resp.Body.Close()
 
 	if ct := resp.Header.Get("Content-Type"); ct != "" {
-		w.Header().Set("Content-Type", ct)
+		w.Header().Set("Content-Type", normalizeAudioContentType(ct))
 	}
 
 	// body 与 icy-metaint 头的处理分三种情况:
@@ -1350,6 +1357,22 @@ func (h *SongHandler) serveRadio(w http.ResponseWriter, r *http.Request, song *m
 	w.Header().Set("Cache-Control", "no-cache, no-store")
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, body)
+}
+
+// normalizeAudioContentType 把上游返回的非标准音频 MIME 归一化为浏览器 / 解码器能识别的标准值。
+// 典型:Shoutcast/streamtheworld 类 HE-AAC 电台返回 `audio/aacp`(遗留 MIME),浏览器 <audio>
+// 与部分播放器无法据此选对解码器;实际负载是标准 ADTS AAC,改标 `audio/aac` 更兼容。(#275)
+// 只改 MIME 主类型,保留可能存在的参数(如 charset);未命中的一律原样透传。
+func normalizeAudioContentType(ct string) string {
+	base, params, _ := strings.Cut(ct, ";")
+	switch strings.ToLower(strings.TrimSpace(base)) {
+	case "audio/aacp", "audio/x-aac", "audio/x-aacp":
+		if params != "" {
+			return "audio/aac;" + params
+		}
+		return "audio/aac"
+	}
+	return ct
 }
 
 // isHLSURL 判断 URL 是否指向 HLS 播放列表(.m3u8/.m3u),忽略大小写与查询串。

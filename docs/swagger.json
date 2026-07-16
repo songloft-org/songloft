@@ -6522,6 +6522,12 @@
                         "description": "传 video 时按视频播放：直出原容器（忽略 format/quality 转码，避免 -vn 丢画面），并按容器真实类型返回 Content-Type（如 video/mp4）。用于应用内视频画面渲染与 DLNA 视频投屏",
                         "name": "media",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "仅电台(HLS)有效。传 direct 时强制 302 直连源站、绕过本机 HLS 反代（即使 /settings/hls-proxy 已开）。原生 player 无 CORS 限制，直连可避免直播切片经反代往返后过期(404)；浏览器不传此参数以继续走反代解决 CORS",
+                        "name": "hls",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6603,6 +6609,12 @@
                         "type": "string",
                         "description": "传 video 时按视频播放：直出原容器（忽略 format/quality 转码，避免 -vn 丢画面），并按容器真实类型返回 Content-Type（如 video/mp4）。用于应用内视频画面渲染与 DLNA 视频投屏",
                         "name": "media",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "仅电台(HLS)有效。传 direct 时强制 302 直连源站、绕过本机 HLS 反代（即使 /settings/hls-proxy 已开）。原生 player 无 CORS 限制，直连可避免直播切片经反代往返后过期(404)；浏览器不传此参数以继续走反代解决 CORS",
+                        "name": "hls",
                         "in": "query"
                     }
                 ],

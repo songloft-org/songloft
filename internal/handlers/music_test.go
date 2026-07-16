@@ -579,3 +579,117 @@ func TestServeRadioICYDeinterleave(t *testing.T) {
 		}
 	})
 }
+
+// TestNormalizeAudioContentType 验证非标准音频 MIME 归一化(#275)。
+// streamtheworld 类 HE-AAC 电台返回 audio/aacp,浏览器 <audio> 据此选不对解码器;
+// 实际负载是标准 ADTS AAC,改标 audio/aac 更兼容。参数(如 charset)需保留,未命中原样透传。
+func TestNormalizeAudioContentType(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"audio/aacp", "audio/aac"},
+		{"audio/aacp; charset=utf-8", "audio/aac; charset=utf-8"},
+		{"AUDIO/AACP", "audio/aac"},
+		{"audio/x-aac", "audio/aac"},
+		{"audio/x-aacp", "audio/aac"},
+		{"audio/aac", "audio/aac"},
+		{"audio/mpeg", "audio/mpeg"},
+		{"application/octet-stream", "application/octet-stream"},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := normalizeAudioContentType(c.in); got != c.want {
+			t.Errorf("normalizeAudioContentType(%q)=%q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+// TestServeRadioNormalizesAACPContentType 验证 serveRadio 把上游 audio/aacp 改标为 audio/aac(#275)。
+func TestServeRadioNormalizesAACPContentType(t *testing.T) {
+	repo := newTestSongRepo(t)
+	songService := services.NewSongService(repo, nil, nil, nil, nil, nil)
+	handler := NewSongHandler(songService, nil, nil, nil, nil, nil)
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "audio/aacp")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("aac-bytes"))
+	}))
+	defer upstream.Close()
+
+	id := seedSong(t, repo, &models.Song{Type: models.TypeRadio, Title: "电台", URL: upstream.URL + "/live.aac"})
+	song, err := songService.GetByID(context.Background(), id)
+	if err != nil {
+		t.Fatalf("get song: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/songs/"+strconv.FormatInt(id, 10)+"/play", nil)
+	rr := httptest.NewRecorder()
+	handler.serveRadio(rr, req, song)
+
+	if ct := rr.Header().Get("Content-Type"); ct != "audio/aac" {
+		t.Errorf("Content-Type=%q,期望归一化为 audio/aac", ct)
+	}
+}
+
+// TestServeRadioHLSDirectBypassesProxy 验证 hls=direct 让原生端绕过 HLS 反代直接 302(#249)。
+// 即使 /settings/hls-proxy 已开,带 hls=direct 的请求也应 302 直连源站,
+// 避免直播切片经反代往返后过期。不带该参数时(浏览器)仍走反代。
+func TestServeRadioHLSDirectBypassesProxy(t *testing.T) {
+	mdb := testutil.OpenMemoryDB(t)
+	repo := mdb.SongRepository()
+	songService := services.NewSongService(repo, nil, nil, nil, nil, nil)
+	configService := services.NewConfigService(mdb.ConfigRepository())
+
+	// 上游 m3u8:被反代时会命中(返回 m3u8 文本);被 302 直连时不应命中。
+	var upstreamHit bool
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamHit = true
+		w.Header().Set("Content-Type", hlsContentType)
+		w.Write([]byte("#EXTM3U\n#EXT-X-ENDLIST\n"))
+	}))
+	defer upstream.Close()
+
+	songURL := upstream.URL + "/live/index.m3u8"
+	hlsHandler := NewHLSHandler(songService, configService)
+	hlsHandler.allowHost = func(string) bool { return true }
+	if err := hlsHandler.SetEnabled(true); err != nil {
+		t.Fatalf("enable hls proxy: %v", err)
+	}
+	handler := NewSongHandler(songService, nil, nil, nil, hlsHandler, nil)
+
+	id := seedSong(t, repo, &models.Song{Type: models.TypeRadio, Title: "HLS电台", URL: songURL})
+	song, err := songService.GetByID(context.Background(), id)
+	if err != nil {
+		t.Fatalf("get song: %v", err)
+	}
+
+	t.Run("原生 hls=direct 绕过反代 302 直连", func(t *testing.T) {
+		upstreamHit = false
+		req := httptest.NewRequest("GET", "/api/v1/songs/"+strconv.FormatInt(id, 10)+"/play.m3u8?hls=direct", nil)
+		rr := httptest.NewRecorder()
+		handler.serveRadio(rr, req, song)
+
+		if rr.Code != http.StatusFound {
+			t.Fatalf("status=%d,期望 302", rr.Code)
+		}
+		if loc := rr.Header().Get("Location"); loc != songURL {
+			t.Errorf("Location=%q,期望直连源站 %q", loc, songURL)
+		}
+		if upstreamHit {
+			t.Error("hls=direct 时上游 m3u8 被反代命中,期望 302 不拉取")
+		}
+	})
+
+	t.Run("浏览器不带 hls=direct 走反代", func(t *testing.T) {
+		upstreamHit = false
+		req := httptest.NewRequest("GET", "/api/v1/songs/"+strconv.FormatInt(id, 10)+"/play.m3u8", nil)
+		rr := httptest.NewRecorder()
+		handler.serveRadio(rr, req, song)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("status=%d,期望反代 200,body=%q", rr.Code, rr.Body.String())
+		}
+		if !upstreamHit {
+			t.Error("反代路径未拉取上游 m3u8")
+		}
+	})
+}
