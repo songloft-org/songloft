@@ -4140,7 +4140,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取用户自定义的曲库统一浏览页视图显示与顺序。共 11 个视图：all(全部)/artist(歌手)/album(专辑)/genre(流派)/year(年份)/decade(年代)/language(语种)/style(风格)/local(本地)/remote(网络)/radio(电台)。未配置时返回默认（全部可见、默认顺序）。返回始终包含完整 11 项。",
+                "description": "获取用户自定义的曲库统一浏览页视图显示与顺序。共 14 个视图，分三组：歌曲组 all(全部)/local(本地)/remote(网络)/radio(电台)；分类组 artist(歌手)/album(专辑)/genre(流派)/year(年份)/decade(年代)/language(语种)/style(风格)；歌单组 playlist(全部歌单)/playlist_normal(普通歌单)/playlist_radio(电台歌单)。未配置时返回默认（全部可见、默认顺序）。返回始终包含完整 14 项。",
                 "produces": [
                     "application/json"
                 ],
@@ -4163,7 +4163,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "保存用户自定义的曲库浏览页视图显示与顺序。每个 view 的 key 必须属于合法的 11 个 key 且不能重复；未出现的 key 会按默认顺序补到末尾（visible=true），保证返回完整 11 项。",
+                "description": "保存用户自定义的曲库浏览页视图显示与顺序。每个 view 的 key 必须属于合法的 14 个 key 且不能重复；未出现的 key 会按默认顺序补到末尾（visible=true），保证返回完整 14 项。",
                 "consumes": [
                     "application/json"
                 ],
