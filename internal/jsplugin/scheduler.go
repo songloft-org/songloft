@@ -30,6 +30,10 @@ const (
 const (
 	defaultQueueSize   = 256
 	defaultCallTimeout = 30 * time.Second
+	// maxCallTimeout 为插件 HTTP 调用可被显式放宽到的上限（见 forwardToJSRuntime
+	// 的 X-Plugin-Timeout-Ms 头）。与 yt-dlp 等长任务的 command.exec 5min 预算对齐，
+	// 防止调用方任意放大导致单 worker 被长时间占用。
+	maxCallTimeout = 300 * time.Second
 )
 
 // 错误定义

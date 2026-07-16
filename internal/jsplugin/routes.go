@@ -14,7 +14,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
@@ -196,6 +198,7 @@ func (m *Manager) handlePluginStaticSubdirFiles(w http.ResponseWriter, r *http.R
 // @Accept json
 // @Produce json
 // @Param entryPath path string true "插件入口标识（运行时动态）"
+// @Param X-Plugin-Timeout-Ms header int false "可选：放宽本次插件调用的超时（毫秒），宿主 clamp 到 [30000, 300000]。慢端点（如 yt-dlp 展开歌单）用于避免默认 30s 超时"
 // @Success 200 {object} map[string]interface{} "插件自定义响应"
 // @Failure 403 {object} map[string]string "插件未启用"
 // @Failure 404 {object} map[string]string "插件不存在"
@@ -461,6 +464,27 @@ func injectHTMLHead(html []byte, entryPath, basePath string) []byte {
 	return result
 }
 
+// parsePluginCallTimeout 解析 X-Plugin-Timeout-Ms 头为 scheduler.Call 超时。
+// 空 / 非法 / <=0 → 返回 0（scheduler 使用 defaultCallTimeout）。
+// 合法值 clamp 到 [defaultCallTimeout, maxCallTimeout]：低于默认无意义，高于上限防滥用。
+func parsePluginCallTimeout(header string) time.Duration {
+	if header == "" {
+		return 0
+	}
+	ms, err := strconv.Atoi(strings.TrimSpace(header))
+	if err != nil || ms <= 0 {
+		return 0
+	}
+	d := time.Duration(ms) * time.Millisecond
+	if d < defaultCallTimeout {
+		return defaultCallTimeout
+	}
+	if d > maxCallTimeout {
+		return maxCallTimeout
+	}
+	return d
+}
+
 func writeJSONError(w http.ResponseWriter, status int, errMsg, detail string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -518,8 +542,13 @@ func (m *Manager) forwardToJSRuntime(w http.ResponseWriter, r *http.Request, ent
 		reqData.Body = string(body)
 	}
 
-	// 4. 通过 scheduler.Call 同步调用（等待 JS 处理完）
-	resp, err := m.scheduler.Call(r.Context(), entryPath, "", MsgHTTPRequest, reqData, 0)
+	// 4. 通过 scheduler.Call 同步调用（等待 JS 处理完）。
+	// 默认 30s（scheduler 内部 defaultCallTimeout）。慢端点（如 yt-dlp 展开 radio/mix
+	// 歌单，命令本身允许跑到 5min）可通过 X-Plugin-Timeout-Ms 头显式放宽，宿主 clamp 到
+	// [defaultCallTimeout, maxCallTimeout]。客户端断连时 r.Context() 会 cancel，长超时
+	// 不会导致 worker 无限占用。
+	callTimeout := parsePluginCallTimeout(r.Header.Get("X-Plugin-Timeout-Ms"))
+	resp, err := m.scheduler.Call(r.Context(), entryPath, "", MsgHTTPRequest, reqData, callTimeout)
 	if err != nil {
 		writeJSONError(w, http.StatusGatewayTimeout, "plugin call failed", err.Error())
 		return

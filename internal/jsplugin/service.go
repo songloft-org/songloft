@@ -571,7 +571,21 @@ func (s *JSService) handleHTTPRequest(msg *Message) *Message {
 	// 传 msg.Ctx：客户端 abort 旧切歌请求时，scheduler.Call 会 cancel 这个 ctx，
 	// ExecuteJSCall 的事件循环会立即退出，让 worker 处理下一条消息，避免被 30s
 	// 上限的执行卡住，新切的歌排在它后面一直 pending（issue #79 的关键根因）。
-	result, err := s.jsManager.ExecuteJSCall(msg.Ctx, s.envID, dispatcher, 30000, string(reqJSON))
+	//
+	// wall-clock 上限从 msg.Ctx 的剩余 deadline 派生（对齐 invoke.go 的放宽逻辑）：
+	// scheduler.Call 用 X-Plugin-Timeout-Ms 头 / 内部长预算把 ctx deadline 拉长时，
+	// 慢端点（yt-dlp 展开 radio/mix 歌单可 >30s）的 JS 执行也应随之放宽，而不是被写死
+	// 的 30s 掐断（issue #265 前端 extract 504 的根因）。无 deadline 或剩余不足 30s 时
+	// 保持默认 30s，行为不变。
+	timeoutMs := int64(30000)
+	if msg.Ctx != nil {
+		if deadline, ok := msg.Ctx.Deadline(); ok {
+			if remainingMs := time.Until(deadline).Milliseconds(); remainingMs > timeoutMs {
+				timeoutMs = remainingMs
+			}
+		}
+	}
+	result, err := s.jsManager.ExecuteJSCall(msg.Ctx, s.envID, dispatcher, timeoutMs, string(reqJSON))
 	if err != nil {
 		statusCode := 500
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

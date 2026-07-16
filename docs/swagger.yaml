@@ -1892,6 +1892,11 @@ paths:
         name: entryPath
         required: true
         type: string
+      - description: 可选：放宽本次插件调用的超时（毫秒），宿主 clamp 到 [30000, 300000]。慢端点（如 yt-dlp 展开歌单）用于避免默认
+          30s 超时
+        in: header
+        name: X-Plugin-Timeout-Ms
+        type: integer
       produces:
       - application/json
       responses:
@@ -1940,6 +1945,11 @@ paths:
         name: entryPath
         required: true
         type: string
+      - description: 可选：放宽本次插件调用的超时（毫秒），宿主 clamp 到 [30000, 300000]。慢端点（如 yt-dlp 展开歌单）用于避免默认
+          30s 超时
+        in: header
+        name: X-Plugin-Timeout-Ms
+        type: integer
       produces:
       - application/json
       responses:
@@ -1988,6 +1998,11 @@ paths:
         name: entryPath
         required: true
         type: string
+      - description: 可选：放宽本次插件调用的超时（毫秒），宿主 clamp 到 [30000, 300000]。慢端点（如 yt-dlp 展开歌单）用于避免默认
+          30s 超时
+        in: header
+        name: X-Plugin-Timeout-Ms
+        type: integer
       produces:
       - application/json
       responses:
@@ -2036,6 +2051,11 @@ paths:
         name: entryPath
         required: true
         type: string
+      - description: 可选：放宽本次插件调用的超时（毫秒），宿主 clamp 到 [30000, 300000]。慢端点（如 yt-dlp 展开歌单）用于避免默认
+          30s 超时
+        in: header
+        name: X-Plugin-Timeout-Ms
+        type: integer
       produces:
       - application/json
       responses:

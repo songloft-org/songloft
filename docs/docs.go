@@ -1316,6 +1316,12 @@ const docTemplate = `{
                         "name": "entryPath",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "可选：放宽本次插件调用的超时（毫秒），宿主 clamp 到 [30000, 300000]。慢端点（如 yt-dlp 展开歌单）用于避免默认 30s 超时",
+                        "name": "X-Plugin-Timeout-Ms",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -1388,6 +1394,12 @@ const docTemplate = `{
                         "name": "entryPath",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "可选：放宽本次插件调用的超时（毫秒），宿主 clamp 到 [30000, 300000]。慢端点（如 yt-dlp 展开歌单）用于避免默认 30s 超时",
+                        "name": "X-Plugin-Timeout-Ms",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -1460,6 +1472,12 @@ const docTemplate = `{
                         "name": "entryPath",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "可选：放宽本次插件调用的超时（毫秒），宿主 clamp 到 [30000, 300000]。慢端点（如 yt-dlp 展开歌单）用于避免默认 30s 超时",
+                        "name": "X-Plugin-Timeout-Ms",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -1532,6 +1550,12 @@ const docTemplate = `{
                         "name": "entryPath",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "可选：放宽本次插件调用的超时（毫秒），宿主 clamp 到 [30000, 300000]。慢端点（如 yt-dlp 展开歌单）用于避免默认 30s 超时",
+                        "name": "X-Plugin-Timeout-Ms",
+                        "in": "header"
                     }
                 ],
                 "responses": {
