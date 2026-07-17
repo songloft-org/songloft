@@ -82,7 +82,7 @@ func TestActivate_CancelsOtherSongsInSameSession(t *testing.T) {
 	}
 }
 
-func TestActivate_CancelsSelfPrefetchKeepsSelfPlay(t *testing.T) {
+func TestActivate_KeepsAllSelfSongWork(t *testing.T) {
 	r := New()
 	sk := SessionKey{ClientID: "c1"}
 
@@ -90,14 +90,15 @@ func TestActivate_CancelsSelfPrefetchKeepsSelfPlay(t *testing.T) {
 	ctxPrefetch, _ := r.Track(context.Background(), sk, 100, CatPrefetch)
 	ctxTc, _ := r.Track(context.Background(), sk, 100, CatTranscode)
 
-	// 真实播放 100 → 100 的 prefetch 没意义需要 cancel；play / transcode 保留
+	// 真实播放 100 → 同曲的所有工作都保留：慢音源（B站）的 prefetch 在后台解析+缓存，
+	// 掐掉会逼同步播放路从零重解析并被客户端 5s 断连判死（songloft#271）。
 	r.Activate(sk, 100)
 
 	if ctxPlay.Err() != nil {
 		t.Errorf("同 song play 不应被 cancel，err=%v", ctxPlay.Err())
 	}
-	if !waitCanceled(ctxPrefetch) {
-		t.Errorf("同 song prefetch 应被 cancel")
+	if ctxPrefetch.Err() != nil {
+		t.Errorf("同 song prefetch 不应被 cancel，err=%v", ctxPrefetch.Err())
 	}
 	if ctxTc.Err() != nil {
 		t.Errorf("同 song transcode 不应被 cancel，err=%v", ctxTc.Err())

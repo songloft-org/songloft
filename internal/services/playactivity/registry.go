@@ -106,10 +106,12 @@ func (r *Registry) Track(parent context.Context, sk SessionKey, songID int64, ca
 //
 // 仅在 sk 桶内 cancel，不影响其他 sessionKey：
 //   - 所有 songID != keepSongID 的全部工作（包括 play/prefetch/transcode/reassign）
-//   - 同 keepSongID 的 prefetch（已真实播放，预热没意义）
 //
-// 不动同桶 keepSongID 的 play / transcode / reassign（避免取消"自己"，例如当前 GET /play
-// 入口刚 Track 进来的 CatPlay）。
+// 不动同桶 keepSongID 的任何工作（play / prefetch / transcode / reassign）——避免取消"自己"。
+// 尤其是 keepSongID 的 prefetch：慢音源（如 B站，music/url 解析要 ~9s）的预热用 background
+// ctx 在后台解析+下载+缓存，是让「真实播放直接命中缓存」的关键。若在 Activate 时把它掐掉，
+// 同步播放路只能从零重解析，而 libmpv 等客户端对无数据连接有 ~5s 上限、会在解析完成前断连，
+// 直接 502（songloft-org/songloft#271）。让它跑完远比「预热没意义」重要。
 func (r *Registry) Activate(sk SessionKey, keepSongID int64) {
 	r.mu.Lock()
 	bucket, ok := r.buckets[sk]
@@ -121,13 +123,7 @@ func (r *Registry) Activate(sk SessionKey, keepSongID int64) {
 	// release 又要拿同一把锁——避免重入）。
 	toCancel := make([]*entry, 0)
 	for id, e := range bucket {
-		shouldCancel := false
 		if e.songID != keepSongID {
-			shouldCancel = true
-		} else if e.cat == CatPrefetch {
-			shouldCancel = true
-		}
-		if shouldCancel {
 			toCancel = append(toCancel, e)
 			delete(bucket, id)
 		}

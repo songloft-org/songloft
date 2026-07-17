@@ -1410,7 +1410,17 @@ func (h *SongHandler) serveRemote(w http.ResponseWriter, r *http.Request, song *
 	var playURL string
 	var upstreamHeaders map[string]string
 	if song.IsPluginSourced() {
-		resolved, err := h.cacheService.ResolveURL(r.Context(), song)
+		// 解析插件直链不能绑定客户端连接：libmpv 等播放器对「已连接但迟迟无数据」的
+		// 连接有 ~5s 硬上限，会在慢音源（如 B站 music/url 解析要 ~9s）出结果前主动断开，
+		// 令 r.Context() cancel → scheduler 立刻 ErrCallTimeout → 502（songloft#271）。
+		// 改用 background 派生 ctx + 服务端预算，并注册进 playActivity（CatPlay）让用户
+		// 切到其他歌时仍能被 Activate 取消，只是不再受本连接断开牵连。
+		sk := playactivity.SessionFromContext(r.Context())
+		resolveCtx, cancelResolve := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancelResolve()
+		trackedCtx, releaseResolve := h.trackActivity(resolveCtx, sk, song.ID, playactivity.CatPlay)
+		defer releaseResolve()
+		resolved, err := h.cacheService.ResolveURL(trackedCtx, song)
 		if err != nil {
 			slog.Warn("resolve url failed", "songId", song.ID, "error", err)
 			sk := playactivity.SessionFromContext(r.Context())
