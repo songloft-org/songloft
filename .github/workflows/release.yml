@@ -420,6 +420,7 @@ jobs:
             --cache-from type=gha,scope=full-linux-armv7 \
             --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest \
             --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:dev \
+            --cache-to type=inline \
             --push \
             .
 
@@ -513,6 +514,7 @@ jobs:
             --cache-from type=gha,scope=lite-linux-armv7 \
             --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:lite \
             --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:dev-lite \
+            --cache-to type=inline \
             --push \
             .
 
