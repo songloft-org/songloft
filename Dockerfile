@@ -70,9 +70,15 @@ RUN --mount=type=cache,target=/go/pkg/mod \
             ${VERSION:+VERSION=${VERSION}}; \
     fi
 
-FROM alpine:latest
+# 固定 base 到具体版本 + digest（不用 alpine:latest）：
+# docker pull 更新是按 layer digest 去重、与层顺序无关，所以「大层命中缓存」的前提
+# 是这些层的 digest 在版本间稳定。alpine:latest 会随上游跳小版本（3.24→3.25）导致
+# base 层与 apk 解析结果一起变，用户被迫重拉 ~8MiB 的 apk 层。pin 到 3.24 分支后，
+# 该层仅在分支内偶发安全补丁时才变，长期命中本地缓存。
+# 刷新方式：docker pull alpine:3.24 && docker inspect --format '{{index .RepoDigests 0}}' alpine:3.24
+FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
-# 分层顺序按「变更频率」由低到高排列：越少变动的层越靠前，
+# 分层顺序按「变更频率」由低到高排列：越少变动的层越靠前，配合上面的 base pin，
 # 保证用户 docker pull 更新时只需下载末尾变动的二进制层，前面的大层命中本地缓存。
 
 # 增加 ALSA 用户态运行时，解决容器内 MPD 打开 ALSA 设备时报
@@ -96,9 +102,11 @@ WORKDIR /app
 # /app/data - 应用数据存储目录
 RUN mkdir -p /app/music /app/data
 
-# ffmpeg/ffprobe 体积大且极少变动 → 前置，长期命中缓存
-COPY --from=hanxi/ffmpeg /ffmpeg /bin/ffmpeg
-COPY --from=hanxi/ffmpeg /ffprobe /bin/ffprobe
+# ffmpeg/ffprobe 体积大（~4.7MiB 层）且极少变动 → 前置，长期命中缓存。
+# 同样 pin 到 digest：hanxi/ffmpeg 无 pin 时走 :latest，外部镜像一更新这两层 digest 就变，
+# 用户白白重拉。刷新方式：docker buildx imagetools inspect hanxi/ffmpeg:latest --format '{{.Manifest.Digest}}'
+COPY --from=hanxi/ffmpeg@sha256:7c1adfe55a0dd3902f136ad7aac28db1ee35140df34b6b140f60e0ba973ce848 /ffmpeg /bin/ffmpeg
+COPY --from=hanxi/ffmpeg@sha256:7c1adfe55a0dd3902f136ad7aac28db1ee35140df34b6b140f60e0ba973ce848 /ffprobe /bin/ffprobe
 
 # 启动脚本小、极少变动（--chmod 合并原独立 chmod 层）
 COPY --chmod=0755 scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
