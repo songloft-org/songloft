@@ -102,17 +102,18 @@ WORKDIR /app
 # /app/data - 应用数据存储目录
 RUN mkdir -p /app/music /app/data
 
-# ffmpeg/ffprobe 体积大（~4.7MiB 层）且极少变动 → 前置，长期命中缓存。
+# --link 使 COPY 层与 parent 层解耦：即使 apk add 层因包更新而变化，
+# 下面这些层的 digest 也保持不变（不再受 parent chain 影响）。
 # 同样 pin 到 digest：hanxi/ffmpeg 无 pin 时走 :latest，外部镜像一更新这两层 digest 就变，
 # 用户白白重拉。刷新方式：docker buildx imagetools inspect hanxi/ffmpeg:latest --format '{{.Manifest.Digest}}'
-COPY --from=hanxi/ffmpeg@sha256:7c1adfe55a0dd3902f136ad7aac28db1ee35140df34b6b140f60e0ba973ce848 /ffmpeg /bin/ffmpeg
-COPY --from=hanxi/ffmpeg@sha256:7c1adfe55a0dd3902f136ad7aac28db1ee35140df34b6b140f60e0ba973ce848 /ffprobe /bin/ffprobe
+COPY --link --from=hanxi/ffmpeg@sha256:7c1adfe55a0dd3902f136ad7aac28db1ee35140df34b6b140f60e0ba973ce848 /ffmpeg /bin/ffmpeg
+COPY --link --from=hanxi/ffmpeg@sha256:7c1adfe55a0dd3902f136ad7aac28db1ee35140df34b6b140f60e0ba973ce848 /ffprobe /bin/ffprobe
 
 # 启动脚本小、极少变动（--chmod 合并原独立 chmod 层）
-COPY --chmod=0755 scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
+COPY --link --chmod=0755 scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
 
 # 主程序二进制每次构建都变 → 放在最后一个 content 层，更新时仅此层需重新下载
-COPY --from=go-builder /app/songloft /app/songloft
+COPY --link --from=go-builder /app/songloft /app/songloft
 
 EXPOSE 58091
 
