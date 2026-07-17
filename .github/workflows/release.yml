@@ -347,6 +347,8 @@ jobs:
             --platform linux/amd64 \
             --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-amd64 \
             --cache-from type=gha,scope=full-linux-amd64 \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:dev \
             --cache-to type=gha,scope=full-linux-amd64,mode=max \
             --load \
             .
@@ -366,6 +368,8 @@ jobs:
             --platform linux/arm64 \
             --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-arm64 \
             --cache-from type=gha,scope=full-linux-arm64 \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:dev \
             --cache-to type=gha,scope=full-linux-arm64,mode=max \
             --load \
             .
@@ -385,6 +389,8 @@ jobs:
             --platform linux/arm/v7 \
             --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-full-armv7 \
             --cache-from type=gha,scope=full-linux-armv7 \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:dev \
             --cache-to type=gha,scope=full-linux-armv7,mode=max \
             --load \
             .
@@ -412,6 +418,8 @@ jobs:
             --cache-from type=gha,scope=full-linux-amd64 \
             --cache-from type=gha,scope=full-linux-arm64 \
             --cache-from type=gha,scope=full-linux-armv7 \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:dev \
             --push \
             .
 
@@ -429,6 +437,8 @@ jobs:
             --platform linux/amd64 \
             --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-amd64 \
             --cache-from type=gha,scope=lite-linux-amd64 \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:lite \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:dev-lite \
             --cache-to type=gha,scope=lite-linux-amd64,mode=max \
             --load \
             .
@@ -449,6 +459,8 @@ jobs:
             --platform linux/arm64 \
             --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-arm64 \
             --cache-from type=gha,scope=lite-linux-arm64 \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:lite \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:dev-lite \
             --cache-to type=gha,scope=lite-linux-arm64,mode=max \
             --load \
             .
@@ -469,6 +481,8 @@ jobs:
             --platform linux/arm/v7 \
             --tag ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:tmp-lite-armv7 \
             --cache-from type=gha,scope=lite-linux-armv7 \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:lite \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:dev-lite \
             --cache-to type=gha,scope=lite-linux-armv7,mode=max \
             --load \
             .
@@ -497,6 +511,8 @@ jobs:
             --cache-from type=gha,scope=lite-linux-amd64 \
             --cache-from type=gha,scope=lite-linux-arm64 \
             --cache-from type=gha,scope=lite-linux-armv7 \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:lite \
+            --cache-from type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:dev-lite \
             --push \
             .
 
