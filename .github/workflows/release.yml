@@ -15,8 +15,9 @@ on:
 
 env:
   GO_VERSION: '1.26'
-  # 原生/桌面等非 web 平台用 stable 3.44.6;web 构建单独走 beta 3.47(见 build-frontend
-  # job 的 Setup Flutter),因为切后台 WebGL context 丢失恢复的引擎修复仅在 3.47+。
+  # 全平台(含 web)统一 stable 3.44.6。注:web 端切后台 WebGL context 丢失白屏
+  # (flutter/flutter#184683)的引擎修复 #185116 尚未进 3.44.6(仅 beta 3.47+),
+  # 此问题按现状接受;待 3.47 进 stable 后升级即可根治。
   FLUTTER_VERSION: '3.44.6'
   DOCKER_USERNAME: songloft
   IMAGE_NAME: songloft
@@ -119,15 +120,11 @@ jobs:
       - name: Init songloft-player submodule
         run: git submodule update --init --recursive -- songloft-player
 
-      # Web 专用:切后台 WebGL context 丢失恢复(flutter/flutter#184683)的修复
-      # #185116 至今仅在 beta 3.47+/master(截至最新 stable 3.44.6 仍未合入)。Web
-      # 产物是独立静态文件、与原生 Flutter 版本无关,故仅此 web 构建走 beta 3.47,
-      # 其余平台仍用 ${{ env.FLUTTER_VERSION }} stable。待 3.47 进 stable 后回退统一。
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.47.0-0.1.pre
-          channel: beta
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
           cache: true
 
       - name: Install brotli
