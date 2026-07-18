@@ -6,7 +6,6 @@ export default async () => {
   return defineConfig({
     title: "Songloft",
     description: "Songloft - 自托管个人音乐服务器，支持 JS 插件扩展，跨平台 Flutter 客户端",
-    srcExclude: ['repowiki/**'],
     lang: 'zh-Hans',
 
     // 中英双语：中文为根（/），英文在 /en/。目前仅落地页（index.md / en/index.md）
@@ -32,6 +31,7 @@ export default async () => {
                 { text: 'Plugin Registry Guide', link: '/en/plugin_registry' },
               ],
             },
+            { text: 'RepoWiki', link: '/en/repowiki/项目概述' },
             { text: 'FAQ', link: '/en/faq' },
             { text: 'Changelog', link: 'https://github.com/songloft-org/songloft/releases' },
             {
@@ -70,6 +70,7 @@ export default async () => {
             { text: '插件源制作指南', link: '/plugin_registry' },
           ],
         },
+        { text: '源码解析', link: '/repowiki/项目概述' },
         { text: 'FAQ', link: '/faq' },
         { text: '更新日志', link: '/changelog' },
         {
@@ -110,6 +111,9 @@ export default async () => {
 
     markdown: {
       lineNumbers: false,
+      // 关闭 attrs 语法：repowiki 的 REST 标题（如 `### GET /playlists/{id}`）
+      // 结尾的 `{id}` 会被 attrs 当成空的自定义锚点导致 id 冲突。全站未使用 {#锚点}/{.class} 语法。
+      attrs: { disable: true },
       config: (md) => {
         md.use(taskLists)
       },
@@ -122,7 +126,6 @@ export default async () => {
           collapsed: true,
           titleFromFile: true,
           ignoreIndexItem: true, // 首页 index.md（落地页）不进侧边栏
-          ignoreList: ['repowiki'],
         }),
       ],
     },

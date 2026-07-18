@@ -1,6 +1,5 @@
 # 歌曲 API
 
-<cite>
 本文档基于以下源文件编写：
 
 - `internal/handlers/music.go` -- 歌曲 CRUD、播放流、封面、歌词、标签写入、文件整理、重复检测处理器
@@ -9,7 +8,6 @@
 - `internal/models/models.go` -- Song / BatchDeleteSongsRequest / BatchDeleteSongsResponse
 - `internal/models/lyric.go` -- LyricPayload
 - `internal/services/song_service.go` -- OrganizeItem / OrganizeResult / CleanResult
-</cite>
 
 ## 目录
 

@@ -1,6 +1,5 @@
 # API 接口设计
 
-<cite>
 本文档基于以下源文件编写：
 
 - `internal/app/routers.go` -- 完整路由注册（Chi v5 路由树）
@@ -10,7 +9,6 @@
 - `internal/jsplugin/routes.go` -- JS 插件静态/API 路由注册
 - `docs/api_response.md` -- API 响应格式规范
 - `AGENTS.md` -- API 文档规范 + 配置接口规范铁律
-</cite>
 
 ## 目录
 

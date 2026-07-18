@@ -1,13 +1,11 @@
 # API 接口参考
 
-<cite>
 本文档基于以下源文件编写：
 
 - `internal/app/routers.go` -- 完整路由注册（API v1 路由组、中间件挂载、JS 插件路由）
 - `internal/handlers/response.go` -- respondJSON / respondError 响应辅助函数
 - `internal/middleware/auth.go` -- JWT 认证中间件（Bearer Token + access_token 查询参数回退）
 - `docs/api_response.md` -- API 响应格式规范
-</cite>
 
 ## 目录
 

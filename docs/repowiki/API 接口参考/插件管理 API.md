@@ -1,13 +1,11 @@
 # 插件管理 API
 
-<cite>
 本文档基于以下源文件编写：
 
 - `internal/handlers/jsplugin.go` -- JS 插件管理 handler（CRUD、启禁用、更新）
 - `internal/handlers/jsplugin_registry.go` -- 插件订阅源与注册表安装
 - `internal/jsplugin/routes.go` -- JS 插件运行时路由（静态资源、API 转发、文件访问）
 - `internal/app/routers.go` -- 路由注册
-</cite>
 
 ## 目录
 

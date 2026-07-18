@@ -1,13 +1,11 @@
 # 扫描管理 API
 
-<cite>
 本文档基于以下源文件编写：
 
 - `internal/handlers/scan.go` -- 扫描处理器（扫描动作 + 业务设置端点）
 - `internal/app/routers.go` -- 路由注册
 - `internal/services/scan_progress.go` -- 扫描进度模型
 - `internal/services/fingerprint.go` -- 指纹计算服务
-</cite>
 
 ## 目录
 

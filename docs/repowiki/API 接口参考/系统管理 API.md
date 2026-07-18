@@ -1,6 +1,5 @@
 # 系统管理 API
 
-<cite>
 本文档基于以下源文件编写：
 
 - `internal/handlers/health.go` -- 健康检查处理器
@@ -9,7 +8,6 @@
 - `internal/handlers/proxy.go` -- 资源代理处理器
 - `internal/app/routers.go` -- 路由注册
 - `internal/models/models.go` -- 升级进度等数据模型
-</cite>
 
 ## 目录
 

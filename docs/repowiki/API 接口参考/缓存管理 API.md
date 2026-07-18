@@ -1,12 +1,10 @@
 # 缓存管理 API
 
-<cite>
 本文档基于以下源文件编写：
 
 - `internal/handlers/cache.go` -- 缓存管理处理器
 - `internal/app/routers.go` -- 路由注册
 - `internal/services/cache_service.go` -- 缓存服务与数据模型
-</cite>
 
 ## 目录
 

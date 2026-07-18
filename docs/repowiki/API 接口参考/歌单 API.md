@@ -1,6 +1,5 @@
 # 歌单 API
 
-<cite>
 本文档基于以下源文件编写：
 
 - `internal/handlers/playlist.go` -- 歌单 CRUD、歌曲管理、排序、封面处理器
@@ -8,7 +7,6 @@
 - `internal/app/routers.go` -- 歌单路由注册（`/api/v1/playlists` 路由组）
 - `internal/models/models.go` -- Playlist / BatchDeletePlaylistsRequest/Response 结构体
 - `internal/models/backup.go` -- BackupData / ImportResult 结构体
-</cite>
 
 ## 目录
 

@@ -1,6 +1,5 @@
 # 配置与设置 API
 
-<cite>
 本文档基于以下源文件编写：
 
 - `internal/handlers/config.go` -- 通用 KV 配置 CRUD 处理器
@@ -11,7 +10,6 @@
 - `internal/handlers/jsplugin_registry.go` -- 插件订阅源、HTTP 代理设置端点
 - `internal/app/routers.go` -- 配置与设置路由注册
 - `internal/models/models.go` -- Config / CreateConfigRequest / UpdateConfigRequest 结构体
-</cite>
 
 ## 目录
 
