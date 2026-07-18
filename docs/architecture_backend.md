@@ -11,7 +11,7 @@
   - `sqlc-dev/sqlc` — 固定 SQL 生成类型安全代码（`queries/*.sql` → `sqlc/*.sql.go`，CLI 时生成）
   - `Masterminds/squirrel v1.5` — 动态 SQL 构造（变长 WHERE/SET/ORDER/分页）
   - Repository + UnitOfWork 自封装层，事务通过 `db.RunInTx(ctx, func(ctx, *UnitOfWork))` 完成
-- **元数据读写**: hanxi/tag（dhowden/tag fork，增强编码检测;新增 MP3 ID3v2.3 与 FLAC Vorbis Comment 写入)
+- **元数据读写**: hanxi/tag（dhowden/tag fork，增强编码检测;新增多格式写入:MP3 / FLAC / M4A·MP4 / OGG(.ogg/.oga) / APE / WAV / AIFF)
 - **音频分析**: ffprobe（可选，用于获取精确技术参数）
 - **JS 运行时**: QuickJS（modernc.org/quickjs，纯 Go 实现，用于 JS 插件脚本执行）
 - **插件架构**: JS 脚本插件（QuickJS 沙盒 + 权限模型 + 健康检查 + 热更新）
@@ -53,8 +53,12 @@ HTTP Server (main.go)
 - `router_dev.go`: 开发环境路由（包含 Swagger，`-tags dev`）
 - `router_prod.go`: 生产环境路由（不包含 Swagger）
 - `embed.go`: Flutter Web 前端静态资源服务，支持 SPA 路由回退（请求文件不存在时返回 `index.html`）
-- `embed_common.go`: 静态文件服务公共工具（Base62 解码、路径安全校验等内部 helper；历史 `/music/*` `/cover/*` Base62 路径已下线，统一使用 `/api/v1/songs/{id}/play|cover|lyric`）
+- `access_log.go`: HTTP 访问日志中间件
+- `compress.go`: 响应压缩中间件
+- `db_migration.go`: 启动时执行 goose 数据库迁移的封装
 - `pprof_dev.go`: 开发模式下的 pprof 端点（`-tags dev`）
+
+> 历史 `/music/*` `/cover/*` 的 Base62 短链方案已完全下线，统一使用 `/api/v1/songs/{id}/play|cover|lyric`；相关 `embed_common.go` helper 已随路由删除，`routers.go` 仅保留废弃注释。
 - `source_adapters.go`: 把 services 层的实现适配为 `services/source/` 子包定义的接口（fetcher / resolver / validator 等）
 
 #### config/ - 配置类型定义
@@ -69,9 +73,14 @@ HTTP Server (main.go)
 - `config.go`: 配置管理
 - `scan.go`: 扫描管理（异步扫描、进度查询、取消扫描）
 - `jsplugin.go`: JS 插件管理（上传 `.jsplugin.zip`、启用/禁用、删除、更新检查）
+- `jsplugin_registry.go`: JS 插件订阅源管理（源列表读写、拉取源清单、下载 ZIP 安装）
 - `upgrade.go`: 版本升级（检查更新、执行升级、重置基础镜像）
 - `proxy.go`: 资源代理（解决外部 CDN 的 CORS 限制，支持流式转发和 Range 请求）。含 `ServeRemoteResourceWithCache` 流式代理上游音频到客户端并触发后台缓存
+- `hls.go`: HLS 电台代理（服务端拉取并改写 m3u8、代理切片/key/init 段；`/settings/hls-proxy` 开关）
 - `cache.go`: 音乐缓存管理（统计、清理、配置、自定义目录验证）
+- `backup.go`: 数据备份与恢复（歌单/歌曲导出导入）
+- `log.go`: 日志等级读写（`/settings/log-level`）
+- `equalizer_setting.go` / `library_browse_setting.go` / `tab_config_setting.go` / `user_preferences_setting.go`: 各孤立配置端点（`/settings/*` 强类型配置）
 - `version.go`: 版本信息
 - `health.go`: 健康检查
 - `response.go`: 统一 JSON 响应和错误响应工具函数
@@ -100,6 +109,7 @@ HTTP Server (main.go)
 - `playlist_song_repository.go`: 歌单-歌曲关联仓储（含 `ReplaceSong` 等）
 - `token_repository.go`: 认证令牌仓储
 - `jsplugin_repository.go`: JS 插件仓储
+- `plugin_storage_repository.go`: JS 插件 KV 存储仓储（`host.storage` 桥接的后端存储）
 - `migrations/`: goose 迁移源文件（`0001_init.sql` 等，通过 `embed.FS` 打包，启动时自动 Up）
 - `queries/`: sqlc 输入（每张表一个 `*.sql`，跑 `make sqlc` 生成代码）
 - `sqlc/`: sqlc 输出（`*.sql.go`，**已入库**，运行时不依赖 sqlc CLI）
@@ -132,7 +142,14 @@ HTTP Server (main.go)
 - `loader.go`: 解包 `.jsplugin.zip` / 校验 manifest / 权限解析
 - `package.go`: 安装/更新/卸载流程（含 hash 校验）
 - `repository.go`: 仓储接口（实现见 `database/jsplugin_repository.go`）
-- `api_bridge.go`: 宿主 API 桥接（http、storage、logger、songs、playlists 等向 QuickJS 暴露，含 `songs.download` 持久化能力）
+- `registry.go`: 插件订阅源解析（拉取源清单、版本比对，供更新检查/安装用）
+- `auto_update.go`: 插件自动更新（后台按订阅源检查并升级）
+- `api_bridge.go`: 宿主 API 桥接总入口（向 QuickJS 暴露 http、storage、logger、songs（含 `songs.download` 持久化）、playlists 等能力）
+- `api_bridge_net.go`: `songs.net` UDP Socket API（udpBind/多播 + reader goroutine 推送 onData）
+- `api_bridge_tcp.go`: `songs.net.tcpConnect` 出站 TCP Socket API（仅私有/回环/链路本地地址，防 SSRF）
+- `api_bridge_websocket.go`: WebSocket 客户端 API（连接/收发/事件推送）
+- `api_bridge_fs.go`: 文件系统桥接（`fs:music` 等权限下的受限读写）
+- `api_bridge_command.go`: 外部命令调用桥接
 - `communication.go`: 宿主 ↔ 插件 调用协议封装（请求/响应序列化）
 - `invoke.go`: 调用插件入口函数的统一封装（带超时与错误规范化）
 - `hash.go`: 文件指纹工具（用于 hot_reload 与 package 校验）
@@ -142,6 +159,7 @@ HTTP Server (main.go)
 - `permissions.go`: 权限模型校验
 - `service.go`: 插件实例服务壳层
 - `routes.go`: 子路由挂载
+- `assets/`: 嵌入的插件公共资源（`common.css`/`common.js`/字体，经 `/api/v1/jsplugin-assets/*` 提供并自动注入插件页面）
 
 #### jsruntime/ - JavaScript 运行时
 
@@ -159,13 +177,20 @@ HTTP Server (main.go)
 
 #### tag/ - 音频元数据读写库
 
-- **读取**:MP3（ID3v1/ID3v2.2/2.3/2.4）、FLAC、OGG/Vorbis、M4A/MP4、WAV、DSF 格式;封面图片、歌词、编码检测
-- **写入**(`WriteTag(filePath, opts)`):
-  - ✅ MP3 ID3v2.3:TIT2/TPE1/TPE2/TALB/TYER/TCON/USLT/APIC
-  - ✅ FLAC:Vorbis Comment + PICTURE block
-  - ⚠️ M4A/MP4:返回 `ErrUnsupportedWrite`(TODO,需重组 moov + 更新 stco)
-  - ⚠️ OGG:返回 `ErrUnsupportedWrite`(TODO,需重新分页 + 重算 CRC)
-  - 临时文件 + `os.Rename`,原子化覆盖
+- **读取**:MP3（ID3v1/ID3v2.2/2.3/2.4）、FLAC、OGG/Vorbis、M4A/MP4、WAV、APE、AIFF、DSF 格式;封面图片、歌词、编码检测
+- **写入**(`WriteTag(filePath, opts)`,按扩展名 dispatch,均为临时文件 + `os.Rename` 原子写入):
+
+  | 格式 | 文本字段 | 歌词 | 封面 |
+  |------|---------|------|------|
+  | MP3 | ID3v2.3 text frames | USLT | APIC |
+  | FLAC | Vorbis Comment | LYRICS | PICTURE block |
+  | M4A/MP4/M4B/MOV | iTunes atoms (©nam 等) | ©lyr | covr |
+  | OGG(.ogg/.oga) | Vorbis Comment | LYRICS | METADATA_BLOCK_PICTURE (base64) |
+  | APE | APEv2 text items | Lyrics | Cover Art (Front) |
+  | WAV | RIFF LIST INFO | ICMT | 不支持（格式限制） |
+  | AIFF/AIF | ID3v2.3 (ID3 chunk) + NAME/AUTH | USLT (ID3 chunk) | APIC (ID3 chunk) |
+
+  - 其它扩展名返回 `ErrUnsupportedWrite`,调用方降级为日志、不阻塞主流程
 - 命令行工具:`cmd/tag`、`cmd/sum`、`cmd/check`
 
 ## 构建系统
@@ -239,7 +264,8 @@ Service 层注入 `database.DB` 接口；单表写直接拿 `db.SongRepository()
 - `/api/v1/settings/music-path` - 音乐路径与扫描排除（GET/PUT）
 - `/api/v1/settings/plugin-registries` - 插件订阅源列表（GET/PUT）
 - `/api/v1/settings/log-level` - 日志等级（GET/PUT）
-- `/api/v1/settings/scan-auto-create-include-subdirs` - 扫描自动创建歌单含子目录（GET/PUT）
+- `/api/v1/settings/scan-auto-create-playlists` - 扫描后是否自动创建目录歌单（GET/PUT）
+- `/api/v1/settings/scan-playlist-mode` - 目录歌单归并模式 directory/top_level/bubble_up（GET/PUT）
 - `/api/v1/version` - 版本信息接口
 - `/api/v1/health` - 健康检查接口
 
@@ -248,6 +274,6 @@ Service 层注入 `database.DB` 接口；单表写直接拿 `db.SongRepository()
 - `/api/v1/songs/{id}/cover` — 歌曲封面（本地歌曲走本端，网络歌曲由 `MarshalJSON` 直出原始 CDN URL）
 - `/api/v1/songs/{id}/lyric` — 纯文本 LRC 歌词
 
-> 旧的 `/music/*` 和 `/cover/*` Base62 编码路径方案已下线，`embed_common.go` 内的 Base62 helper 已退化为内部工具，不再注册路由。
+> 旧的 `/music/*` 和 `/cover/*` Base62 编码短链方案已完全下线，相关 helper 已随路由一并删除（`routers.go` 仅保留废弃注释）。
 
 详细 API 文档请参考 Swagger 文档（开发环境下访问 `/swagger/index.html`）。

@@ -394,10 +394,6 @@ swagger: ## 生成/更新 Swagger API 文档
 bump: ## 升级版本号并打 tag（push 后由 .github/workflows/release.yml 完成构建发布）
 	@bash scripts/bump-version.sh $(or $(TYPE),patch)
 
-.PHONY: sync-repowiki
-sync-repowiki: ## 同步 Qoder repowiki 到 docs/repowiki/
-	./scripts/sync-repowiki.sh
-
 .PHONY: all
 all: clean deps build test ## 完整构建流程（清理、下载依赖、编译、测试）
 	@echo "$(GREEN)✓ 完整构建完成$(NC)"

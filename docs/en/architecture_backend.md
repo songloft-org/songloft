@@ -11,7 +11,7 @@
   - `sqlc-dev/sqlc` — generates type-safe code from fixed SQL (`queries/*.sql` → `sqlc/*.sql.go`, generated at CLI time)
   - `Masterminds/squirrel v1.5` — dynamic SQL construction (variable-length WHERE/SET/ORDER/pagination)
   - Self-built Repository + UnitOfWork layer; transactions done via `db.RunInTx(ctx, func(ctx, *UnitOfWork))`
-- **Metadata read/write**: hanxi/tag (a dhowden/tag fork, with enhanced encoding detection; adds MP3 ID3v2.3 and FLAC Vorbis Comment writing)
+- **Metadata read/write**: hanxi/tag (a dhowden/tag fork, with enhanced encoding detection; adds multi-format writing: MP3 / FLAC / M4A·MP4 / OGG(.ogg/.oga) / APE / WAV / AIFF)
 - **Audio analysis**: ffprobe (optional, used to obtain precise technical parameters)
 - **JS runtime**: QuickJS (modernc.org/quickjs, pure-Go implementation, used for JS plugin script execution)
 - **Plugin architecture**: JS script plugins (QuickJS sandbox + permission model + health checks + hot reload)
@@ -53,8 +53,12 @@ Holds the project's core business logic, organized by functional module:
 - `router_dev.go`: Development routes (includes Swagger, `-tags dev`)
 - `router_prod.go`: Production routes (excludes Swagger)
 - `embed.go`: Flutter Web frontend static asset serving, with SPA route fallback (returns `index.html` when the requested file does not exist)
-- `embed_common.go`: Shared utilities for static file serving (Base62 decoding, path safety validation, and other internal helpers; the legacy `/music/*` and `/cover/*` Base62 paths have been retired in favor of `/api/v1/songs/{id}/play|cover|lyric`)
+- `access_log.go`: HTTP access-log middleware
+- `compress.go`: Response compression middleware
+- `db_migration.go`: Wrapper that runs goose database migrations on startup
 - `pprof_dev.go`: pprof endpoints in development mode (`-tags dev`)
+
+> The legacy `/music/*` and `/cover/*` Base62 short-link scheme has been fully retired in favor of `/api/v1/songs/{id}/play|cover|lyric`; the related `embed_common.go` helper was removed along with the routes, and `routers.go` only keeps a deprecation comment.
 - `source_adapters.go`: Adapts the services-layer implementations to the interfaces defined in the `services/source/` subpackage (fetcher / resolver / validator, etc.)
 
 #### config/ - Configuration type definitions
@@ -69,9 +73,14 @@ Holds the project's core business logic, organized by functional module:
 - `config.go`: Configuration management
 - `scan.go`: Scan management (async scanning, progress query, scan cancellation)
 - `jsplugin.go`: JS plugin management (upload `.jsplugin.zip`, enable/disable, delete, check for updates)
+- `jsplugin_registry.go`: JS plugin subscription-source management (source list read/write, fetch source manifest, download ZIP to install)
 - `upgrade.go`: Version upgrades (check for updates, perform upgrade, reset base image)
 - `proxy.go`: Resource proxying (works around external CDN CORS restrictions, supports streaming forwarding and Range requests). Includes `ServeRemoteResourceWithCache`, which streams upstream audio to the client and triggers background caching
+- `hls.go`: HLS radio proxy (server-side fetches and rewrites the m3u8, proxies segments/key/init segments; `/settings/hls-proxy` toggle)
 - `cache.go`: Music cache management (statistics, cleanup, configuration, custom directory validation)
+- `backup.go`: Data backup and restore (playlist/song export and import)
+- `log.go`: Log-level read/write (`/settings/log-level`)
+- `equalizer_setting.go` / `library_browse_setting.go` / `tab_config_setting.go` / `user_preferences_setting.go`: Isolated config endpoints (strongly-typed `/settings/*` configuration)
 - `version.go`: Version information
 - `health.go`: Health checks
 - `response.go`: Utility functions for unified JSON responses and error responses
@@ -100,6 +109,7 @@ Holds the project's core business logic, organized by functional module:
 - `playlist_song_repository.go`: Playlist-song association repository (includes `ReplaceSong`, etc.)
 - `token_repository.go`: Authentication token repository
 - `jsplugin_repository.go`: JS plugin repository
+- `plugin_storage_repository.go`: JS plugin KV storage repository (backend store behind the `host.storage` bridge)
 - `migrations/`: goose migration source files (`0001_init.sql`, etc., bundled via `embed.FS` and auto-Up'd on startup)
 - `queries/`: sqlc inputs (one `*.sql` per table; run `make sqlc` to generate code)
 - `sqlc/`: sqlc outputs (`*.sql.go`, **checked into the repo**, no sqlc CLI dependency at runtime)
@@ -132,7 +142,14 @@ Holds the project's core business logic, organized by functional module:
 - `loader.go`: Unpacks `.jsplugin.zip` / validates the manifest / parses permissions
 - `package.go`: Install/update/uninstall flow (includes hash verification)
 - `repository.go`: Repository interface (implementation in `database/jsplugin_repository.go`)
-- `api_bridge.go`: Host API bridge (exposes http, storage, logger, songs, playlists, etc. to QuickJS, including the `songs.download` persistence capability)
+- `registry.go`: Plugin subscription-source resolution (fetch source manifests, version comparison; used by update checks/installs)
+- `auto_update.go`: Plugin auto-update (background checks and upgrades against subscription sources)
+- `api_bridge.go`: Host API bridge entry point (exposes http, storage, logger, songs (incl. `songs.download` persistence), playlists, etc. to QuickJS)
+- `api_bridge_net.go`: `songs.net` UDP Socket API (udpBind/multicast + reader goroutine pushing onData)
+- `api_bridge_tcp.go`: `songs.net.tcpConnect` outbound TCP Socket API (private/loopback/link-local addresses only, SSRF protection)
+- `api_bridge_websocket.go`: WebSocket client API (connect/send/receive/event push)
+- `api_bridge_fs.go`: Filesystem bridge (restricted read/write under permissions such as `fs:music`)
+- `api_bridge_command.go`: External command invocation bridge
 - `communication.go`: Host ↔ plugin call protocol wrapper (request/response serialization)
 - `invoke.go`: Unified wrapper for calling plugin entry functions (with timeout and error normalization)
 - `hash.go`: File fingerprint utility (used for hot_reload and package verification)
@@ -142,6 +159,7 @@ Holds the project's core business logic, organized by functional module:
 - `permissions.go`: Permission model validation
 - `service.go`: Plugin instance service shell
 - `routes.go`: Sub-route mounting
+- `assets/`: Embedded plugin common assets (`common.css`/`common.js`/fonts, served via `/api/v1/jsplugin-assets/*` and auto-injected into plugin pages)
 
 #### jsruntime/ - JavaScript runtime
 
@@ -159,13 +177,20 @@ Holds reusable public packages:
 
 #### tag/ - Audio metadata read/write library
 
-- **Reading**: MP3 (ID3v1/ID3v2.2/2.3/2.4), FLAC, OGG/Vorbis, M4A/MP4, WAV, DSF formats; cover images, lyrics, encoding detection
-- **Writing** (`WriteTag(filePath, opts)`):
-  - ✅ MP3 ID3v2.3: TIT2/TPE1/TPE2/TALB/TYER/TCON/USLT/APIC
-  - ✅ FLAC: Vorbis Comment + PICTURE block
-  - ⚠️ M4A/MP4: returns `ErrUnsupportedWrite` (TODO, requires rebuilding moov + updating stco)
-  - ⚠️ OGG: returns `ErrUnsupportedWrite` (TODO, requires re-paging + recomputing CRC)
-  - Temp file + `os.Rename`, atomic overwrite
+- **Reading**: MP3 (ID3v1/ID3v2.2/2.3/2.4), FLAC, OGG/Vorbis, M4A/MP4, WAV, APE, AIFF, DSF formats; cover images, lyrics, encoding detection
+- **Writing** (`WriteTag(filePath, opts)`, dispatched by extension, all using temp file + `os.Rename` atomic writes):
+
+  | Format | Text fields | Lyrics | Cover |
+  |------|---------|------|------|
+  | MP3 | ID3v2.3 text frames | USLT | APIC |
+  | FLAC | Vorbis Comment | LYRICS | PICTURE block |
+  | M4A/MP4/M4B/MOV | iTunes atoms (©nam, etc.) | ©lyr | covr |
+  | OGG(.ogg/.oga) | Vorbis Comment | LYRICS | METADATA_BLOCK_PICTURE (base64) |
+  | APE | APEv2 text items | Lyrics | Cover Art (Front) |
+  | WAV | RIFF LIST INFO | ICMT | Not supported (format limitation) |
+  | AIFF/AIF | ID3v2.3 (ID3 chunk) + NAME/AUTH | USLT (ID3 chunk) | APIC (ID3 chunk) |
+
+  - Other extensions return `ErrUnsupportedWrite`; callers degrade to a log entry and do not block the main flow
 - Command-line tools: `cmd/tag`, `cmd/sum`, `cmd/check`
 
 ## Build System
@@ -239,7 +264,8 @@ The backend provides a RESTful API, mainly including:
 - `/api/v1/settings/music-path` - Music path and scan exclusions (GET/PUT)
 - `/api/v1/settings/plugin-registries` - Plugin subscription source list (GET/PUT)
 - `/api/v1/settings/log-level` - Log level (GET/PUT)
-- `/api/v1/settings/scan-auto-create-include-subdirs` - Whether scan auto-created playlists include subdirectories (GET/PUT)
+- `/api/v1/settings/scan-auto-create-playlists` - Whether to auto-create directory playlists after scanning (GET/PUT)
+- `/api/v1/settings/scan-playlist-mode` - Directory playlist grouping mode: directory/top_level/bubble_up (GET/PUT)
 - `/api/v1/version` - Version information endpoint
 - `/api/v1/health` - Health check endpoint
 
@@ -248,6 +274,6 @@ In addition, music files, cover images, and lyrics are accessed via song-ID endp
 - `/api/v1/songs/{id}/cover` — Song cover (local songs are served by this backend; for network songs, `MarshalJSON` returns the original CDN URL directly)
 - `/api/v1/songs/{id}/lyric` — Plain-text LRC lyrics
 
-> The old `/music/*` and `/cover/*` Base62-encoded path scheme has been retired; the Base62 helper in `embed_common.go` has been reduced to an internal utility and no longer registers routes.
+> The old `/music/*` and `/cover/*` Base62-encoded short-link scheme has been fully retired; the related helper was removed along with the routes (`routers.go` only keeps a deprecation comment).
 
 For detailed API documentation, refer to the Swagger docs (visit `/swagger/index.html` in a development environment).

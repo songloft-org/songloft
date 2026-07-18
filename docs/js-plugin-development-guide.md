@@ -93,8 +93,8 @@ const router = createRouter();
 
 router.get('/hello', (req) => jsonResponse({ message: 'Hello!', query: req.query }));
 
-router.get('/songs', (req) => {
-  const songs = songloft.songs.list({ limit: 10 });
+router.get('/songs', async (req) => {
+  const songs = await songloft.songs.list({ limit: 10 });
   return jsonResponse({ count: songs.length, songs });
 });
 
@@ -279,9 +279,9 @@ static/              # 静态资源目录（可选）
 插件加载完成后调用。用于初始化资源、设置定时器等。
 
 ```javascript
-function onInit() {
+async function onInit() {
     songloft.log.info("Plugin initialized");
-    songloft.storage.set("start_time", new Date().toISOString());
+    await songloft.storage.set("start_time", new Date().toISOString());
 }
 ```
 
@@ -383,6 +383,8 @@ globalThis.onWebSocket = async function(req, socket) {
 
 所有 API 通过全局 `songloft` 对象访问。
 
+> **重要：所有 `songloft.*` 方法均为异步、返回 Promise，必须在 `async` 函数中 `await`。** 这与 `fetch` 等 Web 标准 API 行为一致。下文示例均置于 `async` 函数上下文中。**例外：** `songloft.log.*`（同步本地日志）和 `songloft.comm.onMessage(...)`（同步注册回调）无需 `await`。
+
 ### HTTP 请求（全局 fetch）
 
 使用标准全局 `fetch` 函数发起 HTTP 请求（由运行时 polyfill 提供，返回 Promise）。**无需声明权限**。
@@ -450,22 +452,24 @@ clearInterval(i);
 需要权限：`storage`
 
 ```javascript
-// 读取值（返回字符串或 null）
-var value = songloft.storage.get("key");
+async function storageExample() {
+    // 读取值（异步返回原类型值或 null）
+    var value = await songloft.storage.get("key");
 
-// 写入值
-songloft.storage.set("key", "value");
+    // 写入值（值经 JSON 自动序列化，可直接存对象/数组）
+    await songloft.storage.set("config", { volume: 80, list: [1, 2, 3] });
 
-// 删除键
-songloft.storage.delete("key");
+    // 删除键
+    await songloft.storage.delete("key");
 
-// 获取所有键名
-var keys = songloft.storage.keys();  // ["key1", "key2", ...]
+    // 获取所有键名
+    var keys = await songloft.storage.keys();  // ["key1", "key2", ...]
+}
 ```
 
 **存储限制：**
 - 键名为字符串
-- 值为字符串（复杂对象需手动 JSON 序列化）
+- 值经 JSON 自动序列化，可直接存对象/数组/数字；`get` 异步返回原类型值或 null
 - 每个插件有独立的存储空间
 
 ### songloft.songs — 歌曲操作
@@ -473,14 +477,16 @@ var keys = songloft.storage.keys();  // ["key1", "key2", ...]
 需要权限：`songs.read`
 
 ```javascript
-// 获取歌曲列表
-var songs = songloft.songs.list({ limit: 20, offset: 0 });
+async function songsExample() {
+    // 获取歌曲列表
+    var songs = await songloft.songs.list({ limit: 20, offset: 0 });
 
-// 根据 ID 获取歌曲
-var song = songloft.songs.getById(123);
+    // 根据 ID 获取歌曲
+    var song = await songloft.songs.getById(123);
 
-// 搜索歌曲
-var results = songloft.songs.search("关键词");
+    // 搜索歌曲
+    var results = await songloft.songs.search("关键词");
+}
 ```
 
 **Song 对象结构：**
@@ -494,7 +500,8 @@ var results = songloft.songs.search("关键词");
     duration: 240.5,      // 秒
     file_path: "/path/to/file.mp3",
     url: "",
-    cover_path: ""
+    cover_url: "",        // 封面 URL（CoverPath 内部字段不会序列化输出）
+    is_video: false       // 是否为视频容器
 }
 ```
 
@@ -503,10 +510,12 @@ var results = songloft.songs.search("关键词");
 需要权限：`playlists.read`（读取）或 `playlists.write`（修改）；或者通配符糖 `playlists.*`。
 
 ```javascript
-// 需要 playlists.read
-var playlists = songloft.playlists.list();
-var playlist = songloft.playlists.getById(1);
-var songs = songloft.playlists.getSongs(1, { limit: 50, offset: 0 });
+async function playlistsExample() {
+    // 需要 playlists.read
+    var playlists = await songloft.playlists.list();
+    var playlist = await songloft.playlists.getById(1);
+    var songs = await songloft.playlists.getSongs(1, { limit: 50, offset: 0 });
+}
 ```
 
 ### songloft.comm — 插件间通信
@@ -514,14 +523,16 @@ var songs = songloft.playlists.getSongs(1, { limit: 50, offset: 0 });
 需要权限：`inter-plugin`
 
 ```javascript
-// 异步发送消息（fire-and-forget）
-songloft.comm.send("target-plugin", "action-name", { data: "hello" });
+async function commExample() {
+    // 发送消息（fire-and-forget）
+    await songloft.comm.send("target-plugin", "action-name", { data: "hello" });
 
-// 同步调用（等待响应，超时默认 10s）
-var resp = songloft.comm.call("target-plugin", "action-name", { data: "hello" }, 5000);
-// resp = { success: true, data: { ... } }
+    // 请求-响应调用（等待响应，超时默认 10s）
+    var resp = await songloft.comm.call("target-plugin", "action-name", { data: "hello" }, 5000);
+    // resp = { success: true, data: { ... } }
+}
 
-// 注册消息处理器
+// 注册消息处理器（同步注册，无需 await）
 songloft.comm.onMessage("action-name", function(payload, from) {
     // payload: 发送方传递的数据
     // from: 发送方的 entryPath
@@ -546,19 +557,21 @@ songloft.log.error("error message");
 无需权限。
 
 ```javascript
-// 获取插件的 JWT Token（用于访问宿主 API，如音乐文件、封面等需认证的资源）
-var token = songloft.plugin.getToken();
+async function pluginInfoExample() {
+    // 获取插件的 JWT Token（用于访问宿主 API，如音乐文件、封面等需认证的资源）
+    var token = await songloft.plugin.getToken();
 
-// 获取宿主服务的基础 URL（如 http://192.168.1.100:58091）
-var hostUrl = songloft.plugin.getHostUrl();
+    // 获取宿主服务的基础 URL（如 http://192.168.1.100:58091）
+    var hostUrl = await songloft.plugin.getHostUrl();
+}
 ```
 
 **典型用法：构建带认证的资源 URL**
 
 ```javascript
-function getMusicUrl(songId) {
-    var host = songloft.plugin.getHostUrl();
-    var token = songloft.plugin.getToken();
+async function getMusicUrl(songId) {
+    var host = await songloft.plugin.getHostUrl();
+    var token = await songloft.plugin.getToken();
     return host + "/music/" + encodedPath + "?access_token=" + token;
 }
 ```
@@ -594,7 +607,7 @@ function getMusicUrl(songId) {
 | `fs:external` | 访问管理员配置的外部目录 |
 | `websocket` | 使用 `new WebSocket(...)` 主动连接外部服务，或处理入站 `onWebSocket` upgrade |
 | `persistent-storage` | 读写卸载插件后仍保留的持久化存储 |
-| `net` | 使用原始网络 socket（当前为 UDP） |
+| `net` | 使用原始网络 socket（UDP / 出站 TCP） |
 
 > 注意：网络请求 (`fetch`)、定时器 (`setTimeout/setInterval`)、日志等能力**无需权限声明**，是默认宿主能力。
 
@@ -625,7 +638,9 @@ function getMusicUrl(songId) {
 
 ```javascript
 // Plugin A: 通知 Plugin B
-songloft.comm.send("plugin-b", "data-updated", { source: "plugin-a" });
+async function notifyB() {
+    await songloft.comm.send("plugin-b", "data-updated", { source: "plugin-a" });
+}
 ```
 
 ### 同步调用（Call）
@@ -634,9 +649,11 @@ songloft.comm.send("plugin-b", "data-updated", { source: "plugin-a" });
 
 ```javascript
 // Plugin A: 调用 Plugin B 的服务
-var response = songloft.comm.call("plugin-b", "get-data", { id: 123 }, 5000);
-if (response.success) {
-    var data = response.data;
+async function fetchFromB() {
+    var response = await songloft.comm.call("plugin-b", "get-data", { id: 123 }, 5000);
+    if (response.success) {
+        var data = response.data;
+    }
 }
 ```
 
@@ -984,14 +1001,14 @@ function onHTTPRequest(req) {
 ### 存储使用模式
 
 ```javascript
-// 存储复杂对象
-function saveConfig(config) {
-    songloft.storage.set("config", JSON.stringify(config));
+// 存储复杂对象（storage 自动 JSON 序列化，直接存对象即可）
+async function saveConfig(config) {
+    await songloft.storage.set("config", config);
 }
 
-function loadConfig() {
-    var raw = songloft.storage.get("config");
-    return raw ? JSON.parse(raw) : { defaultKey: "defaultValue" };
+async function loadConfig() {
+    var config = await songloft.storage.get("config");
+    return config || { defaultKey: "defaultValue" };
 }
 ```
 
@@ -1011,8 +1028,8 @@ songloft.comm.onMessage("get-service", function(payload, from) {
 });
 
 // 服务消费者模式
-function useTranslation(text) {
-    var resp = songloft.comm.call("translator-plugin", "get-service", {
+async function useTranslation(text) {
+    var resp = await songloft.comm.call("translator-plugin", "get-service", {
         method: "translate",
         text: text
     }, 5000);

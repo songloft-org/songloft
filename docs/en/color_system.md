@@ -20,7 +20,7 @@ The Songloft Flutter frontend uses the **Material 3** design system, generating 
 ```dart
 // songloft-player/lib/core/theme/app_theme.dart
 class AppTheme {
-  static const Color _seedColor = Color(0xFF6366F1); // indigo-500
+  static const Color _seedColor = Color(0xFF415F91); // M3 Blue baseline
 
   static ThemeData lightTheme({ScreenType screenType = ScreenType.mobile}) {
     return _buildTheme(Brightness.light, screenType);
@@ -144,7 +144,7 @@ TextButton(onPressed: () {}, child: Text('Text action'))
 
 ```dart
 // Do not hardcode color values
-Container(color: Color(0xFF6366F1))  // ❌
+Container(color: Color(0xFF415F91))  // ❌
 
 // Do not use Colors constants (they do not follow the theme)
 Text('Text', style: TextStyle(color: Colors.grey))  // ❌
@@ -168,14 +168,15 @@ The theme dynamically adjusts component sizes based on screen type (Mobile / Tab
 | Desktop | Fixed width 480px, centered |
 | TV | Fixed width 600px, larger padding |
 
-### FilledButton
+### FilledButton / OutlinedButton / TextButton
 
 | Screen Type | Minimum Size |
 |---------|---------|
-| Non-TV (Mobile / Tablet / Desktop) | 88 × 44 |
+| Desktop | 88 × 44 |
 | TV | 120 × 56 |
+| Mobile / Tablet | Flutter framework default (not customized) |
 
-> The actual code (`app_theme.dart`) only splits into two tiers based on `isTv`; Mobile / Tablet / Desktop share 88×44.
+> In the actual code (`app_theme.dart`), all three of `filledButtonTheme` / `outlinedButtonTheme` / `textButtonTheme` are gated by `isDesktopOrTv`: the theme is only set for Desktop or TV (Desktop → 88×44, TV → 120×56). For Mobile / Tablet they are `null`, falling back to the Flutter framework default sizes.
 
 ### Dialog Maximum Width
 
@@ -217,7 +218,7 @@ Songloft uses the `palette_generator` library to extract dominant colors from so
 
 - **2026-04-14**: Migrated to the Flutter Material 3 color system
   - Main frontend migrated to Flutter, using `ColorScheme.fromSeed` for automatic palette generation
-  - seedColor: indigo-500 (`#6366F1`)
+  - seedColor: M3 Blue baseline (`#415F91`)
   - Added responsive theme adaptation (Mobile / Tablet / Desktop / TV)
   - Added TV-specific theme constants (`TvTheme`)
   - Added cover color extraction feature

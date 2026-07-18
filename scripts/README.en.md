@@ -11,7 +11,6 @@ This directory contains automation scripts for the Songloft backend, covering ve
 | `docker-entrypoint.sh` | Startup entrypoint inside the Docker image (not invoked directly) |
 | `plugin-build.sh` | Builds a single JS plugin, outputting a `.jsplugin.zip` |
 | `plugin-release.sh` | Uploads a `.jsplugin.zip` to the corresponding GitHub Release |
-| `sync-repowiki.sh` | Syncs the Qoder repowiki into `docs/repowiki/` |
 | `fetch-issues.mjs` / `sync-docs.mjs` | Documentation sync helpers |
 | `test_tag.sh` | Manual smoke-test script for the `pkg/tag` command-line tools |
 

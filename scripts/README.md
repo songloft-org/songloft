@@ -11,7 +11,6 @@
 | `docker-entrypoint.sh` | Docker 镜像内的启动入口（不直接调用） |
 | `plugin-build.sh` | 构建单个 JS 插件，输出 `.jsplugin.zip` |
 | `plugin-release.sh` | 把 `.jsplugin.zip` 上传到对应 GitHub Release |
-| `sync-repowiki.sh` | 同步 Qoder repowiki 到 `docs/repowiki/` |
 | `fetch-issues.mjs` / `sync-docs.mjs` | 文档同步辅助 |
 | `test_tag.sh` | `pkg/tag` 命令行工具的手工冒烟脚本 |
 

@@ -18,7 +18,7 @@ Songloft 前端是一个基于 Flutter 的跨平台音乐播放器，支持 **An
 - **颜色提取**: palette_generator ^0.3.3+4
 - **WebView**: flutter_inappwebview ^6.1.5（JS 插件页面加载）
 - **权限管理**: permission_handler ^12.0.1
-- **UI 框架**: Material 3（seedColor: indigo-500）
+- **UI 框架**: Material 3（seedColor: M3 Blue baseline `#415F91`）
 
 ## 设计理念
 
@@ -43,6 +43,12 @@ songloft-player/lib/
 │   │   ├── desktop_backend_service.dart    # 桌面端：启动 songloft-server 子进程
 │   │   ├── run_mode_provider.dart          # RunMode 枚举（local/remote）+ 持久化 Provider
 │   │   └── backend_lifecycle.dart          # WidgetsBindingObserver：前台恢复自动重启后端
+│   ├── env/
+│   │   └── tv_detector.dart          # TV 设备检测
+│   ├── platform/
+│   │   └── live_activity_service.dart  # iOS 灵动岛/实时活动集成
+│   ├── tracely/
+│   │   └── tracely_client.dart       # Tracely 前端监控上报客户端
 │   ├── network/
 │   │   ├── api_client.dart          # Dio HTTP 客户端封装
 │   │   ├── api_exceptions.dart      # API 异常定义
@@ -143,7 +149,7 @@ songloft-player/lib/
 │   │           ├── playlist_card.dart         # 歌单卡片
 │   │           ├── playlist_list_item.dart     # 歌单列表项
 │   │           └── song_cover_picker_modal.dart  # 歌曲封面选择弹窗
-│   └── settings/                    # 设置模块
+│   ├── settings/                    # 设置模块
 │       ├── data/
 │       │   ├── cache_api.dart       # 音乐缓存 API（统计、清理、配置、目录验证）
 │       │   ├── config_api.dart      # 配置 API
@@ -164,6 +170,17 @@ songloft-player/lib/
 │               ├── theme_selector.dart       # 主题选择器
 │               ├── token_manager.dart        # 令牌管理
 │               └── upgrade_dialog.dart       # 后端升级对话框
+│   └── dlna/                        # DLNA 投屏模块
+│       ├── data/
+│       │   └── dlna_service.dart    # DLNA/UPnP 设备发现与投屏服务
+│       ├── domain/
+│       │   └── dlna_state.dart      # 投屏状态定义
+│       └── presentation/
+│           ├── providers/
+│           │   └── dlna_provider.dart
+│           └── widgets/
+│               ├── cast_button.dart       # 投屏按钮
+│               └── device_sheet.dart      # 设备选择面板
 └── shared/                          # 共享模块
     ├── layouts/
     │   ├── shell_layout.dart        # ShellRoute 主布局（导航 + 播放器）
@@ -235,8 +252,8 @@ ShellLayout (ShellRoute builder)
 
 ### Material 3 配色
 
-- **主色调**: indigo-500 (`#6366F1`)
-- **配色方案**: `ColorScheme.fromSeed(seedColor: indigo-500)`
+- **主色调**: M3 Blue baseline (`#415F91`)
+- **配色方案**: `ColorScheme.fromSeed(seedColor: Color(0xFF415F91))`
 - **主题模式**: 亮色 / 暗色 / 跟随系统
 - **字体回退**: NotoSansSC（中文支持）
 

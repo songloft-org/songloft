@@ -180,7 +180,7 @@ query parameter 回退主要服务于无法自定义 Header 的场景：`<img>` 
 
 ### 6.1 业务端点 `/settings/<name>`
 
-当前 10 个端点（均 GET + PUT），分布在 HLSHandler（hls-proxy）、ScanHandler（music-path 等 5 个扫描相关）、LogHandler（log-level）、JSPluginHandler（plugin-registries、http-proxy）、ConfigHandler（tab-config）。数据均为强类型 JSON，如 `{enabled: bool}`、`{proxy: string}` 等，handler 内部承担默认值和副作用。
+当前 17 对 GET/PUT 端点，分布在 SongHandler（remote-title-source）、HLSHandler（hls-proxy）、ScanHandler（music-path、scan-playlist-mode、scan-auto-create-playlists、scan-title-source、auto-scan 共 5 个扫描相关）、LogHandler（log-level）、JSPluginHandler（plugin-registries、http-proxy、plugin-keep-alive、plugin-auto-update）、UpgradeHandler（github-proxy）、ConfigHandler（tab-config、library-browse、user-preferences、equalizer）。数据均为强类型 JSON，如 `{enabled: bool}`、`{proxy: string}` 等，handler 内部承担默认值和副作用。
 
 ### 6.2 模块聚合端点
 
@@ -267,13 +267,19 @@ query parameter 回退主要服务于无法自定义 Header 的场景：`<img>` 
 | POST | `/songs/clean` | 清理无效歌曲 |
 | POST | `/songs/batch-delete` | 批量删除 |
 | POST | `/songs/organize` | 整理歌曲文件 |
+| POST | `/songs/organize/preview` | 预览批量整理（dry-run） |
 | GET | `/songs/duplicates` | 重复歌曲检测 |
+| GET | `/songs/facets` | 标签分类聚合 |
+| POST | `/songs/refresh-metadata` | 启动远程元数据刷新 |
+| GET | `/songs/refresh-metadata/progress` | 元数据刷新进度 |
+| POST | `/songs/refresh-metadata/cancel` | 取消元数据刷新 |
 | GET | `/songs/{id}` | 获取歌曲详情 |
 | PUT | `/songs/{id}` | 更新歌曲信息 |
 | DELETE | `/songs/{id}` | 删除歌曲 |
 | PUT | `/songs/{id}/lyrics` | 更新歌词 |
 | PUT | `/songs/{id}/tags` | 写入音频 tag |
 | POST | `/songs/{id}/activate` | 激活歌曲 |
+| POST | `/songs/{id}/played` | 播放事件通知（广播给插件） |
 | GET/HEAD | `/songs/{id}/play` | 播放音频流（二进制） |
 | GET/HEAD | `/songs/{id}/play.m3u8` | HLS 电台别名（同 handler） |
 | GET | `/songs/{id}/cover` | 歌曲封面 |
@@ -306,16 +312,23 @@ query parameter 回退主要服务于无法自定义 Header 的场景：`<img>` 
 
 | 方法 | 路径 | Handler | 说明 |
 |------|------|---------|------|
+| GET/PUT | `/settings/remote-title-source` | SongHandler | 网络歌曲标题来源 |
 | GET/PUT | `/settings/hls-proxy` | HLSHandler | HLS 代理开关 |
 | GET/PUT | `/settings/music-path` | ScanHandler | 音乐库路径 |
-| GET/PUT | `/settings/scan-auto-create-include-subdirs` | ScanHandler | 子目录自动包含 |
+| GET/PUT | `/settings/scan-playlist-mode` | ScanHandler | 歌单归并模式 |
 | GET/PUT | `/settings/scan-auto-create-playlists` | ScanHandler | 自动创建歌单 |
 | GET/PUT | `/settings/scan-title-source` | ScanHandler | 标题来源 |
 | GET/PUT | `/settings/auto-scan` | ScanHandler | 自动扫描 |
 | GET/PUT | `/settings/log-level` | LogHandler | 日志等级 |
 | GET/PUT | `/settings/plugin-registries` | JSPluginHandler | 插件注册表 |
 | GET/PUT | `/settings/http-proxy` | JSPluginHandler | HTTP 代理 |
+| GET/PUT | `/settings/plugin-keep-alive` | JSPluginHandler | 插件常驻白名单 |
+| GET/PUT | `/settings/plugin-auto-update` | JSPluginHandler | 插件自动更新 |
+| GET/PUT | `/settings/github-proxy` | UpgradeHandler | GitHub 更新代理 |
 | GET/PUT | `/settings/tab-config` | ConfigHandler | Tab 页配置 |
+| GET/PUT | `/settings/library-browse` | ConfigHandler | 曲库浏览视图 |
+| GET/PUT | `/settings/user-preferences` | ConfigHandler | 用户偏好设置 |
+| GET/PUT | `/settings/equalizer` | ConfigHandler | 均衡器 |
 | GET | `/configs` | ConfigHandler | 配置列表（通用 KV） |
 | POST | `/configs` | ConfigHandler | 创建配置 |
 | GET | `/configs/{key}` | ConfigHandler | 获取配置 |
@@ -362,6 +375,7 @@ query parameter 回退主要服务于无法自定义 Header 的场景：`<img>` 
 | GET | `/jsplugins` | 插件列表 |
 | POST | `/jsplugins/upload` | 上传插件 |
 | POST | `/jsplugins/update-all` | 批量更新 |
+| POST | `/jsplugins/storage/cleanup` | 清理孤儿持久化存储 |
 | POST | `/jsplugins/registry/refresh` | 刷新注册表 |
 | POST | `/jsplugins/registry/install` | 从注册表安装 |
 | GET | `/jsplugins/{id}` | 插件详情 |

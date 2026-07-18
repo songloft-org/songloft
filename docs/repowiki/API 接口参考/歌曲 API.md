@@ -18,6 +18,7 @@
    - [GET /songs -- 分页列表](#21-get-songs----分页列表)
    - [GET /songs/ids -- ID 列表](#22-get-songsids----id-列表)
    - [GET /songs/duplicates -- 重复检测](#23-get-songsduplicates----重复检测)
+   - [GET /songs/facets -- 标签分类聚合](#24-get-songsfacets----标签分类聚合)
 3. [增删改](#3-增删改)
    - [GET /songs/{id} -- 获取详情](#31-get-songsid----获取详情)
    - [PUT /songs/{id} -- 更新歌曲](#32-put-songsid----更新歌曲)
@@ -26,17 +27,20 @@
    - [POST /songs/radio -- 添加电台](#35-post-songsradio----添加电台)
    - [POST /songs/batch-delete -- 批量删除](#36-post-songsbatch-delete----批量删除)
    - [POST /songs/clean -- 清理无效歌曲](#37-post-songsclean----清理无效歌曲)
+   - [远程歌曲元数据刷新](#38-远程歌曲元数据刷新)
 4. [歌词与标签](#4-歌词与标签)
    - [PUT /songs/{id}/lyrics -- 更新歌词](#41-put-songsidlyrics----更新歌词)
    - [GET /songs/{id}/lyric -- 获取歌词](#42-get-songsidlyric----获取歌词)
    - [PUT /songs/{id}/tags -- 写入音频标签](#43-put-songsidtags----写入音频标签)
 5. [文件整理](#5-文件整理)
    - [POST /songs/organize -- 批量整理文件](#51-post-songsorganize----批量整理文件)
+   - [POST /songs/organize/preview -- 预览批量整理](#52-post-songsorganizepreview----预览批量整理)
 6. [播放与媒体](#6-播放与媒体)
    - [POST /songs/{id}/activate -- 激活/预取](#61-post-songsidactivate----激活预取)
-   - [GET /songs/{id}/play -- 播放流](#62-get-songsidplay----播放流)
-   - [GET /songs/{id}/play.m3u8 -- HLS 别名](#63-get-songsidplaym3u8----hls-别名)
-   - [GET /songs/{id}/cover -- 封面](#64-get-songsidcover----封面)
+   - [POST /songs/{id}/played -- 播放事件通知](#62-post-songsidplayed----播放事件通知)
+   - [GET /songs/{id}/play -- 播放流](#63-get-songsidplay----播放流)
+   - [GET /songs/{id}/play.m3u8 -- HLS 别名](#64-get-songsidplaym3u8----hls-别名)
+   - [GET /songs/{id}/cover -- 封面](#65-get-songsidcover----封面)
 7. [HLS 反向代理](#7-hls-反向代理)
    - [GET /songs/{id}/hls/playlist -- 代理播放列表](#71-get-songsidhlsplaylist----代理播放列表)
    - [GET /songs/{id}/hls/segment -- 代理切片](#72-get-songsidhlssegment----代理切片)
@@ -56,6 +60,10 @@
 - `cover_url` -- 有封面时 `/api/v1/songs/{id}/cover`，否则空
 - `lyric_url` -- 有歌词时 `/api/v1/songs/{id}/lyric`，否则空
 - `source_url` -- 仅 remote/radio 类型返回原始流地址
+
+**部分只读字段**（Song 对象随详情/列表返回）:
+- `is_live` -- 是否直播流（仅 remote 类型语义生效）
+- `is_video` -- bool，是否含真实视频轨（扫描时 ffprobe 探测，排除仅封面图片）；客户端据此渲染画面 / 选择投屏 MIME（`0024` 迁移引入）
 
 **错误响应格式**: `{"error":"...", "detail":"..."}`（detail 可选）。
 
@@ -126,6 +134,43 @@
 ```
 
 **错误:** `500` 查询重复歌曲失败
+
+---
+
+### 2.4 GET /songs/facets -- 标签分类聚合
+
+**路径:** `/api/v1/songs/facets` | **认证:** BearerAuth
+
+按指定维度聚合曲库，返回该维度下非空取值、各自的歌曲数量及一首代表歌曲的封面 URL，用于「分类浏览」的卡片网格。取到某取值后可用 `/songs?<field>=<value>` 拉取该分类下歌曲。
+
+**查询参数:**
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `field` | string | 是 | -- | 聚合维度：`genre` / `artist` / `album` / `language` / `style` / `year` / `decade`（`year`/`decade` 的 value 为数字字符串，年代如 `"1990"` 表示 1990-1999） |
+| `keyword` | string | 否 | -- | 对取值模糊搜索 |
+| `limit` | int | 否 | `20` | 分页大小，上限 `100000` |
+| `offset` | int | 否 | `0` | 分页偏移 |
+| `sort` | string | 否 | `count` | 排序维度：`count` / `name` |
+| `order` | string | 否 | -- | 排序方向：`asc` / `desc`（`count` 缺省 `desc`，`name` 缺省 `asc`） |
+
+**成功响应 (200):**
+
+```json
+{
+  "field": "artist",
+  "facets": [
+    {"value": "周杰伦", "count": 42, "cover_url": "/api/v1/songs/1/cover"}
+  ],
+  "total": 128,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+`total` 为该维度去重取值总数。
+
+**错误:** `400` 缺少或不支持的 `field` | `500` 服务器错误
 
 ---
 
@@ -262,6 +307,32 @@
 
 ---
 
+### 3.8 远程歌曲元数据刷新
+
+对所有元数据缺失的远程歌曲，通过 ffprobe 探测时长、比特率、采样率、格式及标签并回填，异步执行。
+
+#### POST /songs/refresh-metadata -- 启动刷新
+
+**路径:** `/api/v1/songs/refresh-metadata` | **认证:** BearerAuth
+
+**成功响应 (202):** `{"status": "started"}`
+
+**错误:** `409` 已在运行 | `500` 未配置刷新器 / 启动失败
+
+#### GET /songs/refresh-metadata/progress -- 查询进度
+
+**路径:** `/api/v1/songs/refresh-metadata/progress` | **认证:** BearerAuth
+
+**成功响应 (200):** `MetadataRefreshProgress`（含 `status` 等字段；未配置时返回 `{"status": "idle"}`）。
+
+#### POST /songs/refresh-metadata/cancel -- 取消刷新
+
+**路径:** `/api/v1/songs/refresh-metadata/cancel` | **认证:** BearerAuth
+
+**成功响应:** `204 No Content`（幂等，无任务时也返回 204）。
+
+---
+
 ## 4. 歌词与标签
 
 **章节来源**: `internal/handlers/music.go`、`internal/models/lyric.go`
@@ -375,6 +446,20 @@
 
 ---
 
+### 5.2 POST /songs/organize/preview -- 预览批量整理
+
+**路径:** `/api/v1/songs/organize/preview` | **认证:** BearerAuth
+
+dry-run 预览目录整理变更，**不移动任何文件、不改数据库**。返回每项 `old_path`→`new_path` 与状态。`target_path` 为相对 `music_path` 的路径（`music_path` 由服务端自取）。CUE 歌曲返回 `skip`；目标已存在或批内撞名返回 `conflict`。
+
+**请求体** (数组): 同 `/songs/organize`（`id` + `target_path`）。
+
+**成功响应 (200):** `OrganizePreviewResult` 数组，每项含 `status`（`ok` / `conflict` / `skip` / `error`）、`old_path`、`new_path`。
+
+**错误:** `400` 请求无效 / 列表为空
+
+---
+
 ## 6. 播放与媒体
 
 **章节来源**: `internal/handlers/music.go`
@@ -393,7 +478,28 @@
 
 ---
 
-### 6.2 GET /songs/{id}/play -- 播放流
+### 6.2 POST /songs/{id}/played -- 播放事件通知
+
+**路径:** `/api/v1/songs/{id}/played` | **认证:** BearerAuth
+
+客户端在歌曲开始播放、播放完成或被跳过时调用，后端将事件广播给已订阅播放事件的 JS 插件（通过 `songloft.events.onPlayEvent` 注册）。
+
+**路径参数:** `id` (int, 必填)
+
+**查询参数:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `source` | string | 否 | 调用来源标识，如 `songloft-player`（官方客户端）、`miot`（小爱音箱插件） |
+| `type` | string | 否 | 事件类型：`play`（开始播放）/ `finish`（播放完成，默认）/ `skip`（用户跳过） |
+
+**成功响应:** `204 No Content`
+
+**错误:** `400` 无效歌曲 ID / 事件类型非法 | `404` 歌曲不存在
+
+---
+
+### 6.3 GET /songs/{id}/play -- 播放流
 
 **路径:** `/api/v1/songs/{id}/play` | **方法:** `GET` / `HEAD` | **认证:** BearerAuth
 
@@ -422,15 +528,15 @@
 
 ---
 
-### 6.3 GET /songs/{id}/play.m3u8 -- HLS 别名
+### 6.4 GET /songs/{id}/play.m3u8 -- HLS 别名
 
 **路径:** `/api/v1/songs/{id}/play.m3u8` | **方法:** `GET` / `HEAD` | **认证:** BearerAuth
 
-与 `/play` 共享 handler 的 HLS 电台专用别名。URL 以 `.m3u8` 结尾使 ExoPlayer/AVPlayer 正确选择 HlsMediaSource。客户端通过 `Song.PlaybackURL()` 自动获取正确 URL。参数与响应同 [6.2](#62-get-songsidplay----播放流)。
+与 `/play` 共享 handler 的 HLS 电台专用别名。URL 以 `.m3u8` 结尾使 ExoPlayer/AVPlayer 正确选择 HlsMediaSource。客户端通过 `Song.PlaybackURL()` 自动获取正确 URL。参数与响应同 [6.3](#63-get-songsidplay----播放流)。
 
 ---
 
-### 6.4 GET /songs/{id}/cover -- 封面
+### 6.5 GET /songs/{id}/cover -- 封面
 
 **路径:** `/api/v1/songs/{id}/cover` | **认证:** BearerAuth
 

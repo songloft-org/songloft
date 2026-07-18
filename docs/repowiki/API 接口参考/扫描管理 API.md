@@ -24,7 +24,7 @@
    - [GET /scan/fingerprints/progress -- 获取指纹计算进度](#33-get-scanfingerprintsprogress----获取指纹计算进度)
 4. [扫描业务设置端点](#4-扫描业务设置端点)
    - [GET/PUT /settings/music-path -- 音乐路径配置](#41-getput-settingsmusic-path----音乐路径配置)
-   - [GET/PUT /settings/scan-auto-create-include-subdirs -- 歌单包含子目录开关](#42-getput-settingsscan-auto-create-include-subdirs----歌单包含子目录开关)
+   - [GET/PUT /settings/scan-playlist-mode -- 歌单归并模式](#42-getput-settingsscan-playlist-mode----歌单归并模式)
    - [GET/PUT /settings/scan-auto-create-playlists -- 自动创建歌单开关](#43-getput-settingsscan-auto-create-playlists----自动创建歌单开关)
    - [GET/PUT /settings/scan-title-source -- 扫描标题来源配置](#44-getput-settingsscan-title-source----扫描标题来源配置)
    - [GET/PUT /settings/auto-scan -- 自动扫描配置](#45-getput-settingsauto-scan----自动扫描配置)
@@ -35,7 +35,7 @@
 
 扫描管理模块负责本地音乐文件的发现、导入和目录管理。所有端点均需 JWT 认证（`BearerAuth`），基础路径为 `/api/v1`。
 
-`ScanHandler` 同时承载扫描动作端点和扫描相关业务设置端点（`/settings/*`），将 `music_path`、`scan_auto_create_include_subdirs` 等配置 key 的业务化读写收敛在同一个 handler 中。
+`ScanHandler` 同时承载扫描动作端点和扫描相关业务设置端点（`/settings/*`），将 `music_path`、`scan_playlist_mode` 等配置 key 的业务化读写收敛在同一个 handler 中。
 
 ---
 
@@ -337,20 +337,31 @@
 
 ---
 
-### 4.2 GET/PUT /settings/scan-auto-create-include-subdirs -- 歌单包含子目录开关
+### 4.2 GET/PUT /settings/scan-playlist-mode -- 歌单归并模式
 
-**路径:** `/api/v1/settings/scan-auto-create-include-subdirs`
+**路径:** `/api/v1/settings/scan-playlist-mode`
 **认证:** 需要 BearerAuth
 
-控制扫描自动创建歌单时是否包含子目录中的歌曲。默认关闭（`false`）。
+控制扫描后自动创建歌单时的目录归并模式。默认 `directory`。
 
 #### GET 响应 / PUT 请求体:
 
 ```json
 {
-  "enabled": false
+  "mode": "directory"
 }
 ```
+
+| 字段 | 类型 | 可选值 | 说明 |
+|------|------|--------|------|
+| `mode` | string | `directory` / `top_level` / `bubble_up` | `directory`：每个文件夹生成独立歌单（默认）；`top_level`：按一级子目录合并歌单；`bubble_up`：歌曲同时出现在所有上级文件夹歌单 |
+
+**PUT 错误响应:**
+
+| 状态码 | 说明 |
+|--------|------|
+| 400 | 请求格式错误或 `mode` 值非法（仅接受上述三个枚举值） |
+| 500 | 保存配置失败 |
 
 ---
 

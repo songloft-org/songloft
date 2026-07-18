@@ -18,7 +18,7 @@ The Songloft frontend is a Flutter-based cross-platform music player supporting 
 - **Color extraction**: palette_generator ^0.3.3+4
 - **WebView**: flutter_inappwebview ^6.1.5 (loading JS plugin pages)
 - **Permission management**: permission_handler ^12.0.1
-- **UI framework**: Material 3 (seedColor: indigo-500)
+- **UI framework**: Material 3 (seedColor: M3 Blue baseline `#415F91`)
 
 ## Design Philosophy
 
@@ -43,6 +43,12 @@ songloft-player/lib/
 │   │   ├── desktop_backend_service.dart    # Desktop: start the songloft-server subprocess
 │   │   ├── run_mode_provider.dart          # RunMode enum (local/remote) + persistence Provider
 │   │   └── backend_lifecycle.dart          # WidgetsBindingObserver: auto-restart backend on foreground resume
+│   ├── env/
+│   │   └── tv_detector.dart          # TV device detection
+│   ├── platform/
+│   │   └── live_activity_service.dart  # iOS Dynamic Island / Live Activity integration
+│   ├── tracely/
+│   │   └── tracely_client.dart       # Tracely frontend monitoring-report client
 │   ├── network/
 │   │   ├── api_client.dart          # Dio HTTP client wrapper
 │   │   ├── api_exceptions.dart      # API exception definitions
@@ -143,7 +149,7 @@ songloft-player/lib/
 │   │           ├── playlist_card.dart         # Playlist card
 │   │           ├── playlist_list_item.dart     # Playlist list item
 │   │           └── song_cover_picker_modal.dart  # Song cover picker modal
-│   └── settings/                    # Settings module
+│   ├── settings/                    # Settings module
 │       ├── data/
 │       │   ├── cache_api.dart       # Music cache API (stats, cleanup, config, directory validation)
 │       │   ├── config_api.dart      # Config API
@@ -164,6 +170,17 @@ songloft-player/lib/
 │               ├── theme_selector.dart       # Theme selector
 │               ├── token_manager.dart        # Token management
 │               └── upgrade_dialog.dart       # Backend upgrade dialog
+│   └── dlna/                        # DLNA casting module
+│       ├── data/
+│       │   └── dlna_service.dart    # DLNA/UPnP device discovery and casting service
+│       ├── domain/
+│       │   └── dlna_state.dart      # Casting state definitions
+│       └── presentation/
+│           ├── providers/
+│           │   └── dlna_provider.dart
+│           └── widgets/
+│               ├── cast_button.dart       # Cast button
+│               └── device_sheet.dart      # Device picker sheet
 └── shared/                          # Shared modules
     ├── layouts/
     │   ├── shell_layout.dart        # ShellRoute main layout (navigation + player)
@@ -235,8 +252,8 @@ ShellLayout (ShellRoute builder)
 
 ### Material 3 Color Scheme
 
-- **Primary color**: indigo-500 (`#6366F1`)
-- **Color scheme**: `ColorScheme.fromSeed(seedColor: indigo-500)`
+- **Primary color**: M3 Blue baseline (`#415F91`)
+- **Color scheme**: `ColorScheme.fromSeed(seedColor: Color(0xFF415F91))`
 - **Theme mode**: light / dark / follow system
 - **Font fallback**: NotoSansSC (Chinese support)
 

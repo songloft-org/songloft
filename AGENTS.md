@@ -24,6 +24,8 @@ Songloft 是自托管本地音乐服务器，支持**服务器部署**和**Bundl
 | `/jsplugins-src` | TS | JS 插件源码（子模块集合，每个插件在自己仓库下分发 release） |
 | `/pkg/tag` | Go | 音频元数据**读写**库（基于上游 tag 库扩展 MP3/FLAC 写入） |
 | `/addon` | HA add-on | Home Assistant 加载项（薄层复用 Docker 镜像）。设计/踩坑/发版见 [addon/README.md](addon/README.md) |
+| `/ffmpeg-builder` ([独立仓库](https://github.com/hanxi/ffmpeg-builder)) | Docker | 静态编译 ffmpeg/ffprobe 最小镜像构建器（子模块），供下载转码 / 音频指纹用 |
+| `/tracely` ([独立仓库](https://github.com/hanxi/tracely)) | Go + Vue | 自托管前端监控后端（安装/升级追踪），后端经其 Go SDK 上报；本地目录已 gitignore，SDK 依赖走 go.mod |
 
 ---
 
@@ -140,7 +142,7 @@ func (h *XxxHandler) Method(w http.ResponseWriter, r *http.Request) { ... }
 
 ### `/api/v1/settings/<name>` — 孤立配置端点（前端业务功能默认走这里）
 
-- 路径风格：`/settings/<kebab-case-name>`（如 `/settings/hls-proxy`、`/settings/music-path`、`/settings/http-proxy`）
+- 路径风格：`/settings/<kebab-case-name>`（如 `/settings/hls-proxy`、`/settings/music-path`、`/settings/http-proxy`、`/settings/library-browse`）
 - 数据形态：**强类型** JSON（如 `{enabled: bool}` 或聚合对象），不是 `{value: string}`
 - 默认值：handler 内部承担（配置缺失时 GET 返回业务默认，PUT 时直接写入即可，**前端无需先 POST 创建**）
 - 副作用：在 PUT 内部直接触发（如 `music_path` PUT 完异步 `onMusicPathChanged` 重建 Scanner）
@@ -196,6 +198,7 @@ Songloft 文档站（`docs/`）用 **VitePress + 自定义主题**（`docs/.vite
 
 - **自定义落地页（改数据，不改 markdown）**：首页 `docs/index.md` 仅一行 `<Landing />`，内容由结构化数据 `docs/.vitepress/data/*.ts`（安装方式 `downloads.ts`、功能 `features.ts`、文案 `landing-i18n.ts`）驱动，由 `docs/.vitepress/theme/components/landing/*.vue` 渲染。改落地页 → 改 `data/*.ts`（双语 `{zh,en}` 字段）；图标要对齐组件里的映射表（如 `LandingInstaller.vue` 的 `ICONS`）。
 - **自动生成页（禁止手改）**：`docs/quick-start.md`、`docs/en/quick-start.md`、`docs/changelog.md` 由 `scripts/sync-docs.mjs` 从根 `README.md` / `README.en.md` / `CHANGELOG.md` 生成，已被 `docs/.gitignore` 忽略。要改正文 → 改源 `README` / `CHANGELOG`，`docs:dev` / `docs:build` 会先跑 `sync` 重新生成。**手改会被覆盖且不入库**。
+- **repowiki（`docs/repowiki/` — 手动维护）**：入库的 markdown 即**唯一真实来源**，任何工具（AI/人）直接编辑并 commit 即可。改代码相关内容时按需同步这些页面，与其他源文档一样对照代码保持准确。
 
 ---
 
@@ -290,6 +293,7 @@ Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行
 - tag 有 title → 直接用 `tag.Title`
 - tag 没 title → 文件名去扩展名
 - **不要**再做"最长公共子串去重 + 拼接"，会产生"艺术家 - 标题"这种把艺术家冗余到标题字段的结果
+- 视频容器探测：扫描 mp4/mov/mkv/webm/avi/ts 等容器时用 ffprobe 探测是否含真实视频轨（排除封面 attached_pic）来置 `songs.is_video`，客户端据此渲染画面 / 选择投屏 mime
 
 ### tag 写入（pkg/tag）
 
@@ -301,7 +305,7 @@ Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行
 | MP3 | ID3v2.3 text frames | USLT | APIC |
 | FLAC | Vorbis Comment | LYRICS | PICTURE block |
 | M4A/MP4/M4B/MOV | iTunes atoms (©nam 等) | ©lyr | covr |
-| OGG/Opus | Vorbis Comment | LYRICS | METADATA_BLOCK_PICTURE (base64) |
+| OGG(.ogg/.oga) | Vorbis Comment | LYRICS | METADATA_BLOCK_PICTURE (base64) |
 | APE | APEv2 text items | Lyrics | Cover Art (Front) (binary item) |
 | WAV | RIFF LIST INFO | ICMT | **不支持**（格式限制） |
 | AIFF/AIF | ID3v2.3 (ID3 chunk) + NAME/AUTH | USLT (ID3 chunk) | APIC (ID3 chunk) |

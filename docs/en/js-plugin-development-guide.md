@@ -93,8 +93,8 @@ const router = createRouter();
 
 router.get('/hello', (req) => jsonResponse({ message: 'Hello!', query: req.query }));
 
-router.get('/songs', (req) => {
-  const songs = songloft.songs.list({ limit: 10 });
+router.get('/songs', async (req) => {
+  const songs = await songloft.songs.list({ limit: 10 });
   return jsonResponse({ count: songs.length, songs });
 });
 
@@ -279,9 +279,9 @@ Plugins have three core lifecycle callback functions:
 Called after the plugin finishes loading. Used to initialize resources, set up timers, etc.
 
 ```javascript
-function onInit() {
+async function onInit() {
     songloft.log.info("Plugin initialized");
-    songloft.storage.set("start_time", new Date().toISOString());
+    await songloft.storage.set("start_time", new Date().toISOString());
 }
 ```
 
@@ -383,6 +383,8 @@ globalThis.onWebSocket = async function(req, socket) {
 
 All APIs are accessed through the global `songloft` object.
 
+> **Important: all `songloft.*` methods are asynchronous and return a Promise; you must `await` them inside an `async` function.** This matches the behavior of standard Web APIs such as `fetch`. All examples below are placed in an `async` function context. **Exceptions:** `songloft.log.*` (synchronous local logging) and `songloft.comm.onMessage(...)` (synchronous callback registration) do not need `await`.
+
 ### HTTP Requests (Global fetch)
 
 Use the standard global `fetch` function to make HTTP requests (provided by a runtime polyfill, returns a Promise). **No permission declaration required.**
@@ -450,22 +452,24 @@ clearInterval(i);
 Requires permission: `storage`
 
 ```javascript
-// Read a value (returns a string or null)
-var value = songloft.storage.get("key");
+async function storageExample() {
+    // Read a value (asynchronously returns the original-typed value or null)
+    var value = await songloft.storage.get("key");
 
-// Write a value
-songloft.storage.set("key", "value");
+    // Write a value (values are JSON-serialized automatically; objects/arrays can be stored directly)
+    await songloft.storage.set("config", { volume: 80, list: [1, 2, 3] });
 
-// Delete a key
-songloft.storage.delete("key");
+    // Delete a key
+    await songloft.storage.delete("key");
 
-// Get all key names
-var keys = songloft.storage.keys();  // ["key1", "key2", ...]
+    // Get all key names
+    var keys = await songloft.storage.keys();  // ["key1", "key2", ...]
+}
 ```
 
 **Storage limitations:**
 - Keys are strings
-- Values are strings (complex objects must be JSON-serialized manually)
+- Values are JSON-serialized automatically; you can store objects/arrays/numbers directly, and `get` asynchronously returns the original-typed value or null
 - Each plugin has its own independent storage space
 
 ### songloft.songs — Song Operations
@@ -473,14 +477,16 @@ var keys = songloft.storage.keys();  // ["key1", "key2", ...]
 Requires permission: `songs.read`
 
 ```javascript
-// Get the song list
-var songs = songloft.songs.list({ limit: 20, offset: 0 });
+async function songsExample() {
+    // Get the song list
+    var songs = await songloft.songs.list({ limit: 20, offset: 0 });
 
-// Get a song by ID
-var song = songloft.songs.getById(123);
+    // Get a song by ID
+    var song = await songloft.songs.getById(123);
 
-// Search songs
-var results = songloft.songs.search("keyword");
+    // Search songs
+    var results = await songloft.songs.search("keyword");
+}
 ```
 
 **Song object structure:**
@@ -494,7 +500,8 @@ var results = songloft.songs.search("keyword");
     duration: 240.5,      // seconds
     file_path: "/path/to/file.mp3",
     url: "",
-    cover_path: ""
+    cover_url: "",        // Cover URL (the internal CoverPath field is never serialized)
+    is_video: false       // Whether this is a video container
 }
 ```
 
@@ -503,10 +510,12 @@ var results = songloft.songs.search("keyword");
 Requires permission: `playlists.read` (read) or `playlists.write` (modify); or the wildcard sugar `playlists.*`.
 
 ```javascript
-// Requires playlists.read
-var playlists = songloft.playlists.list();
-var playlist = songloft.playlists.getById(1);
-var songs = songloft.playlists.getSongs(1, { limit: 50, offset: 0 });
+async function playlistsExample() {
+    // Requires playlists.read
+    var playlists = await songloft.playlists.list();
+    var playlist = await songloft.playlists.getById(1);
+    var songs = await songloft.playlists.getSongs(1, { limit: 50, offset: 0 });
+}
 ```
 
 ### songloft.comm — Inter-Plugin Communication
@@ -514,14 +523,16 @@ var songs = songloft.playlists.getSongs(1, { limit: 50, offset: 0 });
 Requires permission: `inter-plugin`
 
 ```javascript
-// Send a message asynchronously (fire-and-forget)
-songloft.comm.send("target-plugin", "action-name", { data: "hello" });
+async function commExample() {
+    // Send a message (fire-and-forget)
+    await songloft.comm.send("target-plugin", "action-name", { data: "hello" });
 
-// Synchronous call (waits for a response, default timeout 10s)
-var resp = songloft.comm.call("target-plugin", "action-name", { data: "hello" }, 5000);
-// resp = { success: true, data: { ... } }
+    // Request-response call (waits for a response, default timeout 10s)
+    var resp = await songloft.comm.call("target-plugin", "action-name", { data: "hello" }, 5000);
+    // resp = { success: true, data: { ... } }
+}
 
-// Register a message handler
+// Register a message handler (registered synchronously, no await needed)
 songloft.comm.onMessage("action-name", function(payload, from) {
     // payload: data passed by the sender
     // from: the sender's entryPath
@@ -546,19 +557,21 @@ Logs are written to the server's standard log with a `[plugin]` prefix.
 No permission required.
 
 ```javascript
-// Get the plugin's JWT Token (for accessing host APIs, such as authenticated resources like music files and covers)
-var token = songloft.plugin.getToken();
+async function pluginInfoExample() {
+    // Get the plugin's JWT Token (for accessing host APIs, such as authenticated resources like music files and covers)
+    var token = await songloft.plugin.getToken();
 
-// Get the base URL of the host service (e.g. http://192.168.1.100:58091)
-var hostUrl = songloft.plugin.getHostUrl();
+    // Get the base URL of the host service (e.g. http://192.168.1.100:58091)
+    var hostUrl = await songloft.plugin.getHostUrl();
+}
 ```
 
 **Typical use: building an authenticated resource URL**
 
 ```javascript
-function getMusicUrl(songId) {
-    var host = songloft.plugin.getHostUrl();
-    var token = songloft.plugin.getToken();
+async function getMusicUrl(songId) {
+    var host = await songloft.plugin.getHostUrl();
+    var token = await songloft.plugin.getToken();
     return host + "/music/" + encodedPath + "?access_token=" + token;
 }
 ```
@@ -594,7 +607,7 @@ Consistent with `AllPermissions` in the backend's `internal/jsplugin/permissions
 | `fs:external` | Access administrator-configured external directories |
 | `websocket` | Use `new WebSocket(...)` to actively connect to external services, or handle inbound `onWebSocket` upgrades |
 | `persistent-storage` | Read/write persistent storage that remains after the plugin is uninstalled |
-| `net` | Use raw network sockets (currently UDP) |
+| `net` | Use raw network sockets (UDP / outbound TCP) |
 
 > Note: capabilities such as network requests (`fetch`), timers (`setTimeout/setInterval`), and logging **require no permission declaration**; they are default host capabilities.
 
@@ -625,7 +638,9 @@ The sender does not wait for a response, suitable for notification scenarios:
 
 ```javascript
 // Plugin A: notify Plugin B
-songloft.comm.send("plugin-b", "data-updated", { source: "plugin-a" });
+async function notifyB() {
+    await songloft.comm.send("plugin-b", "data-updated", { source: "plugin-a" });
+}
 ```
 
 ### Synchronous Call
@@ -634,9 +649,11 @@ The sender waits for the receiver to process and return a result:
 
 ```javascript
 // Plugin A: call Plugin B's service
-var response = songloft.comm.call("plugin-b", "get-data", { id: 123 }, 5000);
-if (response.success) {
-    var data = response.data;
+async function fetchFromB() {
+    var response = await songloft.comm.call("plugin-b", "get-data", { id: 123 }, 5000);
+    if (response.success) {
+        var data = response.data;
+    }
 }
 ```
 
@@ -985,14 +1002,14 @@ function onHTTPRequest(req) {
 ### Storage Usage Pattern
 
 ```javascript
-// Store a complex object
-function saveConfig(config) {
-    songloft.storage.set("config", JSON.stringify(config));
+// Store a complex object (storage serializes to JSON automatically; store the object directly)
+async function saveConfig(config) {
+    await songloft.storage.set("config", config);
 }
 
-function loadConfig() {
-    var raw = songloft.storage.get("config");
-    return raw ? JSON.parse(raw) : { defaultKey: "defaultValue" };
+async function loadConfig() {
+    var config = await songloft.storage.get("config");
+    return config || { defaultKey: "defaultValue" };
 }
 ```
 
@@ -1012,8 +1029,8 @@ songloft.comm.onMessage("get-service", function(payload, from) {
 });
 
 // Service consumer pattern
-function useTranslation(text) {
-    var resp = songloft.comm.call("translator-plugin", "get-service", {
+async function useTranslation(text) {
+    var resp = await songloft.comm.call("translator-plugin", "get-service", {
         method: "translate",
         text: text
     }, 5000);

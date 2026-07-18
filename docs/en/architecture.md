@@ -105,6 +105,8 @@ songloft/
 │   ├── services/               # Business logic layer (includes source/ subpackage: fetcher / resolver / validator / orchestrator / metrics)
 │   ├── jsplugin/               # JS plugin management (lifecycle, health checks, hot updates)
 │   ├── jsruntime/              # QuickJS JavaScript runtime
+│   ├── httputil/               # Global proxy-aware HTTP Transport / Client
+│   ├── tracelycfg/             # Tracely monitoring-report configuration
 │   └── version/                # Version information
 ├── pkg/                        # Public packages
 │   └── tag/                    # Audio metadata read/write library
@@ -112,11 +114,10 @@ songloft/
 │   └── lib/                    # Dart source code
 │       ├── config/             # API configuration, deployment mode
 │       ├── core/               # Networking, routing, theming, storage, audio
-│       ├── features/           # Feature modules (auth / home / library / player / playlist / settings / jsplugin)
+│       ├── features/           # Feature modules (auth / startup / home / library / player / playlist / settings / jsplugin / dlna)
 │       └── shared/             # Shared layouts, models, components
 ├── plugin-toolchain/           # JS plugin development toolchain (SDK + Builder + scaffolding)
-├── jsplugins-src/              # JS plugin source collection (submodules)
-├── jsplugins/                  # JS plugin build artifacts (submodules)
+├── jsplugins-src/              # JS plugin source collection (submodules; build artifacts published in each plugin's GitHub Releases)
 ├── scripts/                    # Build and release scripts
 └── docs/                       # Project documentation
 ```
@@ -151,10 +152,12 @@ make build-frontend-all            # All platforms supported by the current syst
 3. **JS plugin system**: A QuickJS-based script plugin architecture that supports dynamically extending music-source capabilities, with sandbox isolation + permission model + health checks + hot updates
 4. **JWT dual tokens**: Access Token + Refresh Token, supporting token revocation and management
 5. **Music caching**: When playing remote songs, streams a proxy to the client while caching in the background asynchronously, with an LRU eviction policy and support for custom cache directory and capacity limit
-6. **Audio tag read/write**: pkg/tag extends the original dhowden/tag with MP3 (ID3v2.3) and FLAC (Vorbis Comment + Picture) writing, pure Go with no external dependencies
+6. **Audio tag read/write**: pkg/tag extends the original dhowden/tag with multi-format writing (MP3 / FLAC / M4A·MP4 / OGG(.ogg/.oga) / APE / WAV / AIFF), pure Go with no external dependencies
 7. **Resource proxy**: Built-in CORS proxy with SSRF protection
 8. **Database-driven configuration**: Configuration is stored in SQLite, supporting JSON format and dynamic updates via the API
 9. **Tracely monitoring**: Heartbeat packets, install/upgrade statistics, panic capture
+10. **Library faceted browsing**: `GET /api/v1/songs/facets` aggregates dimensions such as artist/album, paired with `/api/v1/settings/library-browse` to configure browsing behavior
+11. **Video-container scanning**: Supported scan formats now include video containers (mp4/mov/mkv/webm/avi/ts); files containing a video track are probed with ffprobe and flagged via `songs.is_video`
 
 ### Frontend
 
@@ -173,7 +176,7 @@ make build-frontend-all            # All platforms supported by the current syst
 
 | Table | Description | Key Fields |
 |------|------|---------|
-| **songs** | Songs/radio | type(local/remote/radio), title, artist, album, duration, file_path, url, cover_path, lyric, lyric_source, plugin_entry_path, source_data, dedup_key, cache_path |
+| **songs** | Songs/radio | type(local/remote/radio), title, artist, album, duration, file_path, url, cover_path, lyric, lyric_source, plugin_entry_path, source_data, dedup_key, cache_path, is_video |
 | **playlists** | Playlists | type(normal/radio), name, labels, cover_path, cover_url |
 | **playlist_songs** | Playlist-song associations | playlist_id, song_id, position |
 | **configs** | System configuration | key(unique), value(JSON) |
