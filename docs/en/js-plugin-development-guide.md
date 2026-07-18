@@ -733,8 +733,8 @@ const { apiGet, apiPost } = SongloftPlugin;
 
 Plugin pages opened inside the Songloft client can call host client capabilities via `window.SongloftPlugin.host` / `.player` — most commonly to rewrite the host's "now playing queue".
 
-> - Works in: the **native client** (Android/iOS/macOS/Windows/Linux) webview plugin pages, and **Web embedded tab plugin pages** (host iframe, via a postMessage bridge).
-> - Does NOT work in: **Web full-screen plugin pages** (opened standalone in a new browser tab, no host parent window) — there `host.isAvailable()` returns `false` and calls throw, so always feature-detect first.
+> - Works in: the **native client** (Android/iOS/macOS/Windows/Linux) webview plugin pages, and **Web plugin pages** (both embedded tab pages and home/full-screen pages open inside a host iframe, via a postMessage bridge).
+> - Does NOT work in: only when the user opens a plugin page standalone in a new browser tab via "Open in browser" (no host parent window) — there `host.isAvailable()` returns `false` and calls throw, so always feature-detect first.
 > - Capabilities are injected by the host client and track its version. Set an appropriate `minHostVersion` in `plugin.json` and use `host.getInfo().capabilities` for capability negotiation.
 
 ```javascript
