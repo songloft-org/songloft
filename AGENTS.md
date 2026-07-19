@@ -261,7 +261,7 @@ Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行
 - 升级检查 (`/api/v1/upgrade/check`) 仅 Docker 可用
 - Flutter `secure_storage` 在 macOS 未签名沙盒下自动降级到 SharedPreferences
 - Android 构建前需 `sdkmanager --licenses`；Android 13+ 需运行时申请通知权限
-- Windows/Linux 音频后端走 `just_audio_media_kit`（libmpv）
+- 所有原生平台（Win/Linux/macOS/Android/iOS）音频后端统一走 media_kit/libmpv（经 `just_audio_media_kit` / 自定义 `SongloftJustAudioPlatform`），无回退原生、无 kill-switch
 - HyperOS3 等需 `androidStopForegroundOnPause: false` 防后台回收
 - **Bundle 模式 Android**：CWD 是 `/`，covers 目录路径必须相对于 `DBPath` 而非 CWD 解析（`da65db1` 修复）
 - **Bundle 模式原生桥接**：Android 用 `Class.forName("mobile.Mobile")` 反射调用 gomobile 生成类，未打包 `.aar` 时 `isAvailable()` 返回 false（优雅降级）；iOS 同理用 Swift 调用 `MobileStart` 等 Objective-C 函数

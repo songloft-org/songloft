@@ -261,7 +261,7 @@ The Docker image contains a base package `/app/songloft`, while the persistent d
 - The upgrade check (`/api/v1/upgrade/check`) is only available on Docker
 - Flutter `secure_storage` automatically falls back to SharedPreferences under an unsigned macOS sandbox
 - Before an Android build you need `sdkmanager --licenses`; Android 13+ requires requesting notification permission at runtime
-- The Windows/Linux audio backend uses `just_audio_media_kit` (libmpv)
+- All native platforms (Win/Linux/macOS/Android/iOS) uniformly use media_kit/libmpv as the audio backend (via `just_audio_media_kit` / the custom `SongloftJustAudioPlatform`), with no native fallback and no kill-switch
 - HyperOS3 and similar need `androidStopForegroundOnPause: false` to prevent background reclamation
 - **Bundle mode Android**: the CWD is `/`, so the covers directory path must be resolved relative to `DBPath` rather than the CWD (fixed in `da65db1`)
 - **Bundle mode native bridging**: Android uses `Class.forName("mobile.Mobile")` reflection to call the gomobile-generated class; when the `.aar` isn't bundled, `isAvailable()` returns false (graceful degradation); iOS likewise uses Swift to call the Objective-C functions like `MobileStart`

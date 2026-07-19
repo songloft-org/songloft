@@ -11,7 +11,7 @@ Songloft 前端是一个基于 Flutter 的跨平台音乐播放器，支持 **An
 - **路由**: go_router ^17.1.0（声明式路由 + ShellRoute）
 - **HTTP 客户端**: dio ^5.7.0
 - **音频播放**: just_audio ^0.10.5 + audio_service ^0.18.17
-- **音频后端**: Win/Linux/macOS/Android/iOS 默认 just_audio_media_kit（libmpv，可编译期回退原生）；Web 用 just_audio_web + 自接 hls.js
+- **音频后端**: 所有原生平台（Win/Linux/macOS/Android/iOS）统一 just_audio_media_kit（libmpv，无回退）；Web 用 just_audio_web + 自接 hls.js
 - **视频画面**: media_kit_video（原生平台复用同一 libmpv Player 派生 VideoController；Web 用静音 `<video>` 同步，songloft-org/songloft#76）
 - **本地存储**: shared_preferences ^2.3.4
 - **图片缓存**: cached_network_image ^3.4.1
@@ -320,7 +320,7 @@ flutter build windows --dart-define=HAS_BACKEND=true  # Windows
 SongloftAudioHandler (extends BaseAudioHandler)
 ├── just_audio (核心播放引擎)
 │   ├── Web: HTML5 Audio + hls.js (自定义 SongloftWebJustAudioPlugin)
-│   └── Win/Linux/macOS/Android/iOS: media_kit (libmpv)，macOS/移动端可回退原生
+│   └── Win/Linux/macOS/Android/iOS: media_kit (libmpv)，所有原生平台统一，无回退
 ├── audio_service (系统通知栏/锁屏控制)
 └── audio_session (音频焦点管理)
 ```
@@ -330,7 +330,7 @@ SongloftAudioHandler (extends BaseAudioHandler)
 - **Android**: 前台服务持续运行（`androidStopForegroundOnPause: false`），兼容 HyperOS3 等激进回收策略
 - **Android 13+**: 运行时请求通知权限
 - **macOS**: secure_storage 未签名时自动降级到 SharedPreferences
-- **音频后端**: Win/Linux/macOS/Android/iOS 默认用 `just_audio_media_kit`（libmpv），支持应用内视频画面；macOS/移动端可用 `--dart-define=SONGLOFT_MEDIAKIT_MACOS/MOBILE=false` 回退原生（AVPlayer/ExoPlayer）
+- **音频后端**: 所有原生平台（Win/Linux/macOS/Android/iOS）统一用 `just_audio_media_kit`（libmpv），支持应用内视频画面，无回退（已移除 kill-switch，不再支持回退 AVPlayer/ExoPlayer）
 
 ## 开发命令
 

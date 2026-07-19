@@ -11,7 +11,7 @@ The Songloft frontend is a Flutter-based cross-platform music player supporting 
 - **Routing**: go_router ^17.1.0 (declarative routing + ShellRoute)
 - **HTTP client**: dio ^5.7.0
 - **Audio playback**: just_audio ^0.10.5 + audio_service ^0.18.17
-- **Audio backend**: Win/Linux/macOS/Android/iOS default to just_audio_media_kit (libmpv, with a compile-time fallback to native); Web uses just_audio_web + self-integrated hls.js
+- **Audio backend**: all native platforms (Win/Linux/macOS/Android/iOS) uniformly use just_audio_media_kit (libmpv, no fallback); Web uses just_audio_web + self-integrated hls.js
 - **Video picture**: media_kit_video (native platforms derive a VideoController from the same libmpv Player; Web uses a muted `<video>` synced to playback, songloft-org/songloft#76)
 - **Local storage**: shared_preferences ^2.3.4
 - **Image caching**: cached_network_image ^3.4.1
@@ -320,7 +320,7 @@ flutter build windows --dart-define=HAS_BACKEND=true  # Windows
 SongloftAudioHandler (extends BaseAudioHandler)
 ├── just_audio (core playback engine)
 │   ├── Web: HTML5 Audio + hls.js (custom SongloftWebJustAudioPlugin)
-│   └── Win/Linux/macOS/Android/iOS: media_kit (libmpv), macOS/mobile can fall back to native
+│   └── Win/Linux/macOS/Android/iOS: media_kit (libmpv), unified across all native platforms, no fallback
 ├── audio_service (system notification bar / lock screen controls)
 └── audio_session (audio focus management)
 ```
@@ -330,7 +330,7 @@ SongloftAudioHandler (extends BaseAudioHandler)
 - **Android**: foreground service runs continuously (`androidStopForegroundOnPause: false`), compatible with aggressive reclamation strategies such as HyperOS3
 - **Android 13+**: requests notification permission at runtime
 - **macOS**: secure_storage automatically falls back to SharedPreferences when unsigned
-- **Audio backend**: Win/Linux/macOS/Android/iOS default to `just_audio_media_kit` (libmpv), enabling in-app video; macOS/mobile can fall back to native (AVPlayer/ExoPlayer) via `--dart-define=SONGLOFT_MEDIAKIT_MACOS/MOBILE=false`
+- **Audio backend**: all native platforms (Win/Linux/macOS/Android/iOS) uniformly use `just_audio_media_kit` (libmpv), enabling in-app video, with no fallback (the kill-switch has been removed; falling back to AVPlayer/ExoPlayer is no longer supported)
 
 ## Development Commands
 
