@@ -138,13 +138,13 @@ func TestTranscodedFileName(t *testing.T) {
 
 	// 本地歌曲（无 cacheKey），无 bitrate
 	local := &models.Song{ID: 42, Type: "local"}
-	name := cs.transcodedFileName(local, "mp3", 0)
+	name := cs.transcodedFileName(local, "mp3", 0, -1)
 	if name != "42.tc.mp3" {
 		t.Errorf("transcodedFileName(local, 0) = %q, want %q", name, "42.tc.mp3")
 	}
 
 	// 本地歌曲，有 bitrate
-	name = cs.transcodedFileName(local, "mp3", 128)
+	name = cs.transcodedFileName(local, "mp3", 128, -1)
 	if name != "42.tc.128k.mp3" {
 		t.Errorf("transcodedFileName(local, 128) = %q, want %q", name, "42.tc.128k.mp3")
 	}
@@ -156,14 +156,14 @@ func TestTranscodedFileName(t *testing.T) {
 		PluginEntryPath: "my-source",
 		DedupKey:        "platform:12345",
 	}
-	name = cs.transcodedFileName(remote, "ogg", 0)
+	name = cs.transcodedFileName(remote, "ogg", 0, -1)
 	expected := "123.my-source_platform_12345.tc.ogg"
 	if name != expected {
 		t.Errorf("transcodedFileName(remote, 0) = %q, want %q", name, expected)
 	}
 
 	// 插件来源歌曲，有 bitrate
-	name = cs.transcodedFileName(remote, "mp3", 192)
+	name = cs.transcodedFileName(remote, "mp3", 192, -1)
 	expected = "123.my-source_platform_12345.tc.192k.mp3"
 	if name != expected {
 		t.Errorf("transcodedFileName(remote, 192) = %q, want %q", name, expected)
@@ -177,19 +177,19 @@ func TestFindTranscodedFile(t *testing.T) {
 	song := &models.Song{ID: 100, Type: "local", Format: "wma"}
 
 	// 不存在时应 miss
-	if _, ok := cs.FindTranscodedFile(song, "mp3", 0); ok {
+	if _, ok := cs.FindTranscodedFile(song, "mp3", 0, -1); ok {
 		t.Error("FindTranscodedFile should miss when file does not exist")
 	}
 
 	// 创建 format-only 转码文件
 	dir, _ := cs.getCachePath(song.ID, "")
 	os.MkdirAll(dir, 0755)
-	name := cs.transcodedFileName(song, "mp3", 0)
+	name := cs.transcodedFileName(song, "mp3", 0, -1)
 	path := filepath.Join(dir, name)
 	os.WriteFile(path, []byte("fake mp3"), 0644)
 
 	// format-only 应命中
-	found, ok := cs.FindTranscodedFile(song, "mp3", 0)
+	found, ok := cs.FindTranscodedFile(song, "mp3", 0, -1)
 	if !ok {
 		t.Fatal("FindTranscodedFile should hit after creating file")
 	}
@@ -198,22 +198,22 @@ func TestFindTranscodedFile(t *testing.T) {
 	}
 
 	// 不同格式应 miss
-	if _, ok := cs.FindTranscodedFile(song, "ogg", 0); ok {
+	if _, ok := cs.FindTranscodedFile(song, "ogg", 0, -1); ok {
 		t.Error("FindTranscodedFile should miss for different format")
 	}
 
 	// 带 bitrate 的应 miss（不同文件名）
-	if _, ok := cs.FindTranscodedFile(song, "mp3", 128); ok {
+	if _, ok := cs.FindTranscodedFile(song, "mp3", 128, -1); ok {
 		t.Error("FindTranscodedFile should miss for same format but different bitrate")
 	}
 
 	// 创建带 bitrate 的转码文件
-	name128 := cs.transcodedFileName(song, "mp3", 128)
+	name128 := cs.transcodedFileName(song, "mp3", 128, -1)
 	path128 := filepath.Join(dir, name128)
 	os.WriteFile(path128, []byte("fake 128k mp3"), 0644)
 
 	// 带 bitrate 应命中
-	found, ok = cs.FindTranscodedFile(song, "mp3", 128)
+	found, ok = cs.FindTranscodedFile(song, "mp3", 128, -1)
 	if !ok {
 		t.Fatal("FindTranscodedFile should hit for bitrate file")
 	}
@@ -222,7 +222,7 @@ func TestFindTranscodedFile(t *testing.T) {
 	}
 
 	// 不同 bitrate 应 miss
-	if _, ok := cs.FindTranscodedFile(song, "mp3", 320); ok {
+	if _, ok := cs.FindTranscodedFile(song, "mp3", 320, -1); ok {
 		t.Error("FindTranscodedFile should miss for different bitrate")
 	}
 }

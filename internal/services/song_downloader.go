@@ -123,7 +123,7 @@ func (d *SongDownloader) Download(ctx context.Context, songID int64, opts SongDo
 	// 转码失败时优雅降级——仅告警并保留源格式，绝不阻塞下载（如 Bundle/移动端无 ffmpeg）。
 	if opts.Format != "" {
 		bitrate := ParseBitrate(opts.Quality) // 仅认 128/192/320，其余为 0（默认最高质量）
-		tcPath, terr := d.cacheService.GetOrTranscode(ctx, srcPath, song, opts.Format, bitrate)
+		tcPath, terr := d.cacheService.GetOrTranscode(ctx, srcPath, song, opts.Format, bitrate, -1)
 		if terr != nil {
 			slog.Warn("download: transcode failed, keeping original format",
 				"songId", songID, "format", opts.Format, "error", terr)

@@ -130,6 +130,7 @@ func (a *App) setupAPIV1Router() {
 			r.Get("/songs/duplicates", songHandler.GetDuplicates)
 			r.Get("/songs/facets", songHandler.ListSongFacets)
 			r.Get("/songs/{id}", songHandler.GetSong)
+			r.Get("/songs/{id}/audio-tracks", songHandler.GetSongAudioTracks)
 			r.Put("/songs/{id}", songHandler.UpdateSong)
 			r.Delete("/songs/{id}", songHandler.DeleteSong)
 			r.Put("/songs/{id}/lyrics", songHandler.UpdateSongLyrics)

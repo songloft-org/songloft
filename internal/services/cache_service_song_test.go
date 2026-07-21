@@ -62,8 +62,8 @@ func TestGetOrTranscode_InflightWaiterCanceledByOwnCtx(t *testing.T) {
 	song := &models.Song{ID: 9002, Type: "local", Format: "wma"}
 	targetFormat := "mp3"
 
-	// 手动注入一个永不完成的转码 inflight（key 含 bitrate=0）
-	inflightKey := "tc_9002_mp3_0"
+	// 手动注入一个永不完成的转码 inflight（key 含 bitrate=0、trackIndex=-1）
+	inflightKey := "tc_9002_mp3_0_t-1"
 	state := getSongState()
 	state.transcodeInflightMu.Lock()
 	dl := &inflightDownload{done: make(chan struct{})}
@@ -83,7 +83,7 @@ func TestGetOrTranscode_InflightWaiterCanceledByOwnCtx(t *testing.T) {
 
 	// srcPath 不存在不影响测试——我们只走到 inflight 等待分支就够了
 	start := time.Now()
-	_, err := cs.GetOrTranscode(ctx, "/nonexistent/src.wma", song, targetFormat, 0)
+	_, err := cs.GetOrTranscode(ctx, "/nonexistent/src.wma", song, targetFormat, 0, -1)
 	elapsed := time.Since(start)
 
 	if err == nil {

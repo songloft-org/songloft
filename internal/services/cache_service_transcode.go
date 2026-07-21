@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -48,19 +49,23 @@ func ParseBitrate(s string) int {
 }
 
 // GetOrTranscode 获取转码后的文件路径。
-//  1. 原格式==目标格式 且 bitrate==0 → 返回 srcPath
+//  1. 原格式==目标格式 且 bitrate==0 且未指定抽轨 → 返回 srcPath
 //  2. 转码缓存命中 → 返回缓存路径
 //  3. miss → ffmpeg 转码 → 写入缓存 → 返回
 //
 // srcPath 是原始音频文件路径（本地文件路径或已下载的缓存文件路径）。
 // targetFormat 是标准化后的格式名（mp3/ogg/m4a/flac/wav）。
 // bitrate 为目标码率（kbps），0 表示使用默认最高质量。
-func (c *CacheService) GetOrTranscode(ctx context.Context, srcPath string, song *models.Song, targetFormat string, bitrate int) (string, error) {
+// trackIndex 为要抽取的音频流（audio-relative 0-based，对应 ffmpeg -map 0:a:N，
+// songloft-org/songloft#298）；< 0 表示不抽轨、保持原有行为。指定时强制走 ffmpeg，
+// 且缓存文件名含 track 维度，不同轨缓存互不覆盖。
+func (c *CacheService) GetOrTranscode(ctx context.Context, srcPath string, song *models.Song, targetFormat string, bitrate, trackIndex int) (string, error) {
 	if song == nil {
 		return "", errors.New("song is nil")
 	}
 	srcFmt := EffectiveSourceFormat(song, srcPath)
-	needsTranscode := NeedsTranscode(srcFmt, targetFormat) || bitrate > 0
+	// 抽轨（trackIndex >= 0）必须走 ffmpeg：即使容器/编码相同也要 -map 出单条音轨。
+	needsTranscode := NeedsTranscode(srcFmt, targetFormat) || bitrate > 0 || trackIndex >= 0
 	if !needsTranscode {
 		slog.Debug("transcode skipped: same format",
 			"songId", song.ID, "songFormat", song.Format,
@@ -69,15 +74,15 @@ func (c *CacheService) GetOrTranscode(ctx context.Context, srcPath string, song 
 	}
 	slog.Info("transcode needed",
 		"songId", song.ID, "songFormat", song.Format,
-		"srcFmt", srcFmt, "targetFormat", targetFormat, "bitrate", bitrate, "srcPath", srcPath)
+		"srcFmt", srcFmt, "targetFormat", targetFormat, "bitrate", bitrate, "trackIndex", trackIndex, "srcPath", srcPath)
 
 	// 1. 缓存命中
-	if p, ok := c.FindTranscodedFile(song, targetFormat, bitrate); ok {
+	if p, ok := c.FindTranscodedFile(song, targetFormat, bitrate, trackIndex); ok {
 		return p, nil
 	}
 
 	// 2. inflight 去重
-	inflightKey := fmt.Sprintf("tc_%d_%s_%d", song.ID, targetFormat, bitrate)
+	inflightKey := fmt.Sprintf("tc_%d_%s_%d_t%d", song.ID, targetFormat, bitrate, trackIndex)
 	state := getSongState()
 	state.transcodeInflightMu.Lock()
 	if dl, ok := state.transcodeInflight[inflightKey]; ok {
@@ -90,7 +95,7 @@ func (c *CacheService) GetOrTranscode(ctx context.Context, srcPath string, song 
 		if dl.err != nil {
 			return "", dl.err
 		}
-		if p, ok := c.FindTranscodedFile(song, targetFormat, bitrate); ok {
+		if p, ok := c.FindTranscodedFile(song, targetFormat, bitrate, trackIndex); ok {
 			return p, nil
 		}
 		return "", fmt.Errorf("transcoded file not found after wait")
@@ -106,7 +111,7 @@ func (c *CacheService) GetOrTranscode(ctx context.Context, srcPath string, song 
 	}()
 
 	// 3. 转码
-	finalPath, err := c.doTranscode(ctx, srcPath, song, targetFormat, bitrate)
+	finalPath, err := c.doTranscode(ctx, srcPath, song, targetFormat, bitrate, trackIndex)
 	if err != nil {
 		dl.err = err
 		return "", err
@@ -117,12 +122,13 @@ func (c *CacheService) GetOrTranscode(ctx context.Context, srcPath string, song 
 }
 
 // FindTranscodedFile 查找已转码的缓存文件。
-// 文件名形如 "{id}.{key}.tc.{format}"、"{id}.tc.{format}" 或含码率的 "{id}.tc.{N}k.{format}"。
-func (c *CacheService) FindTranscodedFile(song *models.Song, targetFormat string, bitrate int) (string, bool) {
+// 文件名形如 "{id}.{key}.tc.{format}"、"{id}.tc.{format}"、含码率的 "{id}.tc.{N}k.{format}"，
+// 或含抽轨标记的 "{id}.tc.a{idx}.{format}"（songloft-org/songloft#298）。
+func (c *CacheService) FindTranscodedFile(song *models.Song, targetFormat string, bitrate, trackIndex int) (string, bool) {
 	if song == nil {
 		return "", false
 	}
-	name := c.transcodedFileName(song, targetFormat, bitrate)
+	name := c.transcodedFileName(song, targetFormat, bitrate, trackIndex)
 	dir, _ := c.getCachePath(song.ID, "")
 	path := filepath.Join(dir, name)
 	if _, err := os.Stat(path); err == nil {
@@ -132,7 +138,7 @@ func (c *CacheService) FindTranscodedFile(song *models.Song, targetFormat string
 }
 
 // doTranscode 执行 ffmpeg 转码并写入缓存。
-func (c *CacheService) doTranscode(ctx context.Context, srcPath string, song *models.Song, targetFormat string, bitrate int) (string, error) {
+func (c *CacheService) doTranscode(ctx context.Context, srcPath string, song *models.Song, targetFormat string, bitrate, trackIndex int) (string, error) {
 	dir, _ := c.getCachePath(song.ID, "")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("mkdir transcode cache dir: %w", err)
@@ -146,12 +152,12 @@ func (c *CacheService) doTranscode(ctx context.Context, srcPath string, song *mo
 	tmpPath := tmp.Name()
 	tmp.Close()
 
-	if err := c.runFFmpeg(ctx, srcPath, tmpPath, targetFormat, bitrate); err != nil {
+	if err := c.runFFmpeg(ctx, srcPath, tmpPath, targetFormat, bitrate, trackIndex); err != nil {
 		os.Remove(tmpPath)
 		return "", fmt.Errorf("ffmpeg transcode: %w", err)
 	}
 
-	finalName := c.transcodedFileName(song, targetFormat, bitrate)
+	finalName := c.transcodedFileName(song, targetFormat, bitrate, trackIndex)
 	finalPath := filepath.Join(dir, finalName)
 	if _, err := os.Stat(finalPath); err == nil {
 		os.Remove(finalPath)
@@ -161,20 +167,34 @@ func (c *CacheService) doTranscode(ctx context.Context, srcPath string, song *mo
 		return "", fmt.Errorf("rename transcoded file: %w", err)
 	}
 
-	slog.Info("transcode completed", "songId", song.ID, "format", targetFormat, "bitrate", bitrate, "path", finalPath)
+	slog.Info("transcode completed", "songId", song.ID, "format", targetFormat, "bitrate", bitrate, "trackIndex", trackIndex, "path", finalPath)
 	return finalPath, nil
 }
 
 // runFFmpeg 调用 ffmpeg 执行转码。
-func (c *CacheService) runFFmpeg(ctx context.Context, srcPath, dstPath, targetFormat string, bitrate int) error {
-	encoder, qualityArgs, muxer, err := ffmpegArgs(targetFormat, bitrate)
-	if err != nil {
-		return err
+// trackIndex >= 0 时抽取指定音轨（-map 0:a:N，songloft-org/songloft#298）：
+// 目标为 m4a 时视为「AAC 无损 remux」，用 -c:a copy 直出 ipod(m4a) 容器（秒级、无损、
+// Web 原生可播）；其余格式走常规编码路径（可对指定轨编码为 mp3 等）。
+// trackIndex < 0 时保持原有整文件转码行为不变。
+func (c *CacheService) runFFmpeg(ctx context.Context, srcPath, dstPath, targetFormat string, bitrate, trackIndex int) error {
+	var args []string
+	if trackIndex >= 0 && NormalizeFormat(targetFormat) == "m4a" {
+		// AAC 无损抽轨：直接把指定音轨 copy 进 m4a(ipod) 容器，不重新编码。
+		args = []string{"-i", srcPath, "-map", fmt.Sprintf("0:a:%d", trackIndex), "-c:a", "copy", "-f", "ipod", "-y", dstPath}
+	} else {
+		encoder, qualityArgs, muxer, err := ffmpegArgs(targetFormat, bitrate)
+		if err != nil {
+			return err
+		}
+		args = []string{"-i", srcPath}
+		if trackIndex >= 0 {
+			// 抽取指定音轨后编码（非 AAC 源，如需转 mp3 供 Web 播放）。
+			args = append(args, "-map", fmt.Sprintf("0:a:%d", trackIndex))
+		}
+		args = append(args, "-vn", "-codec:a", encoder)
+		args = append(args, qualityArgs...)
+		args = append(args, "-f", muxer, "-y", dstPath)
 	}
-
-	args := []string{"-i", srcPath, "-vn", "-codec:a", encoder}
-	args = append(args, qualityArgs...)
-	args = append(args, "-f", muxer, "-y", dstPath)
 
 	ffmpegPath := c.ffmpegPath
 	if ffmpegPath == "" {
@@ -202,7 +222,9 @@ func (c *CacheService) runFFmpeg(ctx context.Context, srcPath, dstPath, targetFo
 
 // transcodedFileName 生成转码缓存文件名。
 // bitrate > 0 时文件名含码率标记，如 "42.tc.128k.mp3"。
-func (c *CacheService) transcodedFileName(song *models.Song, targetFormat string, bitrate int) string {
+// trackIndex >= 0 时文件名含抽轨标记，如 "42.tc.a1.m4a"（songloft-org/songloft#298），
+// 保证不同音轨的缓存互不覆盖。
+func (c *CacheService) transcodedFileName(song *models.Song, targetFormat string, bitrate, trackIndex int) string {
 	idStr := strconv.FormatInt(song.ID, 10)
 	key := cacheKeyOf(song)
 	var base string
@@ -212,9 +234,106 @@ func (c *CacheService) transcodedFileName(song *models.Song, targetFormat string
 		base = idStr + ".tc."
 	}
 	if bitrate > 0 {
-		return base + strconv.Itoa(bitrate) + "k." + targetFormat
+		base += strconv.Itoa(bitrate) + "k."
+	}
+	if trackIndex >= 0 {
+		base += "a" + strconv.Itoa(trackIndex) + "."
 	}
 	return base + targetFormat
+}
+
+// AudioTrackInfo 单条音频流的元信息（songloft-org/songloft#298）。
+// Index 为 audio-relative 0-based 序号（对应 ffmpeg -map 0:a:N）。
+type AudioTrackInfo struct {
+	Index    int    `json:"index"`
+	Title    string `json:"title"`
+	Language string `json:"language"`
+	Codec    string `json:"codec"`
+	Default  bool   `json:"default"`
+}
+
+// resolveFFprobePath 推断 ffprobe 可执行文件路径。
+// CacheService 仅持有 ffmpegPath（由 app.go 注入）；ffprobe 通常与 ffmpeg 同目录，
+// 故优先取其同级 ffprobe，其次在 PATH 中查找，最后回退裸名 "ffprobe"。
+func (c *CacheService) resolveFFprobePath() string {
+	if c.ffmpegPath != "" {
+		dir := filepath.Dir(c.ffmpegPath)
+		base := filepath.Base(c.ffmpegPath)
+		if probeName := strings.Replace(base, "ffmpeg", "ffprobe", 1); probeName != base {
+			cand := filepath.Join(dir, probeName)
+			if fi, err := os.Stat(cand); err == nil && !fi.IsDir() {
+				return cand
+			}
+		}
+	}
+	if p, err := safeLookPath("ffprobe"); err == nil {
+		return p
+	}
+	return "ffprobe"
+}
+
+// ListAudioTracks 用 ffprobe 探测文件的音频流列表（songloft-org/songloft#298）。
+// 只枚举音频流（-select_streams a），返回的 Index 即 audio-relative 0-based 序号。
+func (c *CacheService) ListAudioTracks(ctx context.Context, filePath string) ([]AudioTrackInfo, error) {
+	cmd := exec.CommandContext(ctx, c.resolveFFprobePath(),
+		"-v", "quiet",
+		"-print_format", "json",
+		"-show_streams",
+		"-select_streams", "a",
+		filePath,
+	)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("ffprobe audio tracks: %w", err)
+	}
+	var parsed struct {
+		Streams []FFProbeStream `json:"streams"`
+	}
+	if err := json.Unmarshal(out, &parsed); err != nil {
+		return nil, fmt.Errorf("parse ffprobe output: %w", err)
+	}
+	tracks := make([]AudioTrackInfo, 0, len(parsed.Streams))
+	for i, s := range parsed.Streams {
+		var title, lang string
+		if s.Tags != nil {
+			title = pickTag(s.Tags, "title", "TITLE")
+			lang = pickTag(s.Tags, "language", "LANGUAGE")
+		}
+		tracks = append(tracks, AudioTrackInfo{
+			Index:    i, // audio-relative（因 -select_streams a 只返回音频流）
+			Title:    title,
+			Language: lang,
+			Codec:    strings.ToLower(s.CodecName),
+			Default:  s.Disposition["default"] == 1,
+		})
+	}
+	return tracks, nil
+}
+
+// isWebFriendlyCopyCodec 判断音频编码是否可无损 remux 进 m4a 容器并被 Web 原生播放。
+// AAC 是 Web 原生可播的 codec，可直接 -c:a copy 进 m4a；其余编码需重新编码。
+func isWebFriendlyCopyCodec(codec string) bool {
+	switch strings.ToLower(codec) {
+	case "aac":
+		return true
+	default:
+		return false
+	}
+}
+
+// PlanTrackExtraction 决定抽取指定音轨时的目标容器格式（songloft-org/songloft#298）。
+// 该轨为 AAC → 返回 "m4a"（runFFmpeg 会走无损 copy-remux）；否则 → "mp3"（编码为 Web 可播）。
+// 探测失败或索引越界时保守返回 "mp3"。
+func (c *CacheService) PlanTrackExtraction(ctx context.Context, srcPath string, trackIndex int) string {
+	if trackIndex < 0 {
+		return ""
+	}
+	if tracks, err := c.ListAudioTracks(ctx, srcPath); err == nil {
+		if trackIndex < len(tracks) && isWebFriendlyCopyCodec(tracks[trackIndex].Codec) {
+			return "m4a"
+		}
+	}
+	return "mp3"
 }
 
 // NeedsTranscode 判断是否需要转码。
@@ -279,6 +398,9 @@ func NormalizeFormat(f string) string {
 		return "ape"
 	case "aif", "aiff":
 		return "aiff"
+	// Matroska 音频容器（songloft-org/songloft#297）：与 mkv 视频区分，保留 mka 语义。
+	case "mka":
+		return "mka"
 	// 视频容器（songloft-org/songloft#76）：归一化 ffprobe 返回的容器名，使抽音频转码判定稳定。
 	case "mkv", "matroska":
 		return "mkv"

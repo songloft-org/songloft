@@ -289,6 +289,15 @@ func (m *MetadataExtractor) Extract(ctx context.Context, filePath string) (*Meta
 		}
 	}
 
+	// .mka（Matroska 音频容器，songloft-org/songloft#297）：ffprobe 报告 format_name 为
+	// "matroska,webm"，取首段会得到 "matroska"，与 mkv 视频容器无法区分；tag 库虽已能原生读取
+	// Matroska 标签（走 tag 成功分支时 Format 由扩展名归一化本就是 "mka"），此处仍统一按扩展名兜底，
+	// 确保无论走 tag 成功分支还是 ffprobe 兜底分支，.mka 的 Format 最终都为 "mka"，供前端转码判定
+	// （Web/移动端不原生支持 → 服务端转 mp3 播放）。
+	if strings.EqualFold(filepath.Ext(filePath), ".mka") {
+		metadata.Format = "mka"
+	}
+
 	// 视频轨探测：对可能含视频画面的容器（mp4/mov/mkv/webm/avi/ts 等）用 ffprobe 判定是否含真实视频流。
 	// 注意：含视频轨的 mp4/mov 会被 tag 库成功读取（拿到时长），不会进入上面的 ffprobe 分支，
 	// 故这里必须对视频容器候选独立探测；已探测过（mkv 等无 tag 的容器）则复用 probe，避免重复调用。

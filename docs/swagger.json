@@ -6137,6 +6137,58 @@
                 }
             }
         },
+        "/songs/{id}/audio-tracks": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用 ffprobe 探测该歌曲文件的音频流，返回每条流的 audio-relative index（对应 ffmpeg -map 0:a:N）、title、language、codec、default。主要用于 Web 端双音轨（原唱/伴奏 mka）切换：前端据 tracks 数量决定是否显示切轨入口，并用 index 调 /songs/{id}/play?track=N 抽轨播放。仅本地歌曲（或已落地缓存的网络歌曲）有文件可探测；无可探测文件或音频流 \u003c 2 条时也正常返回（前端据此不显示切轨）。运行时按需探测，不落库。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "歌曲管理"
+                ],
+                "summary": "获取歌曲音频流列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "歌曲 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "音频流列表",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.audioTracksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "无效的歌曲 ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "歌曲不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/songs/{id}/cover": {
             "get": {
                 "security": [
@@ -6536,6 +6588,12 @@
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "description": "抽取指定音频流播放（audio-relative 0-based，对应 ffmpeg -map 0:a:N）。用于 Web 端双音轨（原唱/伴奏 mka）切轨：后端抽出单条音轨，AAC 编码时无损 remux 成 m4a、否则转 mp3。缺省/负数=不抽轨；与 media=video 互斥",
+                        "name": "track",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "传 1 时异步预热缓存/转码，立即返回 202",
                         "name": "prefetch",
@@ -6621,6 +6679,12 @@
                         "type": "string",
                         "description": "目标音质码率（128/192/320），不传或不合法值表示原始音质。指定后默认转码为 mp3（除非同时指定了 format）",
                         "name": "quality",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "抽取指定音频流播放（audio-relative 0-based，对应 ffmpeg -map 0:a:N）。用于 Web 端双音轨（原唱/伴奏 mka）切轨：后端抽出单条音轨，AAC 编码时无损 remux 成 m4a、否则转 mp3。缺省/负数=不抽轨；与 media=video 互斥",
+                        "name": "track",
                         "in": "query"
                     },
                     {
@@ -7068,6 +7132,17 @@
                 },
                 "year": {
                     "type": "integer"
+                }
+            }
+        },
+        "handlers.audioTracksResponse": {
+            "type": "object",
+            "properties": {
+                "tracks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.AudioTrackInfo"
+                    }
                 }
             }
         },
@@ -8244,6 +8319,26 @@
                         "failed"
                     ],
                     "example": "downloading"
+                }
+            }
+        },
+        "services.AudioTrackInfo": {
+            "type": "object",
+            "properties": {
+                "codec": {
+                    "type": "string"
+                },
+                "default": {
+                    "type": "boolean"
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
                 }
             }
         },

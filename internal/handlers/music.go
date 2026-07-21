@@ -512,6 +512,71 @@ func (h *SongHandler) GetSong(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, song)
 }
 
+// audioTracksResponse GET /songs/{id}/audio-tracks 响应体。
+type audioTracksResponse struct {
+	Tracks []services.AudioTrackInfo `json:"tracks"`
+}
+
+// GetSongAudioTracks 获取歌曲音频流列表
+// @Summary 获取歌曲音频流列表
+// @Description 用 ffprobe 探测该歌曲文件的音频流，返回每条流的 audio-relative index（对应 ffmpeg -map 0:a:N）、title、language、codec、default。主要用于 Web 端双音轨（原唱/伴奏 mka）切换：前端据 tracks 数量决定是否显示切轨入口，并用 index 调 /songs/{id}/play?track=N 抽轨播放。仅本地歌曲（或已落地缓存的网络歌曲）有文件可探测；无可探测文件或音频流 < 2 条时也正常返回（前端据此不显示切轨）。运行时按需探测，不落库。
+// @Tags 歌曲管理
+// @Produce json
+// @Param id path int true "歌曲 ID"
+// @Success 200 {object} audioTracksResponse "音频流列表"
+// @Failure 400 {object} map[string]string "无效的歌曲 ID"
+// @Failure 404 {object} map[string]string "歌曲不存在"
+// @Security BearerAuth
+// @Router /songs/{id}/audio-tracks [get]
+func (h *SongHandler) GetSongAudioTracks(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		respondError(w, http.StatusBadRequest, "无效的歌曲 ID", err)
+		return
+	}
+	song, err := h.songService.GetByID(ctx, id)
+	if err != nil || song == nil {
+		respondError(w, http.StatusNotFound, "歌曲不存在", err)
+		return
+	}
+
+	filePath := h.audioTrackProbePath(song)
+	if filePath == "" {
+		respondJSON(w, http.StatusOK, audioTracksResponse{Tracks: []services.AudioTrackInfo{}})
+		return
+	}
+
+	tracks, err := h.cacheService.ListAudioTracks(ctx, filePath)
+	if err != nil {
+		slog.Warn("probe audio tracks failed", "songId", id, "path", filePath, "error", err)
+		respondJSON(w, http.StatusOK, audioTracksResponse{Tracks: []services.AudioTrackInfo{}})
+		return
+	}
+	if tracks == nil {
+		tracks = []services.AudioTrackInfo{}
+	}
+	respondJSON(w, http.StatusOK, audioTracksResponse{Tracks: tracks})
+}
+
+// audioTrackProbePath 返回可供 ffprobe 探测音频流的本地文件路径。
+// 本地歌曲 → FilePath；网络歌曲 → 已落地缓存（cache_path 或旧格式缓存）；均不可用时返回空串。
+func (h *SongHandler) audioTrackProbePath(song *models.Song) string {
+	if song.Type == models.TypeLocal {
+		return song.FilePath
+	}
+	if song.CachePath != "" {
+		if _, err := os.Stat(song.CachePath); err == nil {
+			return song.CachePath
+		}
+	}
+	if p, ok := h.cacheService.FindCachedFileBySong(song); ok {
+		return p
+	}
+	return ""
+}
+
 // DeleteSong 删除歌曲
 // @Summary 删除歌曲
 // @Description 根据歌曲ID删除歌曲。设置 delete_files=true 时同步删除本地音频文件
@@ -1054,6 +1119,7 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // @Param id path int true "歌曲 ID"
 // @Param format query string false "目标转码格式（如 mp3、ogg），用于平台兼容性转码"
 // @Param quality query string false "目标音质码率（128/192/320），不传或不合法值表示原始音质。指定后默认转码为 mp3（除非同时指定了 format）"
+// @Param track query int false "抽取指定音频流播放（audio-relative 0-based，对应 ffmpeg -map 0:a:N）。用于 Web 端双音轨（原唱/伴奏 mka）切轨：后端抽出单条音轨，AAC 编码时无损 remux 成 m4a、否则转 mp3。缺省/负数=不抽轨；与 media=video 互斥"
 // @Param prefetch query string false "传 1 时异步预热缓存/转码，立即返回 202"
 // @Param media query string false "传 video 时按视频播放：直出原容器（忽略 format/quality 转码，避免 -vn 丢画面），并按容器真实类型返回 Content-Type（如 video/mp4）。用于应用内视频画面渲染与 DLNA 视频投屏"
 // @Param hls query string false "仅电台(HLS)有效。传 direct 时强制 302 直连源站、绕过本机 HLS 反代（即使 /settings/hls-proxy 已开）。原生 player 无 CORS 限制，直连可避免直播切片经反代往返后过期(404)；浏览器不传此参数以继续走反代解决 CORS"
@@ -1103,6 +1169,18 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 		bitrate = 0
 	}
 
+	// track=N：抽取指定音频流播放（audio-relative 0-based，songloft-org/songloft#298）。
+	// Web 端双音轨（原唱/伴奏 mka）切轨用：后端 -map 出单条音轨并（AAC 时）无损 remux 成 m4a。
+	// 与 media=video 互斥（抽单条音轨会丢画面）；缺省/负数=不抽轨。
+	trackIndex := -1
+	if !videoIntent {
+		if ts := r.URL.Query().Get("track"); ts != "" {
+			if n, err := strconv.Atoi(ts); err == nil && n >= 0 {
+				trackIndex = n
+			}
+		}
+	}
+
 	// 预拉取模式：异步触发缓存 + 转码预热，立即返回 202。
 	// 不能用 r.Context()，否则 202 发出后客户端断开会 Kill ffmpeg，预热失败。
 	// 但通过 playActivity.Track 让 prefetch 能在下一次 Activate 时被 cancel，
@@ -1119,7 +1197,7 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 
 	switch song.Type {
 	case models.TypeLocal:
-		h.serveLocal(w, r, song, targetFormat, bitrate, videoIntent)
+		h.serveLocal(w, r, song, targetFormat, bitrate, videoIntent, trackIndex)
 	case models.TypeRadio:
 		h.serveRadio(w, r, song)
 	case models.TypeRemote:
@@ -1200,7 +1278,7 @@ func (h *SongHandler) prepareSongPlayback(ctx context.Context, song *models.Song
 	if !services.NeedsTranscode(services.EffectiveSourceFormat(song, srcPath), targetFormat) && bitrate == 0 {
 		return
 	}
-	if _, err := h.cacheService.GetOrTranscode(ctx, srcPath, song, services.NormalizeFormat(targetFormat), bitrate); err != nil {
+	if _, err := h.cacheService.GetOrTranscode(ctx, srcPath, song, services.NormalizeFormat(targetFormat), bitrate, -1); err != nil {
 		slog.Warn("prefetch transcode failed", "songId", song.ID, "format", targetFormat, "bitrate", bitrate, "error", err)
 	} else {
 		slog.Info("prefetch ready", "songId", song.ID, "format", targetFormat, "bitrate", bitrate)
@@ -1208,21 +1286,40 @@ func (h *SongHandler) prepareSongPlayback(ctx context.Context, song *models.Song
 }
 
 // serveLocal 本地歌曲:直接 ServeFile(支持 Range,客户端 seek 可用)。
-// targetFormat 非空且与原格式不同时，或 bitrate > 0 时，走 ffmpeg 转码后返回。
-// videoIntent=true（media=video）时上游已清空 targetFormat/bitrate，此处按容器真实类型给 video mime。
-func (h *SongHandler) serveLocal(w http.ResponseWriter, r *http.Request, song *models.Song, targetFormat string, bitrate int, videoIntent bool) {
+// targetFormat 非空且与原格式不同时，或 bitrate > 0 时，或 trackIndex >= 0（抽轨）时，走 ffmpeg 转码后返回。
+// videoIntent=true（media=video）时上游已清空 targetFormat/bitrate/trackIndex，此处按容器真实类型给 video mime。
+// trackIndex >= 0（songloft-org/songloft#298）时抽取指定音轨：由后端探测该轨编码决定目标容器
+// （AAC → m4a 无损 remux，否则 → mp3），忽略传入的 targetFormat/bitrate。
+func (h *SongHandler) serveLocal(w http.ResponseWriter, r *http.Request, song *models.Song, targetFormat string, bitrate int, videoIntent bool, trackIndex int) {
 	if song.FilePath == "" {
 		http.NotFound(w, r)
 		return
 	}
 	srcPath := song.FilePath
-	if services.NeedsTranscode(services.EffectiveSourceFormat(song, srcPath), targetFormat) || bitrate > 0 {
+	if trackIndex >= 0 {
+		// 抽轨播放：目标容器由后端按该轨编码决定，覆盖入参的 format/quality。
+		tcCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		if f := h.cacheService.PlanTrackExtraction(tcCtx, srcPath, trackIndex); f != "" {
+			targetFormat = f
+		}
+		bitrate = 0
+		sk := playactivity.SessionFromContext(r.Context())
+		trackedCtx, release := h.trackActivity(tcCtx, sk, song.ID, playactivity.CatTranscode)
+		defer release()
+		path, err := h.cacheService.GetOrTranscode(trackedCtx, srcPath, song, services.NormalizeFormat(targetFormat), bitrate, trackIndex)
+		if err != nil {
+			slog.Warn("track extraction failed, serving original", "songId", song.ID, "trackIndex", trackIndex, "error", err)
+		} else {
+			srcPath = path
+		}
+	} else if services.NeedsTranscode(services.EffectiveSourceFormat(song, srcPath), targetFormat) || bitrate > 0 {
 		tcCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 		sk := playactivity.SessionFromContext(r.Context())
 		trackedCtx, release := h.trackActivity(tcCtx, sk, song.ID, playactivity.CatTranscode)
 		defer release()
-		path, err := h.cacheService.GetOrTranscode(trackedCtx, srcPath, song, services.NormalizeFormat(targetFormat), bitrate)
+		path, err := h.cacheService.GetOrTranscode(trackedCtx, srcPath, song, services.NormalizeFormat(targetFormat), bitrate, -1)
 		if err != nil {
 			slog.Warn("transcode failed, serving original", "songId", song.ID, "format", targetFormat, "bitrate", bitrate, "error", err)
 		} else {
@@ -1244,6 +1341,10 @@ func (h *SongHandler) serveLocal(w http.ResponseWriter, r *http.Request, song *m
 		switch strings.ToLower(filepath.Ext(srcPath)) {
 		case ".mp4", ".mov", ".m4a", ".m4b":
 			w.Header().Set("Content-Type", "audio/mp4")
+		case ".mka":
+			// Matroska 音频容器（songloft-org/songloft#297）:stdlib 不识别 .mka,
+			// 显式声明为 audio/x-matroska（转码失败回退原始文件时才会命中）。
+			w.Header().Set("Content-Type", "audio/x-matroska")
 		}
 	}
 	http.ServeFile(w, r, srcPath)
@@ -1472,7 +1573,7 @@ func (h *SongHandler) serveCachedFile(w http.ResponseWriter, r *http.Request, so
 		defer cancel()
 		trackedCtx, releaseTc := h.trackActivity(tcCtx, sk, song.ID, playactivity.CatTranscode)
 		defer releaseTc()
-		path, err := h.cacheService.GetOrTranscode(trackedCtx, cachedPath, song, services.NormalizeFormat(targetFormat), bitrate)
+		path, err := h.cacheService.GetOrTranscode(trackedCtx, cachedPath, song, services.NormalizeFormat(targetFormat), bitrate, -1)
 		if err != nil {
 			slog.Warn("transcode failed, serving original", "songId", song.ID, "format", targetFormat, "bitrate", bitrate, "error", err)
 		} else {
