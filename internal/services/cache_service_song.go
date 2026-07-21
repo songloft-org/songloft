@@ -6,9 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -417,47 +415,24 @@ func (c *CacheService) ClearStaleCachePath(songID int64) {
 // 不限制总时长,慢但持续的下载不会被误掐。(issue #265)
 const externalDownloadStallTimeout = 120 * time.Second
 
-// downloadExternalToTemp 纯外链歌曲的简化下载:直接 HTTP GET,无 fallback、无元数据校验。
+// downloadExternalToTemp 纯外链歌曲的简化下载:分块 HTTP Range GET,无 fallback、无元数据校验。
 // 因为纯外链没有"插件源"概念,Orchestrator 也无能为力。
+// 分块下载绕过 YouTube googlevideo 等 CDN 对单连接顺序读的限速(issue #305);此路径也用于
+// 播放时 206 触发的后台全量缓存(AsyncDownloadAndCache),否则慢网下缓存一首歌要数分钟。
+// 核心逻辑见 httputil.ChunkedDownload。
 func (c *CacheService) downloadExternalToTemp(ctx context.Context, url string, headers map[string]string) (string, string, error) {
-	// 可取消的子 ctx:StallReader 在停滞超时到达时 cancel,掐断阻塞中的 body Read。
-	dlCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(dlCtx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", "", fmt.Errorf("new request: %w", err)
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-	// 应用插件返回的自定义头(如 Referer / User-Agent)，覆盖默认值
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	httputil.ApplyBasicAuthFromURL(req)
-	resp, err := c.downloadClient.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("http get: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("http status %d", resp.StatusCode)
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	ext := GetExtFromContentType(contentType)
-
-	tmp, err := os.CreateTemp("", "songloft-extdl-*"+ext)
+	// 先建临时文件(扩展名待首个响应头确定后由 rename 语义无关,直接用无扩展名临时文件承载)。
+	tmp, err := os.CreateTemp("", "songloft-extdl-*")
 	if err != nil {
 		return "", "", fmt.Errorf("create temp: %w", err)
 	}
 	tmpPath := tmp.Name()
-	sr := httputil.NewStallReader(resp.Body, cancel, externalDownloadStallTimeout)
-	defer sr.Stop()
-	written, err := io.Copy(tmp, sr)
+
+	written, firstHeader, dlErr := httputil.ChunkedDownload(ctx, c.downloadClient, url, headers, externalDownloadStallTimeout, tmp)
 	closeErr := tmp.Close()
-	if err != nil {
+	if dlErr != nil {
 		_ = os.Remove(tmpPath)
-		return "", "", fmt.Errorf("write temp: %w", err)
+		return "", "", dlErr
 	}
 	if closeErr != nil {
 		_ = os.Remove(tmpPath)
@@ -466,6 +441,11 @@ func (c *CacheService) downloadExternalToTemp(ctx context.Context, url string, h
 	if written < MinAudioSize {
 		_ = os.Remove(tmpPath)
 		return "", "", fmt.Errorf("downloaded too small: %d", written)
+	}
+
+	ext := ""
+	if firstHeader != nil {
+		ext = GetExtFromContentType(firstHeader.Get("Content-Type"))
 	}
 	return tmpPath, ext, nil
 }

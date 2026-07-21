@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"time"
@@ -283,60 +282,27 @@ func (f *SourceFetcher) Fetch(
 	return result, nil
 }
 
-// downloadToTemp 把 url 流式拉到临时文件,返回路径与写入字节数。
+// downloadToTemp 把 url 分块(HTTP Range)顺序拉到临时文件,返回路径与写入字节数。
+// 分块下载绕过 YouTube googlevideo 等 CDN 对单连接顺序读的限速(issue #305),服务端不支持
+// Range 时自动回退整段下载。核心逻辑见 httputil.ChunkedDownload。
 // 不做 Content-Type 校验,所有内容审计由后续 Probe + Validate 兜底,
 // 因为部分 CDN 返回 application/octet-stream 是正常的。
 func (f *SourceFetcher) downloadToTemp(ctx context.Context, url string, headers map[string]string) (string, int64, error) {
-	// 可取消的子 ctx:StallReader 在停滞超时到达时 cancel,掐断阻塞中的 body Read。
-	dlCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(dlCtx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", 0, fmt.Errorf("new request: %w", err)
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-	// 应用插件返回的自定义头(如 Referer / User-Agent)，覆盖默认值
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	httputil.ApplyBasicAuthFromURL(req)
-
-	resp, err := f.opts.HTTPClient.Do(req)
-	if err != nil {
-		return "", 0, fmt.Errorf("http get: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", 0, fmt.Errorf("http status %d", resp.StatusCode)
-	}
-
 	tmp, err := os.CreateTemp("", "songloft-source-*")
 	if err != nil {
 		return "", 0, fmt.Errorf("create temp file: %w", err)
 	}
 	tmpPath := tmp.Name()
 
-	sr := httputil.NewStallReader(resp.Body, cancel, f.opts.StallTimeout)
-	defer sr.Stop()
-	written, err := io.Copy(tmp, sr)
+	written, _, dlErr := httputil.ChunkedDownload(ctx, f.opts.HTTPClient, url, headers, f.opts.StallTimeout, tmp)
 	closeErr := tmp.Close()
-	if err != nil {
+	if dlErr != nil {
 		_ = os.Remove(tmpPath)
-		return "", 0, fmt.Errorf("write temp: %w", err)
+		return "", 0, dlErr
 	}
 	if closeErr != nil {
 		_ = os.Remove(tmpPath)
 		return "", 0, fmt.Errorf("close temp: %w", closeErr)
-	}
-
-	// Content-Length 截断校验:服务端声明了长度(非 chunked / 非 gzip 透明解压,
-	// 此时 resp.ContentLength >= 0)却写入不足,说明被慢代理干净地切断了——
-	// io.Copy 看到的是正常 EOF 不会报错,只能在这里显式判死,让上层同源重试兜住。(issue #265)
-	if resp.ContentLength >= 0 && written < resp.ContentLength {
-		_ = os.Remove(tmpPath)
-		return "", 0, fmt.Errorf("truncated: got %d of %d bytes", written, resp.ContentLength)
 	}
 
 	return tmpPath, written, nil

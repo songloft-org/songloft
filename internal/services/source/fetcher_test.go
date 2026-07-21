@@ -3,11 +3,14 @@ package source
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
+
+	"songloft/internal/httputil"
 )
 
 // rtFunc 把函数适配成 http.RoundTripper。
@@ -31,6 +34,64 @@ func newFakeClient(body []byte, contentLength int64) *http.Client {
 
 func newFetcherWithClient(c *http.Client) *SourceFetcher {
 	return NewSourceFetcher(FetcherOpts{HTTPClient: c})
+}
+
+// newRangeClient 返回一个按 Range 头分块响应(206)的 client,模拟 googlevideo 等支持
+// Range 的 CDN。用于覆盖 downloadToTemp 的分块拉取路径(issue #305)。
+func newRangeClient(full []byte, t *testing.T) (*http.Client, *int) {
+	requests := 0
+	total := int64(len(full))
+	c := &http.Client{Transport: rtFunc(func(r *http.Request) (*http.Response, error) {
+		requests++
+		rangeHdr := r.Header.Get("Range")
+		if rangeHdr == "" {
+			t.Fatalf("expected Range header, got none")
+		}
+		var start, end int64
+		if _, err := fmt.Sscanf(rangeHdr, "bytes=%d-%d", &start, &end); err != nil {
+			t.Fatalf("bad Range header %q: %v", rangeHdr, err)
+		}
+		if end > total-1 {
+			end = total - 1
+		}
+		chunk := full[start : end+1]
+		h := make(http.Header)
+		h.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, total))
+		return &http.Response{
+			StatusCode:    http.StatusPartialContent,
+			Body:          io.NopCloser(bytes.NewReader(chunk)),
+			ContentLength: int64(len(chunk)),
+			Header:        h,
+		}, nil
+	})}
+	return c, &requests
+}
+
+// 支持 Range 的服务端 → 分块顺序拉取并正确拼接完整文件(issue #305)。
+func TestDownloadToTemp_RangeChunked(t *testing.T) {
+	// 造 25MiB,在 10MiB 分块下需要 3 个 Range 请求(10+10+5)。
+	full := bytes.Repeat([]byte("z"), int(httputil.DownloadChunkSize*2+httputil.DownloadChunkSize/2))
+	c, requests := newRangeClient(full, t)
+	f := newFetcherWithClient(c)
+
+	path, n, err := f.downloadToTemp(context.Background(), "http://x/audio", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer os.Remove(path)
+	if n != int64(len(full)) {
+		t.Fatalf("expected %d bytes, got %d", len(full), n)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read temp: %v", err)
+	}
+	if !bytes.Equal(got, full) {
+		t.Fatalf("downloaded content mismatch: got %d bytes", len(got))
+	}
+	if *requests != 3 {
+		t.Fatalf("expected 3 range requests, got %d", *requests)
+	}
 }
 
 // Content-Length 声明 1000 但只吐 500 字节 → 判为截断,报错且不留临时文件。
