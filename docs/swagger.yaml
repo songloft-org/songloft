@@ -4905,13 +4905,19 @@ paths:
       - 电台与 HLS
   /songs/{id}/lyric:
     get:
-      description: 根据 song.ID 返回 LyricPayload JSON，含 lyric/tlyric/rlyric/lxlyric。
+      description: 根据 song.ID 返回 LyricPayload JSON，含 lyric/tlyric/rlyric/lxlyric。传
+        refresh=1 时强制重新抓取：跳过库中自动获取的旧歌词(空/scraped/cached)重跑歌词搜索插件，响应挂 no-store 不缓存；file/embedded/manual
+        等权威歌词不被覆盖。
       parameters:
       - description: 歌曲 ID
         in: path
         name: id
         required: true
         type: integer
+      - description: 为 true 时绕过缓存强制重新抓取歌词（重跑歌词搜索插件，不覆盖 file/embedded/manual 歌词）
+        in: query
+        name: refresh
+        type: boolean
       produces:
       - application/json
       responses:

@@ -1596,10 +1596,11 @@ func (h *SongHandler) serveCachedFile(w http.ResponseWriter, r *http.Request, so
 //	  - url:走 LyricFetcher 解包插件返回的 envelope,取出 data
 //
 // @Summary 获取歌曲歌词
-// @Description 根据 song.ID 返回 LyricPayload JSON，含 lyric/tlyric/rlyric/lxlyric。
+// @Description 根据 song.ID 返回 LyricPayload JSON，含 lyric/tlyric/rlyric/lxlyric。传 refresh=1 时强制重新抓取：跳过库中自动获取的旧歌词(空/scraped/cached)重跑歌词搜索插件，响应挂 no-store 不缓存；file/embedded/manual 等权威歌词不被覆盖。
 // @Tags 歌曲管理
 // @Produce json
 // @Param id path int true "歌曲 ID"
+// @Param refresh query bool false "为 true 时绕过缓存强制重新抓取歌词（重跑歌词搜索插件，不覆盖 file/embedded/manual 歌词）"
 // @Success 200 {object} map[string]any "LyricPayload"
 // @Failure 404 {string} string "歌曲或歌词不存在"
 // @Failure 502 {string} string "歌词获取失败"
@@ -1620,21 +1621,33 @@ func (h *SongHandler) GetSongLyric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// refresh=1：用户在播放页手动触发的强制重抓。跳过库中自动获取的旧歌词
+	// (空/scraped/cached)直接重跑歌词搜索插件；file/embedded/manual 为权威来源
+	// (用户手动/文件/内嵌)，仍直接返回、不被搜索结果覆盖。
+	refresh := r.URL.Query().Get("refresh") != "" && r.URL.Query().Get("refresh") != "false"
+	authoritative := song.LyricSource == models.LyricSourceFile ||
+		song.LyricSource == models.LyricSourceEmbedded ||
+		song.LyricSource == models.LyricSourceManual
+
 	var payload models.LyricPayload
 	if song.LyricSource == models.LyricSourceURL {
 		if song.LyricRemoteURL != "" && h.lyricFetcher != nil {
 			p, err := h.lyricFetcher.Fetch(ctx, song.LyricRemoteURL)
 			if err != nil {
-				respondError(w, http.StatusBadGateway, "歌词获取失败", err)
-				return
+				// 手动刷新时 url 拉取失败不直接 502，继续走歌词搜索插件兜底
+				if !refresh {
+					respondError(w, http.StatusBadGateway, "歌词获取失败", err)
+					return
+				}
+			} else {
+				payload = p
 			}
-			payload = p
 		}
-	} else if song.Lyric != "" {
+	} else if song.Lyric != "" && (!refresh || authoritative) {
 		payload = models.UnmarshalLyric(song.Lyric)
 	}
 
-	// 歌词为空时，尝试从已注册的歌词提供者插件获取
+	// 歌词为空时（或手动刷新且非权威来源时），尝试从已注册的歌词提供者插件获取
 	if payload.IsEmpty() && h.lyricSearcher != nil {
 		if found, err := h.lyricSearcher.SearchLyrics(ctx, song.Title, song.Artist, song.Album, song.Duration); err == nil && found != nil && !found.IsEmpty() {
 			go h.songService.UpdateLyrics(context.Background(), song.ID, found.MarshalString(), models.LyricSourceScraped, "")
@@ -1642,12 +1655,20 @@ func (h *SongHandler) GetSongLyric(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// 手动刷新的响应一律禁缓存，避免浏览器/客户端把「本次结果」再缓存一年，
+	// 导致下次刷新仍拿到旧值（Web 上尤其明显）。
+	if refresh {
+		w.Header().Set("Cache-Control", "no-store")
+	}
+
 	if payload.IsEmpty() {
 		http.NotFound(w, r)
 		return
 	}
 
-	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	if !refresh {
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
+	}
 	respondJSON(w, http.StatusOK, payload)
 }
 

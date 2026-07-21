@@ -6417,7 +6417,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "根据 song.ID 返回 LyricPayload JSON，含 lyric/tlyric/rlyric/lxlyric。",
+                "description": "根据 song.ID 返回 LyricPayload JSON，含 lyric/tlyric/rlyric/lxlyric。传 refresh=1 时强制重新抓取：跳过库中自动获取的旧歌词(空/scraped/cached)重跑歌词搜索插件，响应挂 no-store 不缓存；file/embedded/manual 等权威歌词不被覆盖。",
                 "produces": [
                     "application/json"
                 ],
@@ -6432,6 +6432,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "为 true 时绕过缓存强制重新抓取歌词（重跑歌词搜索插件，不覆盖 file/embedded/manual 歌词）",
+                        "name": "refresh",
+                        "in": "query"
                     }
                 ],
                 "responses": {
