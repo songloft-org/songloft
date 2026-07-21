@@ -162,10 +162,15 @@ func (s *Song) CoverURLPath() string {
 	return fmt.Sprintf("/api/v1/songs/%d/cover?v=%d", s.ID, s.UpdatedAt.Unix())
 }
 
+// HasLyricProvider 由上层(app 初始化时)注入，报告当前是否存在已启用的歌词提供者插件。
+// LyricURLPath 用它决定是否对本地无歌词歌曲放行歌词 URL —— 有歌词插件时才放行，
+// 避免没装插件的用户对全库无歌词歌发出注定 404 的请求。未注入(nil)时视作"无插件"。
+var HasLyricProvider func() bool
+
 // LyricURLPath 返回客户端用的统一歌词 URL。
 // 有歌词时(无论来源):返回 /api/v1/songs/{id}/lyric 端点。
-// remote 歌曲即使暂无歌词也返回端点,使客户端能发起请求触发歌词插件自动搜索。
-// 其他情况无歌词时:返回空字符串。
+// remote 歌曲、以及"无歌词但存在歌词插件"的本地歌曲即使暂无歌词也返回端点,
+// 使客户端能发起请求触发歌词插件自动搜索。其他情况无歌词时:返回空字符串。
 func (s *Song) LyricURLPath() string {
 	if s.ID == 0 {
 		return ""
@@ -179,6 +184,12 @@ func (s *Song) LyricURLPath() string {
 	// 在 payload 为空时会 fallback 到已注册的歌词搜索插件。若此处不返回 URL,客户端
 	// 永远不会发起歌词请求,搜索逻辑无法被激活。(#201)
 	if s.Lyric != "" || (s.LyricSource == LyricSourceURL && s.LyricRemoteURL != "") || s.Type == TypeRemote {
+		return fmt.Sprintf("/api/v1/songs/%d/lyric", s.ID)
+	}
+	// 本地无歌词歌曲：仅当存在已启用的歌词提供者插件时才放行,让客户端发起请求触发自动搜索。
+	// 否则(没装/没启用歌词插件)保持返回空,行为与历史一致 —— 不平白让客户端对全库发 404 请求。
+	// 限定 TypeLocal：radio 是直播流、不参与歌词搜索,不应因存在歌词插件被放行。(#303)
+	if s.Type == TypeLocal && HasLyricProvider != nil && HasLyricProvider() {
 		return fmt.Sprintf("/api/v1/songs/%d/lyric", s.ID)
 	}
 	return ""

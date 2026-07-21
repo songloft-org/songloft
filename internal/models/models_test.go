@@ -278,6 +278,39 @@ func TestLyricURLPath(t *testing.T) {
 	}
 }
 
+// TestLyricURLPathWithProvider 验证 #303：存在歌词提供者插件时，
+// 本地无歌词歌曲也放行歌词 URL，从而触发客户端请求 → 后端自动搜索。
+func TestLyricURLPathWithProvider(t *testing.T) {
+	orig := HasLyricProvider
+	t.Cleanup(func() { HasLyricProvider = orig })
+
+	localNoLyric := Song{ID: 1, Type: TypeLocal}
+
+	// 无 hook（等价于没装歌词插件）：保持历史行为，返回空。
+	HasLyricProvider = nil
+	if got := localNoLyric.LyricURLPath(); got != "" {
+		t.Errorf("无歌词插件时 local 无歌词应返回空, got %q", got)
+	}
+
+	// hook 报告无提供者：仍返回空。
+	HasLyricProvider = func() bool { return false }
+	if got := localNoLyric.LyricURLPath(); got != "" {
+		t.Errorf("无提供者时 local 无歌词应返回空, got %q", got)
+	}
+
+	// hook 报告有提供者：放行歌词 URL 以触发自动搜索。
+	HasLyricProvider = func() bool { return true }
+	if got := localNoLyric.LyricURLPath(); got != "/api/v1/songs/1/lyric" {
+		t.Errorf("有提供者时 local 无歌词应放行歌词 URL, got %q", got)
+	}
+
+	// 有提供者也不影响 radio（radio 不参与歌词搜索）。
+	radio := Song{ID: 3, Type: TypeRadio}
+	if got := radio.LyricURLPath(); got != "" {
+		t.Errorf("radio 应始终返回空, got %q", got)
+	}
+}
+
 // TestPlaylistValidate 测试 Playlist 验证逻辑
 func TestPlaylistValidate(t *testing.T) {
 	tests := []struct {

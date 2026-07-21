@@ -329,6 +329,10 @@ func (a *App) Init() error {
 	a.jsPluginManager = jsplugin.NewManager(jsPluginRepo, jsPluginsDir, jsPluginsDataDir, a.config.BasePath, a.router, a.db)
 	a.jsPluginManager.SetAuthService(a.authService, a.config.Port)
 
+	// 注入歌词提供者探测钩子：让 models.LyricURLPath 在存在歌词插件时,
+	// 对本地无歌词歌曲也放行歌词 URL,从而触发 GetSongLyric 的自动搜索 fallback(#303)。
+	models.HasLyricProvider = a.jsPluginManager.HasLyricProvider
+
 	// 创建歌曲下载服务并注入到 JS 插件管理器（bridge songs.download 调用）
 	a.downloadActivity = &services.DownloadActivity{}
 	songDownloader := services.NewSongDownloader(a.songService, a.cacheService, a.configService, a.scanner.GetMusicPath, a.lyricFetcher, a.downloadActivity)

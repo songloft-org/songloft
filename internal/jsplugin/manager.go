@@ -65,7 +65,11 @@ type Manager struct {
 	loadGroup            singleflight.Group
 	publicPathPrefixes   []string // 无需 JWT 的路径前缀（通过 RefreshPublicPaths 从 DB 加载，运行时可刷新）
 	playEventSubscribers sync.Map // 已订阅播放事件的插件 entryPath 集合
-	lyricProviders       sync.Map // 已注册为歌词提供者的插件 entryPath 集合
+	// lyricProviders 记录声明了歌词提供能力的插件 entryPath 集合。
+	// 语义是"已知歌词提供者"而非"当前已加载"：插件被空闲驱逐(UnloadPlugin)时**不**从此集合移除，
+	// 否则驱逐后 SearchLyrics 遍历到空集合会直接短路，永远无法懒加载唤醒插件(#303)。
+	// 仅在插件 JS 主动 unregisterProvider(用户关闭歌词功能)或被禁用(DisablePlugin)时才删除。
+	lyricProviders sync.Map
 }
 
 // NewManager 创建 JS 插件管理器
@@ -328,8 +332,12 @@ func (m *Manager) UnloadPlugin(ctx context.Context, entryPath string) error {
 
 	// 清理播放事件订阅
 	m.playEventSubscribers.Delete(entryPath)
-	// 清理歌词提供者注册
-	m.lyricProviders.Delete(entryPath)
+	// 注意：这里**不**清理 lyricProviders。UnloadPlugin 也用于空闲驱逐场景(health.checkIdle)，
+	// 此时插件在 DB 仍为 active，只是临时卸了 VM 省资源。若在这里删掉歌词提供者身份，
+	// 驱逐后 SearchLyrics 遍历到空集合会直接返回 "no lyrics found"，再也不会经 InvokeHTTP→
+	// EnsureLoaded 把插件唤醒(#303)。真正需要撤销身份的两条路径各自显式处理：
+	// 用户在插件里关闭歌词 → JS unregisterProvider → UnregisterLyricProvider；
+	// 用户禁用插件 → DisablePlugin 显式 Delete。已删除/禁用的残留项也会在 SearchLyrics 中惰性清理。
 
 	return nil
 }
@@ -398,6 +406,10 @@ func (m *Manager) DisablePlugin(ctx context.Context, id int64) error {
 
 	// 卸载插件
 	_ = m.UnloadPlugin(ctx, plugin.EntryPath)
+
+	// 撤销歌词提供者身份：UnloadPlugin 出于空闲驱逐考虑不再清理 lyricProviders，
+	// 但禁用是用户主动、持久的意图，必须在这里显式移除，避免 SearchLyrics 反复尝试唤醒已禁用插件。
+	m.lyricProviders.Delete(plugin.EntryPath)
 
 	// 清理自愈/唤醒计划，避免 disable 后被自动恢复或唤醒。
 	if m.healthChecker != nil {
@@ -522,8 +534,12 @@ func (m *Manager) UnregisterLyricProvider(entryPath string) {
 	slog.Info("plugin unregistered as lyric provider", "plugin", entryPath)
 }
 
-// SearchLyrics 遍历已注册的歌词提供者插件，通过 InvokeHTTP 调用其 /lyric-search 端点。
+// SearchLyrics 遍历已知歌词提供者插件，通过 InvokeHTTP 调用其 /lyric-search 端点。
 // 第一个返回非空歌词的结果即停止。
+//
+// lyricProviders 是"已知歌词提供者"集合(见字段注释)，其中的插件可能因空闲驱逐已不在内存；
+// InvokeHTTP 内部会 EnsureLoaded 把它重新唤醒(#303)。若某项对应的插件已被禁用/删除，
+// EnsureLoaded 返回 ErrPluginDisabled/ErrPluginNotFound，此处顺手从集合惰性清理该残留项。
 func (m *Manager) SearchLyrics(ctx context.Context, title, artist, album string, duration float64) (*models.LyricPayload, error) {
 	query := url.Values{
 		"title":    {title},
@@ -540,6 +556,10 @@ func (m *Manager) SearchLyrics(ctx context.Context, title, artist, album string,
 
 		statusCode, _, body, err := m.InvokeHTTP(searchCtx, entryPath, "GET", "/lyric-search", query, nil)
 		if err != nil {
+			// 插件已禁用/删除 → 该项永远唤醒不了，从已知集合移除，避免每次搜索都白试一遍。
+			if errors.Is(err, ErrPluginDisabled) || errors.Is(err, ErrPluginNotFound) {
+				m.lyricProviders.Delete(entryPath)
+			}
 			slog.Debug("lyric search failed", "plugin", entryPath, "error", err)
 			return true
 		}
@@ -559,6 +579,19 @@ func (m *Manager) SearchLyrics(ctx context.Context, title, artist, album string,
 		return result, nil
 	}
 	return nil, errors.New("no lyrics found from any provider")
+}
+
+// HasLyricProvider 报告当前是否存在已知的歌词提供者插件。
+// 供 models.LyricURLPath 判断：仅当有歌词插件时，才对本地无歌词歌曲放行歌词 URL，
+// 让客户端发起 /songs/{id}/lyric 请求触发自动搜索(#303)。无歌词插件时不放行，
+// 避免客户端对全库无歌词歌发出注定 404 的请求。
+func (m *Manager) HasLyricProvider() bool {
+	has := false
+	m.lyricProviders.Range(func(_, _ interface{}) bool {
+		has = true
+		return false
+	})
+	return has
 }
 
 // BroadcastPlayEvent 向所有已订阅的插件异步发送播放事件
