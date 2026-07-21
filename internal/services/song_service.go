@@ -72,7 +72,6 @@ type SongService struct {
 	playlistAutoCreator PlaylistAutoCreator
 	cacheService        *CacheService       // 可选;由 app.go 通过 SetCacheService 注入,Delete 时清理 cache 残留
 	fingerprintService  *FingerprintService // 可选;扫描完成后自动计算指纹
-	cueSplitter         *CueSplitter        // 可选;CUE 整轨切片器
 }
 
 // NewSongService 创建歌曲服务
@@ -104,11 +103,6 @@ func (s *SongService) SetScanner(scanner *Scanner) {
 // 避免歌曲被删后 cache 残留,在 DB 重置/ID 复用场景下被新 song 误命中。
 func (s *SongService) SetCacheService(cs *CacheService) {
 	s.cacheService = cs
-}
-
-// SetCueSplitter 注入 CUE 切片器。
-func (s *SongService) SetCueSplitter(cs *CueSplitter) {
-	s.cueSplitter = cs
 }
 
 // SetFingerprintService 注入指纹服务，扫描完成后自动计算缺失指纹。
@@ -170,7 +164,7 @@ func (s *SongService) Delete(ctx context.Context, id int64, deleteFiles bool) er
 	if song != nil && song.CoverPath != "" {
 		removeCoverIfUnreferenced(ctx, s.songs, song.CoverPath)
 	}
-	if deleteFiles && song != nil && song.Type == models.TypeLocal && song.FilePath != "" {
+	if deleteFiles && song != nil && song.Type == models.TypeLocal && song.FilePath != "" && song.CueSourcePath == "" {
 		if err := os.Remove(song.FilePath); err != nil {
 			slog.Warn("删除音频文件失败", "path", song.FilePath, "error", err)
 		} else {
@@ -209,7 +203,7 @@ func (s *SongService) BatchDelete(ctx context.Context, ids []int64, deleteFiles 
 		if song.CachePath != "" {
 			cachePaths[id] = song.CachePath
 		}
-		if deleteFiles && song.Type == models.TypeLocal && song.FilePath != "" {
+		if deleteFiles && song.Type == models.TypeLocal && song.FilePath != "" && song.CueSourcePath == "" {
 			filePaths = append(filePaths, song.FilePath)
 		}
 	}
@@ -614,13 +608,9 @@ func (s *SongService) setLocalSongCount(ctx context.Context) {
 	s.scanProgressManager.SetLocalSongCount(int(localCount))
 }
 
-// runCueProcessing 执行 CUE 整轨切分阶段（外部 .cue + FLAC 内嵌 CUESHEET），
-// 并清理失效的 CUE 记录。切换到 splitting_cue 状态以便前端展示独立进度，
-// 该阶段对大 CD 镜像可能较慢（逐个 track ffmpeg 切分）。
+// runCueProcessing 执行 CUE 处理阶段（外部 .cue + FLAC 内嵌 CUESHEET），
+// 并清理失效的 CUE 记录。仅解析元数据和入库，播放时按需提取。
 func (s *SongService) runCueProcessing(ctx context.Context, scanResult *ScanResult, files []string, reimport bool, scopeRoots []string) {
-	if s.cueSplitter == nil {
-		return
-	}
 	s.scanProgressManager.BeginSplittingCue()
 	s.processCueFiles(ctx, scanResult.CueFiles, reimport)
 	s.processEmbeddedCueSheets(ctx, files, reimport)
@@ -1020,6 +1010,11 @@ func (s *SongService) CleanInvalidSongs(ctx context.Context) (*CleanResult, erro
 
 	result := &CleanResult{}
 	for _, song := range songs {
+		// CUE track 由 cleanStaleCueRecords 统一管理，不在此逐条处理
+		if song.CueSourcePath != "" {
+			continue
+		}
+
 		shouldClean := false
 		reason := ""
 

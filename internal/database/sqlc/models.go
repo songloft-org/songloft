@@ -122,4 +122,6 @@ type Song struct {
 	Language            string
 	Style               string
 	IsVideo             int64
+	CueStartSeconds     float64
+	CueEndSeconds       float64
 }

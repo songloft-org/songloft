@@ -64,8 +64,10 @@ func (c *CacheService) GetOrTranscode(ctx context.Context, srcPath string, song 
 		return "", errors.New("song is nil")
 	}
 	srcFmt := EffectiveSourceFormat(song, srcPath)
+	isCue := song.CueSourcePath != ""
 	// 抽轨（trackIndex >= 0）必须走 ffmpeg：即使容器/编码相同也要 -map 出单条音轨。
-	needsTranscode := NeedsTranscode(srcFmt, targetFormat) || bitrate > 0 || trackIndex >= 0
+	// CUE track 必须走 ffmpeg 提取对应时间段。
+	needsTranscode := NeedsTranscode(srcFmt, targetFormat) || bitrate > 0 || trackIndex >= 0 || isCue
 	if !needsTranscode {
 		slog.Debug("transcode skipped: same format",
 			"songId", song.ID, "songFormat", song.Format,
@@ -152,7 +154,7 @@ func (c *CacheService) doTranscode(ctx context.Context, srcPath string, song *mo
 	tmpPath := tmp.Name()
 	tmp.Close()
 
-	if err := c.runFFmpeg(ctx, srcPath, tmpPath, targetFormat, bitrate, trackIndex); err != nil {
+	if err := c.runFFmpeg(ctx, srcPath, tmpPath, song, targetFormat, bitrate, trackIndex); err != nil {
 		os.Remove(tmpPath)
 		return "", fmt.Errorf("ffmpeg transcode: %w", err)
 	}
@@ -172,23 +174,63 @@ func (c *CacheService) doTranscode(ctx context.Context, srcPath string, song *mo
 }
 
 // runFFmpeg 调用 ffmpeg 执行转码。
-// trackIndex >= 0 时抽取指定音轨（-map 0:a:N，songloft-org/songloft#298）：
-// 目标为 m4a 时视为「AAC 无损 remux」，用 -c:a copy 直出 ipod(m4a) 容器（秒级、无损、
-// Web 原生可播）；其余格式走常规编码路径（可对指定轨编码为 mp3 等）。
-// trackIndex < 0 时保持原有整文件转码行为不变。
-func (c *CacheService) runFFmpeg(ctx context.Context, srcPath, dstPath, targetFormat string, bitrate, trackIndex int) error {
+// trackIndex >= 0 时抽取指定音轨（-map 0:a:N，songloft-org/songloft#298）。
+// CUE track（song.CueStartSeconds/CueEndSeconds > 0）时使用 input seek（-ss 在 -i 之前）
+// 提取对应时间段，同格式时 stream copy 免重编码。
+func (c *CacheService) runFFmpeg(ctx context.Context, srcPath, dstPath string, song *models.Song, targetFormat string, bitrate, trackIndex int) error {
+	isCue := song != nil && song.CueSourcePath != ""
+	hasCueTiming := isCue && (song.CueStartSeconds > 0 || song.CueEndSeconds > 0)
+
 	var args []string
+
+	// CUE track: -ss 放在 -i 之前使用 input seek（O(1) 性能）
+	if hasCueTiming {
+		args = append(args, "-ss", fmt.Sprintf("%.3f", song.CueStartSeconds))
+	}
+
 	if trackIndex >= 0 && NormalizeFormat(targetFormat) == "m4a" {
-		// AAC 无损抽轨：直接把指定音轨 copy 进 m4a(ipod) 容器，不重新编码。
-		args = []string{"-i", srcPath, "-map", fmt.Sprintf("0:a:%d", trackIndex), "-c:a", "copy", "-f", "ipod", "-y", dstPath}
-	} else {
-		encoder, qualityArgs, muxer, err := ffmpegArgs(targetFormat, bitrate)
-		if err != nil {
-			return err
+		args = append(args, "-i", srcPath)
+		if hasCueTiming && song.CueEndSeconds > song.CueStartSeconds {
+			args = append(args, "-t", fmt.Sprintf("%.3f", song.CueEndSeconds-song.CueStartSeconds))
 		}
-		args = []string{"-i", srcPath}
+		args = append(args, "-map", fmt.Sprintf("0:a:%d", trackIndex), "-c:a", "copy", "-f", "ipod", "-y", dstPath)
+	} else {
+		// CUE 同格式提取使用 stream copy 免重编码；APE 源已在上游转为 flac targetFormat
+		srcFmt := NormalizeFormat(filepath.Ext(srcPath))
+		useCopy := isCue && !NeedsTranscode(srcFmt, targetFormat) && bitrate <= 0 && trackIndex < 0
+
+		var encoder string
+		var qualityArgs []string
+		var muxer string
+		if useCopy {
+			encoder = "copy"
+			switch targetFormat {
+			case "flac":
+				muxer = "flac"
+			case "wav":
+				muxer = "wav"
+			case "mp3":
+				muxer = "mp3"
+			case "m4a":
+				muxer = "ipod"
+			case "ogg":
+				muxer = "ogg"
+			default:
+				muxer = targetFormat
+			}
+		} else {
+			var err error
+			encoder, qualityArgs, muxer, err = ffmpegArgs(targetFormat, bitrate)
+			if err != nil {
+				return err
+			}
+		}
+
+		args = append(args, "-i", srcPath)
+		if hasCueTiming && song.CueEndSeconds > song.CueStartSeconds {
+			args = append(args, "-t", fmt.Sprintf("%.3f", song.CueEndSeconds-song.CueStartSeconds))
+		}
 		if trackIndex >= 0 {
-			// 抽取指定音轨后编码（非 AAC 源，如需转 mp3 供 Web 播放）。
 			args = append(args, "-map", fmt.Sprintf("0:a:%d", trackIndex))
 		}
 		args = append(args, "-vn", "-codec:a", encoder)

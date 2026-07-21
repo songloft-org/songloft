@@ -223,21 +223,9 @@ func (a *App) Init() error {
 	slog.Info("封面存储目录已创建", "path", coverStoragePath)
 
 	// 初始化服务层
-	// 确保 cue_splits 目录不会被扫描器识别（防止 music_path 与 data_dir 重合的极端情况）
-	excludeDirs := musicPathConfig.ExcludeDirs
-	hasCueSplits := false
-	for _, d := range excludeDirs {
-		if d == "cue_splits" {
-			hasCueSplits = true
-			break
-		}
-	}
-	if !hasCueSplits {
-		excludeDirs = append(excludeDirs, "cue_splits")
-	}
 	scanConfig := &services.ScanConfig{
 		MusicPath:        musicPathConfig.Path,
-		ExcludeDirs:      excludeDirs,
+		ExcludeDirs:      musicPathConfig.ExcludeDirs,
 		ExcludePaths:     musicPathConfig.ExcludePaths,
 		SupportedFormats: scanConfigData.SupportedFormats,
 	}
@@ -285,12 +273,8 @@ func (a *App) Init() error {
 	// 让 SongService.Delete/BatchDelete 联动清理 cache,避免 ID 复用时旧 cache 被新 song 误命中
 	a.songService.SetCacheService(a.cacheService)
 
-	// 初始化 CUE 切片器
-	cueSplitDir := filepath.Join(filepath.Dir(a.config.DBPath), "cue_splits")
-	if err := os.MkdirAll(cueSplitDir, 0755); err != nil {
-		return fmt.Errorf("创建 CUE 切片目录失败: %w", err)
-	}
-	a.songService.SetCueSplitter(services.NewCueSplitter(ffmpegConfig.Path, cueSplitDir))
+	// 一次性迁移：将旧版预分割的 CUE 记录迁移为按需提取模式
+	a.migrateCueSplitsToOnTheFly(db)
 
 	// 创建音源健康度指标收集器(纯内存滚动窗口,Fetcher 上报、Resolver 排序、admin API 消费)
 	a.sourceMetrics = source.NewSourceMetrics(source.DefaultMetricsOpts())

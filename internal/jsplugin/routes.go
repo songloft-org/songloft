@@ -651,12 +651,12 @@ func (m *Manager) handleServeFileDirective(w http.ResponseWriter, r *http.Reques
 			http.NotFound(w, r)
 			return
 		}
-		if song.FilePath != "" {
+		if song.FilePath != "" && song.CueSourcePath == "" {
 			http.ServeFile(w, r, song.FilePath)
 			return
 		}
-		// 非本地歌曲（remote/radio）：内部转发到 play 端点，
-		// 由 SongHandler 处理缓存/代理/HLS 等完整播放逻辑。
+		// CUE track 或非本地歌曲（remote/radio）：内部转发到 play 端点，
+		// 由 SongHandler 处理 CUE 提取/缓存/代理/HLS 等完整播放逻辑。
 		playPath := fmt.Sprintf("/api/v1/songs/%d/play", song.ID)
 		if song.IsHLSStream() {
 			playPath += ".m3u8"

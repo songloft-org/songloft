@@ -163,6 +163,9 @@ func (r *SongRepository) ListLocalPaths(ctx context.Context) (map[string]LocalPa
 	}
 	paths := make(map[string]LocalPathInfo, len(rows))
 	for _, row := range rows {
+		if row.CueSourcePath != "" {
+			continue
+		}
 		paths[row.FilePath] = LocalPathInfo{SongID: row.ID, Duration: row.Duration, CueSourcePath: row.CueSourcePath}
 	}
 	return paths, nil
@@ -445,6 +448,7 @@ func songSelectBuilder() sq.SelectBuilder {
 		"isrc", "track",
 		"cue_source_path", "cue_track_index", "cue_audio_path",
 		"file_modified_at", "is_video",
+		"cue_start_seconds", "cue_end_seconds",
 	).From("songs")
 }
 
@@ -523,6 +527,7 @@ func scanSongRow(scanner interface {
 		&s.ISRC, &s.Track,
 		&s.CueSourcePath, &s.CueTrackIndex, &s.CueAudioPath,
 		&fileModifiedAt, &isVideo,
+		&s.CueStartSeconds, &s.CueEndSeconds,
 	); err != nil {
 		return nil, fmt.Errorf("scan song: %w", err)
 	}
@@ -570,6 +575,8 @@ func songRowToModel(row sqlc.Song) *models.Song {
 		CueSourcePath:       row.CueSourcePath,
 		CueTrackIndex:       int(row.CueTrackIndex),
 		CueAudioPath:        row.CueAudioPath,
+		CueStartSeconds:     row.CueStartSeconds,
+		CueEndSeconds:       row.CueEndSeconds,
 		AddedAt:             row.AddedAt,
 		UpdatedAt:           row.UpdatedAt,
 		FileModifiedAt:      nullTimeToPtr(row.FileModifiedAt),
@@ -627,6 +634,8 @@ func songCreateParams(s *models.Song) sqlc.CreateSongParams {
 		CueSourcePath:       s.CueSourcePath,
 		CueTrackIndex:       int64(s.CueTrackIndex),
 		CueAudioPath:        s.CueAudioPath,
+		CueStartSeconds:     s.CueStartSeconds,
+		CueEndSeconds:       s.CueEndSeconds,
 		FileModifiedAt:      nullTimeFromPtr(s.FileModifiedAt),
 	}
 }
@@ -665,6 +674,8 @@ func songUpdateParams(s *models.Song) sqlc.UpdateSongParams {
 		CueSourcePath:       s.CueSourcePath,
 		CueTrackIndex:       int64(s.CueTrackIndex),
 		CueAudioPath:        s.CueAudioPath,
+		CueStartSeconds:     s.CueStartSeconds,
+		CueEndSeconds:       s.CueEndSeconds,
 		FileModifiedAt:      nullTimeFromPtr(s.FileModifiedAt),
 		ID:                  s.ID,
 	}

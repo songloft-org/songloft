@@ -1275,7 +1275,18 @@ func (h *SongHandler) prepareSongPlayback(ctx context.Context, song *models.Song
 		return
 	}
 
-	if !services.NeedsTranscode(services.EffectiveSourceFormat(song, srcPath), targetFormat) && bitrate == 0 {
+	// CUE track: 修正 format（APE → FLAC），始终走 GetOrTranscode 预热提取缓存
+	if song.CueSourcePath != "" {
+		if targetFormat == "" || services.NormalizeFormat(targetFormat) == "ape" {
+			f := services.NormalizeFormat(filepath.Ext(song.FilePath))
+			if f == "ape" {
+				f = "flac"
+			}
+			targetFormat = f
+		}
+	}
+
+	if song.CueSourcePath == "" && !services.NeedsTranscode(services.EffectiveSourceFormat(song, srcPath), targetFormat) && bitrate == 0 {
 		return
 	}
 	if _, err := h.cacheService.GetOrTranscode(ctx, srcPath, song, services.NormalizeFormat(targetFormat), bitrate, -1); err != nil {
@@ -1296,7 +1307,29 @@ func (h *SongHandler) serveLocal(w http.ResponseWriter, r *http.Request, song *m
 		return
 	}
 	srcPath := song.FilePath
-	if trackIndex >= 0 {
+	if song.CueSourcePath != "" {
+		// CUE track: FilePath 指向共享的整轨音频，必须经 ffmpeg 按需提取对应片段。
+		// APE 不支持 stream copy，自动转为 FLAC。
+		if targetFormat == "" || services.NormalizeFormat(targetFormat) == "ape" {
+			f := services.NormalizeFormat(filepath.Ext(song.FilePath))
+			if f == "ape" {
+				f = "flac"
+			}
+			targetFormat = f
+		}
+		tcCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		sk := playactivity.SessionFromContext(r.Context())
+		trackedCtx, release := h.trackActivity(tcCtx, sk, song.ID, playactivity.CatTranscode)
+		defer release()
+		path, err := h.cacheService.GetOrTranscode(trackedCtx, srcPath, song, services.NormalizeFormat(targetFormat), bitrate, -1)
+		if err != nil {
+			slog.Warn("CUE track extraction failed", "songId", song.ID, "error", err)
+			http.Error(w, "CUE track extraction failed", http.StatusInternalServerError)
+			return
+		}
+		srcPath = path
+	} else if trackIndex >= 0 {
 		// 抽轨播放：目标容器由后端按该轨编码决定，覆盖入参的 format/quality。
 		tcCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()

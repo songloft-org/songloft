@@ -16,7 +16,7 @@ import (
 	"songloft/pkg/cue"
 )
 
-// processCueFiles 处理外部 .cue 文件：解析、切片、入库。
+// processCueFiles 处理外部 .cue 文件：解析、入库（按需提取替代预分割）。
 func (s *SongService) processCueFiles(ctx context.Context, cueFiles []string, reimport bool) {
 	if len(cueFiles) == 0 {
 		return
@@ -152,7 +152,8 @@ func secondsToCueTime(seconds float64) cue.CUETime {
 	return cue.CUETime{Minutes: m, Seconds: sec, Frames: f}
 }
 
-// processCueSheet 处理一个 CUE Sheet 的切片和入库。
+// processCueSheet 处理一个 CUE Sheet：解析 track 起止时间并入库。
+// 不再预分割音频文件；播放时由 CacheService 按需提取。
 func (s *SongService) processCueSheet(ctx context.Context, cueSourcePath string, sheet *cue.CUESheet, reimport bool) {
 	s.scanProgressManager.UpdateCueProgress(cueSourcePath)
 
@@ -183,27 +184,15 @@ func (s *SongService) processCueSheet(ctx context.Context, cueSourcePath string,
 		return
 	}
 
-	// 重新导入时先删除旧记录和切片
+	// 重新导入时先删除旧记录
 	if reimport {
 		if n, err := s.songs.DeleteByCueSource(ctx, cueSourcePath); err == nil && n > 0 {
 			slog.Info("重新导入 CUE，删除旧记录", "source", cueSourcePath, "deleted", n)
 		}
-		s.cueSplitter.RemoveSplitDir(cueSourcePath)
 	}
 
-	// ffmpeg 切片
-	results, err := s.cueSplitter.SplitTracks(ctx, cueSourcePath, tracks)
-	if err != nil {
-		slog.Warn("CUE 切片失败", "source", cueSourcePath, "error", err)
-		return
-	}
-	if len(results) == 0 {
-		slog.Warn("CUE 切片无结果", "source", cueSourcePath)
-		return
-	}
-
-	// 提取封面（从第一个整轨文件提取一次）；优先复用切分前已缓存的元数据。
-	firstAudioPath := results[0].Track.AudioFilePath
+	// 提取封面（从第一个整轨文件提取一次）；优先复用已缓存的元数据。
+	firstAudioPath := tracks[0].AudioFilePath
 	var coverPath string
 	if md, ok := metaCache[firstAudioPath]; ok {
 		coverPath = s.saveCueCover(firstAudioPath, md)
@@ -211,30 +200,44 @@ func (s *SongService) processCueSheet(ctx context.Context, cueSourcePath string,
 		coverPath = s.extractCueCover(ctx, firstAudioPath)
 	}
 
-	// 入库
+	// 入库：直接引用原始整轨音频，记录 track 起止时间
 	now := time.Now()
-	songs := make([]*models.Song, 0, len(results))
-	for _, r := range results {
-		song := &models.Song{
-			Type:          models.TypeLocal,
-			Title:         r.Track.Title,
-			Artist:        r.Track.Performer,
-			Album:         r.Track.Album,
-			Genre:         r.Track.Genre,
-			Duration:      r.Duration,
-			FilePath:      r.SplitFilePath,
-			Format:        r.Format,
-			FileSize:      r.FileSize,
-			CoverPath:     coverPath,
-			ISRC:          r.Track.ISRC,
-			CueSourcePath: cueSourcePath,
-			CueTrackIndex: r.Track.TrackNumber,
-			CueAudioPath:  r.Track.AudioFilePath,
-			AddedAt:       now,
-			UpdatedAt:     now,
+	songs := make([]*models.Song, 0, len(tracks))
+	for _, track := range tracks {
+		ext := strings.ToLower(filepath.Ext(track.AudioFilePath))
+		format := NormalizeFormat(ext)
+
+		duration := track.Duration()
+
+		var bitRate, sampleRate int
+		if md, ok := metaCache[track.AudioFilePath]; ok {
+			bitRate = md.BitRate
+			sampleRate = md.SampleRate
 		}
-		if r.Track.Year != "" {
-			song.Year, _ = strconv.Atoi(r.Track.Year)
+
+		song := &models.Song{
+			Type:            models.TypeLocal,
+			Title:           track.Title,
+			Artist:          track.Performer,
+			Album:           track.Album,
+			Genre:           track.Genre,
+			Duration:        duration,
+			FilePath:        track.AudioFilePath,
+			Format:          format,
+			BitRate:         bitRate,
+			SampleRate:      sampleRate,
+			CoverPath:       coverPath,
+			ISRC:            track.ISRC,
+			CueSourcePath:   cueSourcePath,
+			CueTrackIndex:   track.TrackNumber,
+			CueAudioPath:    track.AudioFilePath,
+			CueStartSeconds: track.StartSeconds,
+			CueEndSeconds:   track.EndSeconds,
+			AddedAt:         now,
+			UpdatedAt:       now,
+		}
+		if track.Year != "" {
+			song.Year, _ = strconv.Atoi(track.Year)
 		}
 		songs = append(songs, song)
 	}
@@ -281,7 +284,7 @@ func (s *SongService) saveCueCover(audioPath string, metadata *Metadata) string 
 	return coverPath
 }
 
-// cleanStaleCueRecords 清理已删除 CUE 源文件对应的切片和 DB 记录。
+// cleanStaleCueRecords 清理已删除 CUE 源文件对应的 DB 记录。
 func (s *SongService) cleanStaleCueRecords(ctx context.Context, scopeRoots []string) {
 	sources := s.listCueSourceSet(ctx)
 
@@ -312,7 +315,6 @@ func (s *SongService) cleanStaleCueRecords(ctx context.Context, scopeRoots []str
 
 		if shouldClean {
 			deleted, _ := s.songs.DeleteByCueSource(ctx, sourcePath)
-			s.cueSplitter.RemoveSplitDir(sourcePath)
 			slog.Info("清理已删除 CUE 源", "source", sourcePath, "deleted", deleted)
 		}
 	}
