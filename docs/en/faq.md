@@ -1,5 +1,15 @@
 # Songloft FAQ
 
+## About the Project
+
+### Q: Does Songloft charge money? Can I sponsor / donate?
+
+A: **No, it is free, and it does not accept any sponsorship or donations.** Songloft is an open-source project built purely out of passion (a labor of love) and is free forever:
+
+- ✅ No paid features, in-app purchases, or subscriptions, and no ads or commercial promotion
+- ✅ There is no payment channel at all; sponsorship / donations are not accepted
+- ⚠️ **Beware of scams**: the only official channels are the [GitHub repository](https://github.com/songloft-org/songloft), the [docs site](https://songloft.hanxi.cc), and the [official WeChat group](https://github.com/songloft-org/songloft/issues/2). Anyone charging fees, selling "paid versions", offering paid deployment, or soliciting donations in Songloft's name is unrelated to this project; we never charge anyone, not even inside the group. Please stay alert to scams.
+
 ## Installation & Deployment
 
 ### Q: How should I download Songloft?

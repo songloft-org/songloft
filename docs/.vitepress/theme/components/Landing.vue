@@ -13,6 +13,7 @@ import LandingScreenshots from './landing/LandingScreenshots.vue'
 import LandingInstaller from './landing/LandingInstaller.vue'
 import LandingPlugins from './landing/LandingPlugins.vue'
 import LandingCompliance from './landing/LandingCompliance.vue'
+import LandingNotice from './landing/LandingNotice.vue'
 import LandingCTA from './landing/LandingCTA.vue'
 
 const { lang } = useData()
@@ -42,6 +43,7 @@ useReveal()
 
     <LandingScreenshots />
     <LandingInstaller />
+    <LandingNotice />
     <LandingPlugins />
     <LandingCompliance />
     <LandingCTA />

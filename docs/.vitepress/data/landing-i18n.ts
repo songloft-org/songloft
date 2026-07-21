@@ -61,6 +61,19 @@ const zh: Dict = {
   'compliance.notice': 'NOTICE',
   'compliance.privacy': '隐私说明',
 
+  // Free / anti-scam notice
+  'notice.badge': '💚 纯为爱发电',
+  'notice.title': '永久免费 · 谨防诈骗',
+  'notice.intro': 'Songloft 是完全免费的开源项目，纯粹出于兴趣与热爱开发，与任何商业利益无关。',
+  'notice.i1': '✅ 永久免费：没有任何收费功能、内购或会员',
+  'notice.i2': '✅ 无广告：不含任何广告或商业推广',
+  'notice.i3': '✅ 不接受赞助 / 捐款：官方不设任何收款渠道',
+  'notice.i4': '⚠️ 谨防诈骗：任何以 Songloft 名义收费、售卖、代部署收费或索要赞助的行为，都与本项目无关',
+  'notice.channel': '官方渠道仅有 GitHub 仓库、文档站与官方微信群；即便在群内，我们也从不向任何人收取任何费用。请勿上当受骗。',
+  'notice.github': 'GitHub 仓库',
+  'notice.docs': '文档站',
+  'notice.wechat': '官方微信群',
+
   // Final CTA
   'cta.title': '准备好拥有自己的音乐服务器了吗？',
   'cta.subtitle': '几分钟即可跑起来，数据始终在你手中。',
@@ -118,6 +131,18 @@ const en: Dict = {
   'compliance.more': 'See',
   'compliance.notice': 'NOTICE',
   'compliance.privacy': 'Privacy',
+
+  'notice.badge': '💚 A labor of love',
+  'notice.title': 'Free forever · Beware of scams',
+  'notice.intro': 'Songloft is a fully free, open-source project built purely out of passion — with no commercial interest whatsoever.',
+  'notice.i1': '✅ Free forever: no paid features, in-app purchases, or subscriptions',
+  'notice.i2': '✅ No ads: no advertising or commercial promotion of any kind',
+  'notice.i3': '✅ No sponsorship / donations: there is no payment channel at all',
+  'notice.i4': '⚠️ Beware of scams: anyone charging fees, selling copies, offering paid deployment, or soliciting donations in Songloft’s name is unrelated to this project',
+  'notice.channel': 'The only official channels are the GitHub repository, the docs site, and the official WeChat group; we never charge anyone, not even inside the group. Please stay alert to scams.',
+  'notice.github': 'GitHub repo',
+  'notice.docs': 'Docs site',
+  'notice.wechat': 'WeChat group',
 
   'cta.title': 'Ready to own your music server?',
   'cta.subtitle': 'Up and running in minutes — your data stays with you.',

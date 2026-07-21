@@ -30,6 +30,15 @@
   <a href="https://github.com/songloft-org/songloft/issues/6">📸 Screenshots</a>
 </p>
 
+> ### 💚 A labor of love · Beware of scams
+>
+> Songloft is a **fully free** open-source project, built purely out of passion — with no commercial interest whatsoever:
+>
+> - ✅ **Free forever** —— no paid features, in-app purchases, or subscriptions
+> - ✅ **No ads** —— no advertising or commercial promotion of any kind
+> - ✅ **No sponsorship / donations** —— there is no payment channel at all
+> - ⚠️ **Beware of scams** —— the only official channels are the [GitHub repository](https://github.com/songloft-org/songloft), the [docs site](https://songloft.hanxi.cc), and the [official WeChat group](https://github.com/songloft-org/songloft/issues/2). Anyone charging fees, selling "paid versions", offering paid deployment, or soliciting donations in Songloft's name is unrelated to this project; we never charge anyone, not even inside the group. Please stay alert to scams.
+
 
 ## ✨ Core Features
 
