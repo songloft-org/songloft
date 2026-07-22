@@ -1651,6 +1651,16 @@ func (h *SongHandler) serveRemote(w http.ResponseWriter, r *http.Request, song *
 		}
 		playURL = resolved.URL
 		upstreamHeaders = resolved.Headers
+
+		// 解析期间客户端可能已超时断开（Windows Flutter 播放器 ~10s 硬上限），
+		// 此时 r.Context() 已取消，继续走 ServeRemoteResourceWithCache 只会
+		// 立刻失败且不留缓存。改为触发后台异步下载，下次重试即命中缓存秒开。
+		if r.Context().Err() != nil {
+			slog.Info("client disconnected during resolve, triggering background cache", "songId", song.ID)
+			songCopy := *song
+			go h.cacheService.AsyncDownloadAndCache(context.Background(), &songCopy, playURL, upstreamHeaders)
+			return
+		}
 	} else if song.URL != "" {
 		playURL = song.URL
 	} else {

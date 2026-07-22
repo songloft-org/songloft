@@ -257,6 +257,9 @@ func ServeRemoteResourceWithCache(
 	if err != nil {
 		slog.Warn("remote resource fetch failed", "url", resourceURL, "error", err)
 		http.Error(w, "resource fetch failed", http.StatusBadGateway)
+		if r.Context().Err() != nil && onCacheMiss != nil {
+			go onCacheMiss()
+		}
 		return
 	}
 	defer resp.Body.Close()
@@ -283,6 +286,9 @@ func ServeRemoteResourceWithCache(
 			go onCached(tmpPath, contentType)
 		} else {
 			os.Remove(tmpPath)
+			if copyErr != nil && r.Context().Err() != nil && onCacheMiss != nil {
+				go onCacheMiss()
+			}
 		}
 	case http.StatusPartialContent:
 		io.Copy(w, resp.Body)
