@@ -580,6 +580,191 @@ async function getMusicUrl(songId) {
 - `getToken()` — 返回当前有效的 JWT access_token 字符串，可用于访问宿主的受保护 API
 - `getHostUrl()` — 返回宿主服务的基础 URL，用于构建完整的 API 或资源地址
 
+### songloft.lyrics — 歌词提供者
+
+无需权限。
+
+插件可以注册为歌词提供者，在歌曲没有歌词时由宿主自动调用。
+
+#### 注册与取消
+
+```javascript
+// 注册为歌词提供者
+songloft.lyrics.registerProvider();
+
+// 取消注册
+songloft.lyrics.unregisterProvider();
+```
+
+#### 实现搜索端点
+
+注册后，宿主会通过 `InvokeHTTP` 调用插件的 `/lyric-search` 端点搜索歌词。插件需自行实现该路由。
+
+**请求参数（Query String）：**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `title` | string | 歌曲标题 |
+| `artist` | string | 艺术家 |
+| `album` | string | 专辑名 |
+| `duration` | number | 时长（秒） |
+| `fingerprint` | string | 音频指纹（Chromaprint，可选，有值时才传） |
+| `isrc` | string | ISRC 国际标准录音编码（可选，有值时才传） |
+
+**响应格式（HTTP 200 + JSON）：**
+
+```json
+{
+  "lyric": "[00:01.00]歌词第一行\n[00:05.00]歌词第二行",
+  "tlyric": "[00:01.00]翻译第一行",
+  "rlyric": "[00:01.00]罗马音第一行",
+  "lxlyric": "[00:01.00]逐字歌词"
+}
+```
+
+- `lyric`（必填）：主歌词，LRC 格式
+- `tlyric`（可选）：翻译歌词
+- `rlyric`（可选）：罗马音歌词
+- `lxlyric`（可选）：逐字歌词
+
+无结果时返回 HTTP 404 或空 body。
+
+#### 完整示例
+
+```typescript
+/// <reference types="@songloft/plugin-sdk" />
+import { createRouter, jsonResponse, parseQuery } from '@songloft/plugin-sdk';
+
+const router = createRouter();
+let registered = false;
+
+router.get('/lyric-search', async (req: HTTPRequest) => {
+  const q = parseQuery(req.query);
+  const result = await searchFromMySource(
+    q.title, q.artist, q.album,
+    parseFloat(q.duration) || 0,
+    q.fingerprint,  // 可选，用于精确匹配
+    q.isrc           // 可选，用于精确匹配
+  );
+  if (!result) return jsonResponse(null, 404);
+  return jsonResponse(result);  // { lyric, tlyric?, rlyric?, lxlyric? }
+});
+
+globalThis.onInit = async () => {
+  songloft.lyrics.registerProvider();
+  registered = true;
+};
+
+globalThis.onDeinit = async () => {
+  if (registered) songloft.lyrics.unregisterProvider();
+};
+
+globalThis.onHTTPRequest = (req: HTTPRequest) => router.handle(req);
+```
+
+#### 工作流程
+
+1. 用户播放无歌词的歌曲，客户端请求 `GET /api/v1/songs/{id}/lyric`
+2. 宿主发现歌词为空，遍历所有已注册的歌词提供者插件
+3. 对每个插件调用 `GET /lyric-search?title=...&artist=...`（15 秒超时）
+4. 第一个返回 HTTP 200 + 非空歌词的插件胜出，停止遍历
+5. 搜到的歌词异步写入数据库缓存（`lyric_source=scraped`），后续请求直接返回缓存
+6. 本地歌曲还会将歌词嵌入音频文件标签
+
+### songloft.covers — 封面提供者
+
+无需权限。
+
+插件可以注册为封面提供者，在歌曲没有封面时由宿主自动调用。
+
+#### 注册与取消
+
+```javascript
+// 注册为封面提供者
+songloft.covers.registerProvider();
+
+// 取消注册
+songloft.covers.unregisterProvider();
+```
+
+#### 实现搜索端点
+
+注册后，宿主会通过 `InvokeHTTP` 调用插件的 `/cover-search` 端点搜索封面。插件需自行实现该路由。
+
+**请求参数（Query String）：**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `title` | string | 歌曲标题 |
+| `artist` | string | 艺术家 |
+| `album` | string | 专辑名 |
+| `fingerprint` | string | 音频指纹（Chromaprint，可选，有值时才传） |
+| `isrc` | string | ISRC 国际标准录音编码（可选，有值时才传） |
+
+**响应格式（HTTP 200 + JSON）：**
+
+```json
+{
+  "cover_url": "https://example.com/covers/album.jpg"
+}
+```
+
+- `cover_url`（必填）：封面图片的完整 URL
+
+无结果时返回 HTTP 404 或空 body。
+
+#### 完整示例
+
+```typescript
+/// <reference types="@songloft/plugin-sdk" />
+import { createRouter, jsonResponse, parseQuery } from '@songloft/plugin-sdk';
+
+const router = createRouter();
+let registered = false;
+
+router.get('/cover-search', async (req: HTTPRequest) => {
+  const q = parseQuery(req.query);
+  const coverUrl = await searchCoverFromMySource(
+    q.title, q.artist, q.album,
+    q.fingerprint,  // 可选，用于精确匹配
+    q.isrc           // 可选，用于精确匹配
+  );
+  if (!coverUrl) return jsonResponse(null, 404);
+  return jsonResponse({ cover_url: coverUrl });
+});
+
+globalThis.onInit = async () => {
+  songloft.covers.registerProvider();
+  registered = true;
+};
+
+globalThis.onDeinit = async () => {
+  if (registered) songloft.covers.unregisterProvider();
+};
+
+globalThis.onHTTPRequest = (req: HTTPRequest) => router.handle(req);
+```
+
+#### 工作流程
+
+1. 用户播放无封面的歌曲，客户端请求 `GET /api/v1/songs/{id}/cover`
+2. 宿主发现封面为空，遍历所有已注册的封面提供者插件
+3. 对每个插件调用 `GET /cover-search?title=...&artist=...`（15 秒超时）
+4. 第一个返回 HTTP 200 + 非空 `cover_url` 的插件胜出，停止遍历
+5. 搜到的封面异步持久化：
+   - **本地歌曲**：下载封面图片 → 保存到本地 `cover_path` → 嵌入音频文件标签
+   - **远程歌曲**：存储 `cover_url` 到数据库
+6. 后续请求直接返回缓存，不再调用插件
+
+### 提供者机制通用说明
+
+歌词和封面提供者共享相同的架构：
+
+- **多插件支持**：多个插件可同时注册为同一类型的提供者，宿主按 first-match-wins 策略依次尝试
+- **空闲驱逐安全**：插件被空闲驱逐（内存回收）后，提供者注册不会丢失；下次搜索时宿主会自动重新加载插件
+- **惰性清理**：已禁用或已删除的插件会在搜索遍历时被自动从提供者集合中移除
+- **指纹与 ISRC**：建议插件优先使用 `fingerprint` 和 `isrc` 进行精确匹配（如果有值），再 fallback 到 title/artist 模糊搜索
+
 ---
 
 ## 6. 权限系统

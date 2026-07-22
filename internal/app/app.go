@@ -336,6 +336,7 @@ func (a *App) Init() error {
 	// 注入歌词提供者探测钩子：让 models.LyricURLPath 在存在歌词插件时,
 	// 对本地无歌词歌曲也放行歌词 URL,从而触发 GetSongLyric 的自动搜索 fallback(#303)。
 	models.HasLyricProvider = a.jsPluginManager.HasLyricProvider
+	models.HasCoverProvider = a.jsPluginManager.HasCoverProvider
 
 	// 创建歌曲下载服务并注入到 JS 插件管理器（bridge songs.download 调用）
 	a.downloadActivity = &services.DownloadActivity{}

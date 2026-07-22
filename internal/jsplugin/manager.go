@@ -70,6 +70,10 @@ type Manager struct {
 	// 否则驱逐后 SearchLyrics 遍历到空集合会直接短路，永远无法懒加载唤醒插件(#303)。
 	// 仅在插件 JS 主动 unregisterProvider(用户关闭歌词功能)或被禁用(DisablePlugin)时才删除。
 	lyricProviders sync.Map
+	// coverProviders 记录声明了封面提供能力的插件 entryPath 集合。
+	// 语义与 lyricProviders 完全一致：插件被空闲驱逐时不从此集合移除，
+	// 仅在插件 JS 主动 unregisterProvider 或被禁用(DisablePlugin)时才删除。
+	coverProviders sync.Map
 }
 
 // NewManager 创建 JS 插件管理器
@@ -276,6 +280,8 @@ func (m *Manager) LoadPlugin(ctx context.Context, plugin *JSPlugin) error {
 	bridgeHandler.onPlayEventUnregister = m.UnregisterPlayEvent
 	bridgeHandler.onLyricProviderRegister = m.RegisterLyricProvider
 	bridgeHandler.onLyricProviderUnregister = m.UnregisterLyricProvider
+	bridgeHandler.onCoverProviderRegister = m.RegisterCoverProvider
+	bridgeHandler.onCoverProviderUnregister = m.UnregisterCoverProvider
 	service.bridgeHandler = bridgeHandler
 
 	// 3. 加载插件（读取 ZIP、校验 hash、创建 JS 环境）
@@ -410,6 +416,7 @@ func (m *Manager) DisablePlugin(ctx context.Context, id int64) error {
 	// 撤销歌词提供者身份：UnloadPlugin 出于空闲驱逐考虑不再清理 lyricProviders，
 	// 但禁用是用户主动、持久的意图，必须在这里显式移除，避免 SearchLyrics 反复尝试唤醒已禁用插件。
 	m.lyricProviders.Delete(plugin.EntryPath)
+	m.coverProviders.Delete(plugin.EntryPath)
 
 	// 清理自愈/唤醒计划，避免 disable 后被自动恢复或唤醒。
 	if m.healthChecker != nil {
@@ -540,12 +547,18 @@ func (m *Manager) UnregisterLyricProvider(entryPath string) {
 // lyricProviders 是"已知歌词提供者"集合(见字段注释)，其中的插件可能因空闲驱逐已不在内存；
 // InvokeHTTP 内部会 EnsureLoaded 把它重新唤醒(#303)。若某项对应的插件已被禁用/删除，
 // EnsureLoaded 返回 ErrPluginDisabled/ErrPluginNotFound，此处顺手从集合惰性清理该残留项。
-func (m *Manager) SearchLyrics(ctx context.Context, title, artist, album string, duration float64) (*models.LyricPayload, error) {
+func (m *Manager) SearchLyrics(ctx context.Context, title, artist, album string, duration float64, fingerprint string, isrc string) (*models.LyricPayload, error) {
 	query := url.Values{
 		"title":    {title},
 		"artist":   {artist},
 		"album":    {album},
 		"duration": {strconv.FormatFloat(duration, 'f', 1, 64)},
+	}
+	if fingerprint != "" {
+		query.Set("fingerprint", fingerprint)
+	}
+	if isrc != "" {
+		query.Set("isrc", isrc)
 	}
 
 	var result *models.LyricPayload
@@ -588,6 +601,77 @@ func (m *Manager) SearchLyrics(ctx context.Context, title, artist, album string,
 func (m *Manager) HasLyricProvider() bool {
 	has := false
 	m.lyricProviders.Range(func(_, _ interface{}) bool {
+		has = true
+		return false
+	})
+	return has
+}
+
+// RegisterCoverProvider 将插件注册为封面提供者
+func (m *Manager) RegisterCoverProvider(entryPath string) {
+	m.coverProviders.Store(entryPath, true)
+	slog.Info("plugin registered as cover provider", "plugin", entryPath)
+}
+
+// UnregisterCoverProvider 取消插件的封面提供者注册
+func (m *Manager) UnregisterCoverProvider(entryPath string) {
+	m.coverProviders.Delete(entryPath)
+	slog.Info("plugin unregistered as cover provider", "plugin", entryPath)
+}
+
+// SearchCover 遍历已知封面提供者插件，通过 InvokeHTTP 调用其 /cover-search 端点。
+// 第一个返回非空封面 URL 的结果即停止。语义与 SearchLyrics 完全一致。
+func (m *Manager) SearchCover(ctx context.Context, title, artist, album string, fingerprint string, isrc string) (string, error) {
+	query := url.Values{
+		"title":  {title},
+		"artist": {artist},
+		"album":  {album},
+	}
+	if fingerprint != "" {
+		query.Set("fingerprint", fingerprint)
+	}
+	if isrc != "" {
+		query.Set("isrc", isrc)
+	}
+
+	var result string
+	m.coverProviders.Range(func(key, _ interface{}) bool {
+		entryPath := key.(string)
+		searchCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		defer cancel()
+
+		statusCode, _, body, err := m.InvokeHTTP(searchCtx, entryPath, "GET", "/cover-search", query, nil)
+		if err != nil {
+			if errors.Is(err, ErrPluginDisabled) || errors.Is(err, ErrPluginNotFound) {
+				m.coverProviders.Delete(entryPath)
+			}
+			slog.Debug("cover search failed", "plugin", entryPath, "error", err)
+			return true
+		}
+		if statusCode != http.StatusOK || len(body) == 0 {
+			return true
+		}
+
+		var payload struct {
+			CoverURL string `json:"cover_url"`
+		}
+		if err := json.Unmarshal(body, &payload); err != nil || payload.CoverURL == "" {
+			return true
+		}
+		result = payload.CoverURL
+		return false
+	})
+
+	if result != "" {
+		return result, nil
+	}
+	return "", errors.New("no cover found from any provider")
+}
+
+// HasCoverProvider 报告当前是否存在已知的封面提供者插件。
+func (m *Manager) HasCoverProvider() bool {
+	has := false
+	m.coverProviders.Range(func(_, _ interface{}) bool {
 		has = true
 		return false
 	})

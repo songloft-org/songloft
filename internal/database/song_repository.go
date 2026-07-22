@@ -94,6 +94,21 @@ func (r *SongRepository) UpdateLyrics(ctx context.Context, id int64, lyric, lyri
 	return nil
 }
 
+// UpdateCoverURL 更新封面 URL，找不到返回 ErrNotFound。
+func (r *SongRepository) UpdateCoverURL(ctx context.Context, id int64, coverURL string) error {
+	rows, err := r.queries.UpdateSongCoverURL(ctx, sqlc.UpdateSongCoverURLParams{
+		CoverUrl: coverURL,
+		ID:       id,
+	})
+	if err != nil {
+		return fmt.Errorf("update song cover_url %d: %w", id, err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // UpdateDuration 仅在原 duration 为 0 时回填时长。
 func (r *SongRepository) UpdateDuration(ctx context.Context, id int64, duration float64) error {
 	if err := r.queries.UpdateSongDuration(ctx, sqlc.UpdateSongDurationParams{

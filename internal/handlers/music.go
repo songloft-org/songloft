@@ -33,7 +33,12 @@ type PlayEventBroadcaster interface {
 
 // LyricSearcher 歌词搜索接口（由 JS 插件管理器实现）
 type LyricSearcher interface {
-	SearchLyrics(ctx context.Context, title, artist, album string, duration float64) (*models.LyricPayload, error)
+	SearchLyrics(ctx context.Context, title, artist, album string, duration float64, fingerprint string, isrc string) (*models.LyricPayload, error)
+}
+
+// CoverSearcher 封面搜索接口（由 JS 插件管理器实现）
+type CoverSearcher interface {
+	SearchCover(ctx context.Context, title, artist, album string, fingerprint string, isrc string) (string, error)
 }
 
 // SongHandler 歌曲处理器
@@ -47,6 +52,7 @@ type SongHandler struct {
 	getMusicPath      func() string          // 获取 music_path（由 scanner.GetMusicPath 注入）
 	playBroadcaster   PlayEventBroadcaster   // JS 插件播放事件广播（可选，nil 安全）
 	lyricSearcher     LyricSearcher          // 歌词提供者搜索（可选，nil 安全）
+	coverSearcher     CoverSearcher          // 封面提供者搜索（可选，nil 安全）
 	metadataRefresher *services.MetadataRefresher
 	configService     *services.ConfigService
 	urlResolver       *services.InternalURLResolver // 把插件相对路径解析为本机绝对 URL + access_token（封面代理用）
@@ -89,6 +95,11 @@ func (h *SongHandler) SetPlayBroadcaster(b PlayEventBroadcaster) {
 // SetLyricSearcher 注入歌词搜索器（由 JS 插件管理器实现）。
 func (h *SongHandler) SetLyricSearcher(s LyricSearcher) {
 	h.lyricSearcher = s
+}
+
+// SetCoverSearcher 注入封面搜索器（由 JS 插件管理器实现）。
+func (h *SongHandler) SetCoverSearcher(s CoverSearcher) {
+	h.coverSearcher = s
 }
 
 // SetMetadataRefresher 注入元数据刷新器。
@@ -995,6 +1006,23 @@ func (h *SongHandler) GetSongCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 本地封面和远程 URL 都不存在时，尝试从已注册的封面提供者插件获取
+	if h.coverSearcher != nil {
+		if coverURL, err := h.coverSearcher.SearchCover(ctx, song.Title, song.Artist, song.Album, song.Fingerprint, song.ISRC); err == nil && coverURL != "" {
+			go h.songService.UpdateCoverURL(context.Background(), song.ID, coverURL)
+			resolvedURL := coverURL
+			if h.urlResolver != nil {
+				resolvedURL = h.urlResolver.Resolve(resolvedURL)
+			}
+			ServeRemoteResourceWithOptions(w, r, resolvedURL, RemoteResourceOptions{
+				Timeout:      songCoverProxyTimeout,
+				ErrorStatus:  http.StatusNotFound,
+				ErrorMessage: "cover fetch failed",
+			})
+			return
+		}
+	}
+
 	respondError(w, http.StatusNotFound, "封面不存在", nil)
 }
 
@@ -1737,7 +1765,7 @@ func (h *SongHandler) GetSongLyric(w http.ResponseWriter, r *http.Request) {
 
 	// 歌词为空时（或手动刷新且非权威来源时），尝试从已注册的歌词提供者插件获取
 	if payload.IsEmpty() && h.lyricSearcher != nil {
-		if found, err := h.lyricSearcher.SearchLyrics(ctx, song.Title, song.Artist, song.Album, song.Duration); err == nil && found != nil && !found.IsEmpty() {
+		if found, err := h.lyricSearcher.SearchLyrics(ctx, song.Title, song.Artist, song.Album, song.Duration, song.Fingerprint, song.ISRC); err == nil && found != nil && !found.IsEmpty() {
 			go h.songService.UpdateLyrics(context.Background(), song.ID, found.MarshalString(), models.LyricSourceScraped, "")
 			payload = *found
 		}

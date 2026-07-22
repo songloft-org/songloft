@@ -47,6 +47,9 @@ DELETE FROM songs WHERE id = ?;
 -- name: UpdateSongLyrics :execrows
 UPDATE songs SET lyric = ?, lyric_source = ?, lyric_remote_url = ? WHERE id = ?;
 
+-- name: UpdateSongCoverURL :execrows
+UPDATE songs SET cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+
 -- name: UpdateSongDuration :exec
 UPDATE songs SET duration = ?, updated_at = CURRENT_TIMESTAMP
 WHERE id = ? AND (duration = 0 OR duration IS NULL);

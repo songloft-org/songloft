@@ -580,6 +580,191 @@ async function getMusicUrl(songId) {
 - `getToken()` — returns the currently valid JWT access_token string, usable for accessing the host's protected APIs
 - `getHostUrl()` — returns the base URL of the host service, used to build complete API or resource addresses
 
+### songloft.lyrics — Lyrics Provider
+
+No permission required.
+
+A plugin can register as a lyrics provider. The host will automatically call it when a song has no lyrics.
+
+#### Register / Unregister
+
+```javascript
+// Register as a lyrics provider
+songloft.lyrics.registerProvider();
+
+// Unregister
+songloft.lyrics.unregisterProvider();
+```
+
+#### Implement the Search Endpoint
+
+Once registered, the host calls the plugin's `/lyric-search` endpoint via `InvokeHTTP`. The plugin must implement this route.
+
+**Request parameters (Query String):**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `title` | string | Song title |
+| `artist` | string | Artist |
+| `album` | string | Album name |
+| `duration` | number | Duration in seconds |
+| `fingerprint` | string | Audio fingerprint (Chromaprint, optional, sent only when available) |
+| `isrc` | string | ISRC code (optional, sent only when available) |
+
+**Response format (HTTP 200 + JSON):**
+
+```json
+{
+  "lyric": "[00:01.00]First line\n[00:05.00]Second line",
+  "tlyric": "[00:01.00]Translation first line",
+  "rlyric": "[00:01.00]Romanized first line",
+  "lxlyric": "[00:01.00]Word-by-word lyrics"
+}
+```
+
+- `lyric` (required): main lyrics in LRC format
+- `tlyric` (optional): translated lyrics
+- `rlyric` (optional): romanized lyrics
+- `lxlyric` (optional): word-by-word synced lyrics
+
+Return HTTP 404 or empty body when no result is found.
+
+#### Complete Example
+
+```typescript
+/// <reference types="@songloft/plugin-sdk" />
+import { createRouter, jsonResponse, parseQuery } from '@songloft/plugin-sdk';
+
+const router = createRouter();
+let registered = false;
+
+router.get('/lyric-search', async (req: HTTPRequest) => {
+  const q = parseQuery(req.query);
+  const result = await searchFromMySource(
+    q.title, q.artist, q.album,
+    parseFloat(q.duration) || 0,
+    q.fingerprint,  // optional, for exact matching
+    q.isrc           // optional, for exact matching
+  );
+  if (!result) return jsonResponse(null, 404);
+  return jsonResponse(result);  // { lyric, tlyric?, rlyric?, lxlyric? }
+});
+
+globalThis.onInit = async () => {
+  songloft.lyrics.registerProvider();
+  registered = true;
+};
+
+globalThis.onDeinit = async () => {
+  if (registered) songloft.lyrics.unregisterProvider();
+};
+
+globalThis.onHTTPRequest = (req: HTTPRequest) => router.handle(req);
+```
+
+#### Workflow
+
+1. User plays a song with no lyrics; client requests `GET /api/v1/songs/{id}/lyric`
+2. Host finds lyrics empty, iterates over all registered lyrics providers
+3. Calls `GET /lyric-search?title=...&artist=...` on each plugin (15s timeout)
+4. First plugin returning HTTP 200 + non-empty lyrics wins; iteration stops
+5. Found lyrics are cached to the database asynchronously (`lyric_source=scraped`); subsequent requests return the cache directly
+6. For local songs, lyrics are also embedded into the audio file tags
+
+### songloft.covers — Cover Provider
+
+No permission required.
+
+A plugin can register as a cover provider. The host will automatically call it when a song has no cover artwork.
+
+#### Register / Unregister
+
+```javascript
+// Register as a cover provider
+songloft.covers.registerProvider();
+
+// Unregister
+songloft.covers.unregisterProvider();
+```
+
+#### Implement the Search Endpoint
+
+Once registered, the host calls the plugin's `/cover-search` endpoint via `InvokeHTTP`. The plugin must implement this route.
+
+**Request parameters (Query String):**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `title` | string | Song title |
+| `artist` | string | Artist |
+| `album` | string | Album name |
+| `fingerprint` | string | Audio fingerprint (Chromaprint, optional, sent only when available) |
+| `isrc` | string | ISRC code (optional, sent only when available) |
+
+**Response format (HTTP 200 + JSON):**
+
+```json
+{
+  "cover_url": "https://example.com/covers/album.jpg"
+}
+```
+
+- `cover_url` (required): full URL of the cover image
+
+Return HTTP 404 or empty body when no result is found.
+
+#### Complete Example
+
+```typescript
+/// <reference types="@songloft/plugin-sdk" />
+import { createRouter, jsonResponse, parseQuery } from '@songloft/plugin-sdk';
+
+const router = createRouter();
+let registered = false;
+
+router.get('/cover-search', async (req: HTTPRequest) => {
+  const q = parseQuery(req.query);
+  const coverUrl = await searchCoverFromMySource(
+    q.title, q.artist, q.album,
+    q.fingerprint,  // optional, for exact matching
+    q.isrc           // optional, for exact matching
+  );
+  if (!coverUrl) return jsonResponse(null, 404);
+  return jsonResponse({ cover_url: coverUrl });
+});
+
+globalThis.onInit = async () => {
+  songloft.covers.registerProvider();
+  registered = true;
+};
+
+globalThis.onDeinit = async () => {
+  if (registered) songloft.covers.unregisterProvider();
+};
+
+globalThis.onHTTPRequest = (req: HTTPRequest) => router.handle(req);
+```
+
+#### Workflow
+
+1. User plays a song with no cover; client requests `GET /api/v1/songs/{id}/cover`
+2. Host finds cover empty, iterates over all registered cover providers
+3. Calls `GET /cover-search?title=...&artist=...` on each plugin (15s timeout)
+4. First plugin returning HTTP 200 + non-empty `cover_url` wins; iteration stops
+5. Found cover is persisted asynchronously:
+   - **Local songs**: downloads the cover image → saves to local `cover_path` → embeds into audio file tags
+   - **Remote songs**: stores `cover_url` in the database
+6. Subsequent requests return the cached result without calling plugins again
+
+### Provider Mechanism — Common Notes
+
+Lyrics and cover providers share the same architecture:
+
+- **Multi-plugin support**: multiple plugins can register as the same provider type; the host uses a first-match-wins strategy
+- **Idle-eviction safe**: when a plugin is evicted from memory (idle cleanup), its provider registration is preserved; the host will auto-reload the plugin on next search
+- **Lazy cleanup**: disabled or deleted plugins are automatically removed from the provider set during search iteration
+- **Fingerprint & ISRC**: plugins are encouraged to prioritize `fingerprint` and `isrc` for exact matching (when available), then fall back to title/artist fuzzy search
+
 ---
 
 ## 6. Permission System

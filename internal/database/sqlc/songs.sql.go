@@ -850,6 +850,23 @@ func (q *Queries) UpdateSong(ctx context.Context, arg UpdateSongParams) (int64, 
 	return result.RowsAffected()
 }
 
+const updateSongCoverURL = `-- name: UpdateSongCoverURL :execrows
+UPDATE songs SET cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+`
+
+type UpdateSongCoverURLParams struct {
+	CoverUrl string
+	ID       int64
+}
+
+func (q *Queries) UpdateSongCoverURL(ctx context.Context, arg UpdateSongCoverURLParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateSongCoverURL, arg.CoverUrl, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const updateSongDuration = `-- name: UpdateSongDuration :exec
 UPDATE songs SET duration = ?, updated_at = CURRENT_TIMESTAMP
 WHERE id = ? AND (duration = 0 OR duration IS NULL)

@@ -153,21 +153,30 @@ func (s *Song) PlaybackURL() string {
 
 // CoverURLPath 返回客户端用的统一封面 URL。
 // 有封面(本地或远程)时返回 /api/v1/songs/{id}/cover 端点,后端自动判断本地/远程
-// 无封面时返回空字符串,避免客户端发起注定 404 的请求
+// 无封面时返回空字符串,避免客户端发起注定 404 的请求。
+// 当存在封面提供者插件时,本地无封面歌曲也放行,让客户端请求触发自动搜索。
 func (s *Song) CoverURLPath() string {
 	if s.ID == 0 {
 		return ""
 	}
-	if s.CoverPath == "" && s.CoverURL == "" {
-		return ""
+	if s.CoverPath != "" || s.CoverURL != "" {
+		return fmt.Sprintf("/api/v1/songs/%d/cover?v=%d", s.ID, s.UpdatedAt.Unix())
 	}
-	return fmt.Sprintf("/api/v1/songs/%d/cover?v=%d", s.ID, s.UpdatedAt.Unix())
+	if s.Type == TypeLocal && HasCoverProvider != nil && HasCoverProvider() {
+		return fmt.Sprintf("/api/v1/songs/%d/cover?v=%d", s.ID, s.UpdatedAt.Unix())
+	}
+	return ""
 }
 
 // HasLyricProvider 由上层(app 初始化时)注入，报告当前是否存在已启用的歌词提供者插件。
 // LyricURLPath 用它决定是否对本地无歌词歌曲放行歌词 URL —— 有歌词插件时才放行，
 // 避免没装插件的用户对全库无歌词歌发出注定 404 的请求。未注入(nil)时视作"无插件"。
 var HasLyricProvider func() bool
+
+// HasCoverProvider 由上层(app 初始化时)注入，报告当前是否存在已启用的封面提供者插件。
+// CoverURLPath 用它决定是否对本地无封面歌曲放行封面 URL —— 有封面插件时才放行，
+// 避免没装插件的用户对全库无封面歌发出注定 404 的请求。未注入(nil)时视作"无插件"。
+var HasCoverProvider func() bool
 
 // LyricURLPath 返回客户端用的统一歌词 URL。
 // 有歌词时(无论来源):返回 /api/v1/songs/{id}/lyric 端点。

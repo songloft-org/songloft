@@ -453,6 +453,16 @@ songloft.lyrics = {
     }
 };
 
+// === songloft.covers — 封面提供者注册 ===
+songloft.covers = {
+    registerProvider: function() {
+        __callBridge('plugin.registerCoverProvider', '');
+    },
+    unregisterProvider: function() {
+        __callBridge('plugin.unregisterCoverProvider', '');
+    }
+};
+
 // === songloft.net — 网络 socket（UDP / TCP）===
 songloft.net = {
     _handlers: {},      // UDP: socketId -> onData 回调
@@ -599,6 +609,8 @@ type BridgeHandler struct {
 	onPlayEventUnregister     func(entryPath string)    // 播放事件取消订阅回调
 	onLyricProviderRegister   func(entryPath string)    // 歌词提供者注册回调
 	onLyricProviderUnregister func(entryPath string)    // 歌词提供者取消注册回调
+	onCoverProviderRegister   func(entryPath string)    // 封面提供者注册回调
+	onCoverProviderUnregister func(entryPath string)    // 封面提供者取消注册回调
 }
 
 // NewBridgeHandler 创建桥接处理器
@@ -1468,6 +1480,18 @@ func (h *BridgeHandler) handlePlugin(action, data string) (string, error) {
 	case "plugin.unregisterLyricProvider":
 		if h.onLyricProviderUnregister != nil {
 			h.onLyricProviderUnregister(h.service.plugin.EntryPath)
+		}
+		return "", nil
+
+	case "plugin.registerCoverProvider":
+		if h.onCoverProviderRegister != nil {
+			h.onCoverProviderRegister(h.service.plugin.EntryPath)
+		}
+		return "", nil
+
+	case "plugin.unregisterCoverProvider":
+		if h.onCoverProviderUnregister != nil {
+			h.onCoverProviderUnregister(h.service.plugin.EntryPath)
 		}
 		return "", nil
 

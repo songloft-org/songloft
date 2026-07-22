@@ -33,6 +33,7 @@ type SongRepository interface {
 	BatchCreate(ctx context.Context, songs []*models.Song) error
 	UpsertRemote(ctx context.Context, song *models.Song) error
 	UpdateLyrics(ctx context.Context, id int64, lyric, lyricSource, lyricRemoteURL string) error
+	UpdateCoverURL(ctx context.Context, id int64, coverURL string) error
 	UpdateDuration(ctx context.Context, id int64, duration float64) error
 	UpdateSource(ctx context.Context, id int64, pluginEntryPath, sourceData string) error
 	ListLocalPaths(ctx context.Context) (map[string]database.LocalPathInfo, error)
@@ -1087,6 +1088,35 @@ func (s *SongService) UpdateLyrics(ctx context.Context, id int64, lyric, lyricSo
 // 由 SourceOrchestrator 在 Fetch 成功后内联调用。
 func (s *SongService) UpdateSongDuration(ctx context.Context, id int64, duration float64) error {
 	return s.songs.UpdateDuration(ctx, id, duration)
+}
+
+// UpdateCoverURL 按 song ID 更新封面 URL。
+// 由 GetSongCover handler 在封面提供者插件搜索命中后异步调用。
+// 对本地歌曲：下载封面到本地 cover_path，并嵌入音频文件标签；
+// 对远程歌曲：仅存储 cover_url。
+func (s *SongService) UpdateCoverURL(ctx context.Context, id int64, coverURL string) error {
+	song, err := s.songs.GetByID(ctx, id)
+	if err != nil || song == nil {
+		return s.songs.UpdateCoverURL(ctx, id, coverURL)
+	}
+
+	if song.Type == models.TypeLocal && song.FilePath != "" {
+		coverPath, dlErr := s.DownloadCover(ctx, coverURL)
+		if dlErr != nil {
+			slog.Warn("UpdateCoverURL: download cover failed, fallback to url",
+				"songId", id, "url", coverURL, "error", dlErr)
+			return s.songs.UpdateCoverURL(ctx, id, coverURL)
+		}
+		song.CoverPath = coverPath
+		song.CoverURL = ""
+		if err := s.songs.Update(ctx, song); err != nil {
+			return err
+		}
+		WriteSongTags(song.FilePath, song)
+		return nil
+	}
+
+	return s.songs.UpdateCoverURL(ctx, id, coverURL)
 }
 
 // UpdateSongSource 按 song ID 更新音源字段(plugin_entry_path + source_data)。
