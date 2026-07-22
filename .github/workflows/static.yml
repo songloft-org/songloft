@@ -8,6 +8,7 @@ on:
     paths:
       - 'docs/**'
       - 'scripts/**'
+      - 'addon/**'
       - 'README.md'
       - 'README.en.md'
       - 'CHANGELOG.md'
@@ -59,7 +60,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: false  # VitePress 只需要 docs/，不需要任何子模块
+          submodules: false
+
+      - name: Checkout doc submodules
+        run: git submodule update --init --depth 1 songloft-player plugin-toolchain
 
       - name: Set up Node.js
         uses: actions/setup-node@v2
