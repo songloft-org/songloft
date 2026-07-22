@@ -64,13 +64,22 @@ func TestIsNewerVersionDevUsesBuildTime(t *testing.T) {
 		t.Fatal("older dev build time should not be newer")
 	}
 
-	newerBuild := &models.RemoteVersionInfo{
+	sameCommitNewerBuild := &models.RemoteVersionInfo{
 		Version:   "dev",
 		GitCommit: "abc123",
 		BuildTime: "2026-07-01_11:00:00",
 	}
-	if !svc.isNewerVersion(versionTypeDev, newerBuild) {
-		t.Fatal("newer dev build time should be newer even when commit is unchanged")
+	if svc.isNewerVersion(versionTypeDev, sameCommitNewerBuild) {
+		t.Fatal("same git commit should not be newer even with later build time")
+	}
+
+	differentCommitNewerBuild := &models.RemoteVersionInfo{
+		Version:   "dev",
+		GitCommit: "def456",
+		BuildTime: "2026-07-01_11:00:00",
+	}
+	if !svc.isNewerVersion(versionTypeDev, differentCommitNewerBuild) {
+		t.Fatal("different commit with newer build time should be newer")
 	}
 }
 

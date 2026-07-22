@@ -252,13 +252,17 @@ func (s *UpgradeService) ValidateVersionTypeForUpgrade(versionType string) error
 }
 
 // isNewerVersion 判断远程版本是否比当前版本更新
-// dev 版本按构建时间比较，正式版按版本号比较。
+// dev 版本先比较 git commit（相同则无需更新），再按构建时间比较；正式版按版本号比较。
 func (s *UpgradeService) isNewerVersion(versionType string, remoteInfo *models.RemoteVersionInfo) bool {
 	if remoteInfo == nil || versionType != s.CurrentVersionType() {
 		return false
 	}
 
 	if versionType == versionTypeDev {
+		if remoteInfo.GitCommit != "" && version.GitCommit != "" &&
+			version.GitCommit != "unknown" && remoteInfo.GitCommit == version.GitCommit {
+			return false
+		}
 		return compareBuildTimes(remoteInfo.BuildTime, version.BuildTime) > 0
 	}
 
