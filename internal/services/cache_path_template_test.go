@@ -71,6 +71,18 @@ func TestPathTemplateRender(t *testing.T) {
 			want:     "Art_ist/Hello_World",
 		},
 		{
+			name:     "slash in title not treated as separator",
+			template: "{artist}-{album}/{title}",
+			song:     &models.Song{Title: "AC/DC Song", Artist: "Various", Album: "Best"},
+			want:     "Various-Best/AC_DC Song",
+		},
+		{
+			name:     "slash in artist not treated as separator",
+			template: "{artist}/{title}",
+			song:     &models.Song{Title: "Track", Artist: "A/B"},
+			want:     "A_B/Track",
+		},
+		{
 			name:     "nil song",
 			template: "{artist}-{album}/{title}",
 			song:     nil,

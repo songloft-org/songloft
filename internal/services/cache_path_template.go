@@ -86,6 +86,10 @@ func (t *PathTemplate) Render(song *models.Song) string {
 			continue
 		}
 		val := placeholderValue(seg.placeholder, song)
+		// 占位符取值内部的 '/' 不是模板里的目录分隔符，先折叠成 '_'，
+		// 否则含斜杠的歌名（如 "AC/DC"）会被下面的 Split 误当成目录层级，
+		// 导致 '/' 前的文字变成文件夹名（issue #265）。
+		val = strings.ReplaceAll(val, "/", "_")
 		b.WriteString(val)
 	}
 

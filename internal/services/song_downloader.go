@@ -144,6 +144,12 @@ func (d *SongDownloader) Download(ctx context.Context, songID int64, opts SongDo
 		return nil, fmt.Errorf("mkdir: %w", err)
 	}
 
+	// 目标已存在（不同歌曲渲染出同一路径，如同名不同版本）时追加序号，避免
+	// copyFile 直接覆盖，导致批量下载"成功 N 首却只剩 M 个文件"（issue #265）。
+	// 下载入口只接受 remote 歌曲（下载后转 local），故同一路径必是另一首歌，
+	// 不会把同一首歌的重复下载误判为冲突。
+	destPath = uniqueDestPath(destPath)
+
 	if err := copyFile(srcPath, destPath); err != nil {
 		return nil, fmt.Errorf("copy to target: %w", err)
 	}
@@ -273,6 +279,23 @@ func (d *SongDownloader) TryAutoDownload(ctx context.Context, song *models.Song)
 		return
 	}
 	slog.Info("auto-download completed", "songID", song.ID, "title", song.Title, "path", result.Path)
+}
+
+// uniqueDestPath 返回一个不与现有文件冲突的路径：若 path 已存在，则在扩展名前
+// 追加 " (2)"、" (3)"… 直到找到空位（如 "Song.mp3" → "Song (2).mp3"）。
+func uniqueDestPath(path string) string {
+	if _, err := os.Stat(path); err != nil {
+		return path // 不存在（或无法探测，交由 copyFile 报错）→ 直接用
+	}
+	ext := filepath.Ext(path)
+	base := strings.TrimSuffix(path, ext)
+	for i := 2; i < 10000; i++ {
+		candidate := fmt.Sprintf("%s (%d)%s", base, i, ext)
+		if _, err := os.Stat(candidate); err != nil {
+			return candidate
+		}
+	}
+	return path
 }
 
 // copyFile 复制文件。
