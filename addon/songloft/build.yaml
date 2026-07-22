@@ -1,6 +1,6 @@
 # 各架构基础镜像。CI 发布时会把 tag 同步为具体版本号（见 release.yml）。
 # songloft/songloft 是多架构 manifest，Docker 会按目标平台自动拉取对应架构层。
 build_from:
-  amd64: songloft/songloft:2.10.0
-  aarch64: songloft/songloft:2.10.0
-  armv7: songloft/songloft:2.10.0
+  amd64: songloft/songloft:2.11.0
+  aarch64: songloft/songloft:2.11.0
+  armv7: songloft/songloft:2.11.0
