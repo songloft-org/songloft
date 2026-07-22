@@ -42,8 +42,8 @@
 
 ## ✨ Core Features
 
-- 🎵 **Local music management** — Scans local directories and automatically extracts covers and metadata from MP3/FLAC/WAV/APE/OGG/M4A and other formats
-- 🎬 **Video support** — Scans video containers such as MP4/MOV/MKV/WebM, detects real video tracks, and renders the picture in-app
+- 🎵 **Local music management** — Scans local directories and automatically extracts covers and metadata from MP3/FLAC/WAV/APE/OGG/M4A/WMA/AIF/AIFF/MKA and other formats
+- 🎬 **Video support** — Scans video containers such as MP4/MOV/M4V/MKV/WebM/AVI/TS, detects real video tracks, and renders the picture in-app
 - 🧩 **JS plugin system** — Runs on a QuickJS sandbox with a permission model, health checks, and hot reload; freely extend audio sources / metadata / device control and more
 - 📱 **Cross-platform clients** — The Flutter client supports six platforms: Android, iOS, macOS, Windows, Linux, and Web
 - 📦 **Bundle local mode** — The client embeds the Go backend, so no server deployment is needed — play your local music directly on your phone or computer
@@ -533,11 +533,17 @@ The full API documentation (Swagger/OpenAPI format) is available at:
 |--------|------|------|
 | Auth | `/api/v1/auth/*` | Login, refresh token, logout, token management |
 | Songs | `/api/v1/songs/*` | Song CRUD, covers, playback, lyrics |
-| Playlists | `/api/v1/playlists/*` | Playlist CRUD, playlist song management |
+| Playlists | `/api/v1/playlists/*` | Playlist CRUD, playlist song management, import/export |
 | JS plugins | `/api/v1/jsplugins/*` | Plugin upload, enable, disable, delete, check for updates |
 | Scan | `/api/v1/scan/*` | Music library scanning |
-| Config | `/api/v1/configs/*` | System configuration management |
+| Config | `/api/v1/configs/*` | System configuration management (generic KV) |
+| Settings | `/api/v1/settings/*` | Business feature settings (music directory, HLS proxy, HTTP proxy, auto scan, etc.) |
+| Cache management | `/api/v1/cache-manage/*` | Cache stats, cleanup, configuration |
+| Upgrade | `/api/v1/upgrade/*` | Version check, upgrade (Docker only) |
 | Version | `/api/v1/version` | Version info |
+| Health | `/api/v1/health` | Service health status |
+| Proxy | `/api/v1/proxy` | Resource proxy (for CORS issues) |
+| Logs | `/api/v1/logs/export` | Log export |
 
 ## ❓ FAQ
 

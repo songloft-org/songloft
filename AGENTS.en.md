@@ -111,7 +111,7 @@ func (h *XxxHandler) Method(w http.ResponseWriter, r *http.Request) { ... }
 - Endpoints with obvious error paths add `@Failure 400/404/500 {object} map[string]string "..."`
 - Path/query parameters use `@Param <name> path/query <type> true/false "<description>"`
 - **Public endpoints** (no token required, e.g. health checks) omit `@Security BearerAuth`
-- **Business tag naming**: reuse existing tags (「歌曲管理」「歌单管理」「电台与 HLS」「扫描管理」「配置管理」「缓存管理」「JS 插件」「数据备份」「设置」「升级」「认证」); do not casually invent new tags
+- **Business tag naming**: reuse existing tags (「歌曲管理」「歌单管理」「电台与 HLS」「扫描管理」「配置管理」「缓存管理」「JS 插件」「JS插件管理」「数据备份」「设置」「系统升级」「认证管理」「系统管理」「资源代理」); do not casually invent new tags
 
 ### Multi-alias / catch-all routes
 

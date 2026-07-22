@@ -8,9 +8,11 @@ This directory contains automation scripts for the Songloft backend, covering ve
 |------|------|
 | `bump-version.sh` | Bumps `VERSION` in `Makefile` and the Swagger `@version` in `main.go`, then commits + tags + pushes (once the tag is pushed, the release workflow takes over the release) |
 | `submodule-update.sh` | Batch-syncs all git submodules to the latest main |
+| `submodule-push.sh` | Batch-pushes all submodules that have unpushed commits to their remote |
 | `docker-entrypoint.sh` | Startup entrypoint inside the Docker image (not invoked directly) |
 | `plugin-build.sh` | Builds a single JS plugin, outputting a `.jsplugin.zip` |
 | `plugin-release.sh` | Uploads a `.jsplugin.zip` to the corresponding GitHub Release |
+| `generate-icons.sh` | Generates all PNG/ICO icons from `favicon.svg` (requires Node.js 18+) |
 | `fetch-issues.mjs` / `sync-docs.mjs` | Documentation sync helpers |
 | `test_tag.sh` | Manual smoke-test script for the `pkg/tag` command-line tools |
 

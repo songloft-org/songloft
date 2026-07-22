@@ -111,7 +111,7 @@ func (h *XxxHandler) Method(w http.ResponseWriter, r *http.Request) { ... }
 - 错误路径明显的接口加 `@Failure 400/404/500 {object} map[string]string "..."`
 - 路径参数 / 查询参数用 `@Param <name> path/query <type> true/false "<说明>"`
 - **公开端点**（无需 token，如健康检查）省略 `@Security BearerAuth`
-- **业务 tag 命名**：复用现有 tag（「歌曲管理」「歌单管理」「电台与 HLS」「扫描管理」「配置管理」「缓存管理」「JS 插件」「数据备份」「设置」「升级」「认证」），不要随手造新 tag
+- **业务 tag 命名**：复用现有 tag（「歌曲管理」「歌单管理」「电台与 HLS」「扫描管理」「配置管理」「缓存管理」「JS 插件」「JS插件管理」「数据备份」「设置」「系统升级」「认证管理」「系统管理」「资源代理」），不要随手造新 tag
 
 ### 多别名 / catch-all 路由
 

@@ -50,7 +50,7 @@ NC=\033[0m # No Color
 
 .PHONY: help
 help: ## 显示帮助信息
-	@echo "$(BLUE)MiMusic - Makefile 命令$(NC)"
+	@echo "$(BLUE)Songloft - Makefile 命令$(NC)"
 	@echo ""
 	@echo "$(BLUE)Go 版本要求: $(GO_VERSION)$(NC)"
 	@echo ""

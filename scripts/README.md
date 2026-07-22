@@ -8,9 +8,11 @@
 |------|------|
 | `bump-version.sh` | 升级 `Makefile` 的 `VERSION` 与 `main.go` 的 Swagger `@version`，并 commit + tag + push（push tag 后由 release workflow 接管发布） |
 | `submodule-update.sh` | 批量同步所有 git 子模块到最新 main |
+| `submodule-push.sh` | 批量推送所有有未推送 commit 的子模块到远程 |
 | `docker-entrypoint.sh` | Docker 镜像内的启动入口（不直接调用） |
 | `plugin-build.sh` | 构建单个 JS 插件，输出 `.jsplugin.zip` |
 | `plugin-release.sh` | 把 `.jsplugin.zip` 上传到对应 GitHub Release |
+| `generate-icons.sh` | 从 `favicon.svg` 生成项目所需的所有 PNG/ICO 图标（依赖 Node.js 18+） |
 | `fetch-issues.mjs` / `sync-docs.mjs` | 文档同步辅助 |
 | `test_tag.sh` | `pkg/tag` 命令行工具的手工冒烟脚本 |
 
