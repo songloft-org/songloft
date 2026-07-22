@@ -33,6 +33,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"songloft/internal/httputil"
+	"songloft/internal/logging"
 
 	"modernc.org/quickjs"
 )
@@ -1941,8 +1942,28 @@ func registerBridgeFunctions(vm *quickjs.VM, env *JSEnv) error {
 // 支持 X-Fetch-No-Redirect 请求头：存在时不自动跟随重定向，让 JS 侧处理
 // 重定向链（如 xiaomi 登录流程的 Cookie 收集）。
 // 支持 X-Fetch-Timeout-Ms 请求头：设置单次请求超时（100-30000ms），该内部头不会转发。
+// redactHeadersForLog 返回用于 debug 日志的脱敏头副本：Authorization/Cookie 及含
+// token/auth/session 的头值替换为 ***。插件对外请求头常含第三方账号凭证，日志可能被
+// 导出提交 issue，故落日志前先脱敏（导出端点还会再过一遍 logging.Redact 作纵深防御）。
+func redactHeadersForLog(h map[string]string) map[string]string {
+	if len(h) == 0 {
+		return h
+	}
+	out := make(map[string]string, len(h))
+	for k, v := range h {
+		lk := strings.ToLower(k)
+		if lk == "authorization" || lk == "cookie" || lk == "set-cookie" ||
+			strings.Contains(lk, "token") || strings.Contains(lk, "auth") || strings.Contains(lk, "session") {
+			out[k] = "***"
+		} else {
+			out[k] = v
+		}
+	}
+	return out
+}
+
 func doHTTPRequest(url, method, headersJSON, bodyHex string) string {
-	slog.Debug("doHTTPRequest", "url", url, "method", method, "headers", headersJSON)
+	slog.Debug("doHTTPRequest", "url", url, "method", method, "headers", logging.Redact(headersJSON))
 
 	// 解析并设置请求头
 	var headers map[string]string
@@ -2013,7 +2034,7 @@ func doHTTPRequest(url, method, headersJSON, bodyHex string) string {
 				actualHeaders[k] = vals[0]
 			}
 		}
-		slog.Debug("doHTTPRequest actual request headers", "url", url, "noRedirect", noRedirect, "timeout", timeout, "headers", actualHeaders)
+		slog.Debug("doHTTPRequest actual request headers", "url", url, "noRedirect", noRedirect, "timeout", timeout, "headers", redactHeadersForLog(actualHeaders))
 	}
 
 	// 根据是否需要跟随重定向选择客户端
@@ -2046,7 +2067,7 @@ func doHTTPRequest(url, method, headersJSON, bodyHex string) string {
 	}
 
 	// 诊断日志：记录响应状态和头信息
-	slog.Debug("doHTTPRequest response", "url", url, "status", resp.StatusCode, "headers", respHeaders, "bodyLen", len(bodyBytes))
+	slog.Debug("doHTTPRequest response", "url", url, "status", resp.StatusCode, "headers", redactHeadersForLog(respHeaders), "bodyLen", len(bodyBytes))
 	if resp.StatusCode == 401 || resp.StatusCode >= 400 {
 		slog.Warn("doHTTPRequest error response", "url", url, "status", resp.StatusCode, "body", string(bodyBytes))
 	}

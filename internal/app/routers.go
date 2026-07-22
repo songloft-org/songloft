@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 
@@ -88,6 +89,10 @@ func (a *App) setupAPIV1Router() {
 
 	// 创建日志等级处理器（持有 App 的 LevelVar，PUT 时即时切换运行时等级）
 	logHandler := handlers.NewLogHandler(a.configService, a.logLevelVar)
+
+	// 创建日志导出处理器（读取落盘日志目录，脱敏后供下载）。
+	// logDir 恒按 data 目录派生，即使 logWriter 初始化失败仍可导出已有文件。
+	logExportHandler := handlers.NewLogExportHandler(filepath.Join(filepath.Dir(a.config.DBPath), "logs"))
 
 	// 创建 JS 插件管理处理器
 	jsPluginHandler := handlers.NewJSPluginHandler(
@@ -181,6 +186,7 @@ func (a *App) setupAPIV1Router() {
 			r.Put("/settings/auto-scan", scanHandler.UpdateAutoScanSetting)
 			r.Get("/settings/log-level", logHandler.GetLevelSetting)
 			r.Put("/settings/log-level", logHandler.UpdateLevelSetting)
+			r.Get("/logs/export", logExportHandler.ExportLogs)
 			r.Get("/settings/plugin-registries", jsPluginHandler.GetRegistriesSetting)
 			r.Put("/settings/plugin-registries", jsPluginHandler.UpdateRegistriesSetting)
 			r.Get("/settings/http-proxy", jsPluginHandler.GetHttpProxySetting)

@@ -2682,6 +2682,29 @@ paths:
       summary: 上传安装 JS 插件
       tags:
       - JS插件管理
+  /logs/export:
+    get:
+      description: 将后端落盘的日志文件（<data_dir>/logs/ 下按天轮转的文件）按时间从旧到新拼接，逐行脱敏后作为纯文本附件返回，触发浏览器下载。脱敏会抹除密钥/token/密码、Authorization/Cookie
+        头、URL 内嵌凭证、客户端 IP 主机位、用户主目录名等敏感信息，便于用户安全地附到 issue。远程服务器、桌面 Bundle、移动 Bundle
+        三种模式下均可用（均由同一份后端提供该端点）。无日志文件时返回仅含提示行的文本。
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: 脱敏后的后端日志（text/plain）
+          schema:
+            type: file
+        "500":
+          description: 读取日志目录失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 导出后端日志
+      tags:
+      - 设置
   /playlists:
     get:
       consumes:

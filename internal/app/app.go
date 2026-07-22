@@ -5,6 +5,7 @@ import (
 	"embed"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"songloft/internal/handlers"
 	"songloft/internal/httputil"
 	"songloft/internal/jsplugin"
+	"songloft/internal/logging"
 	"songloft/internal/models"
 	"songloft/internal/services"
 	"songloft/internal/services/playactivity"
@@ -57,7 +59,8 @@ type App struct {
 	playActivity       *playactivity.Registry     // 跨 song/会话 cancel 的全局表，处理快速切歌时旧请求的让位（issue #79）
 	webDist            embed.FS
 	tracelyClient      *tracely.Client
-	logLevelVar        *slog.LevelVar // 全局 slog 等级动态切换；由 /settings/log-level 即时 Set
+	logLevelVar        *slog.LevelVar        // 全局 slog 等级动态切换；由 /settings/log-level 即时 Set
+	logWriter          *logging.RotateWriter // 日志落盘 writer（<data_dir>/logs/），供 /logs/export 读取；stdout 采集不受影响
 	server             *http.Server
 }
 
@@ -86,7 +89,14 @@ func (a *App) Close() error {
 	}
 	if a.db != nil {
 		slog.Info("关闭数据库连接")
-		return a.db.Close()
+		err := a.db.Close()
+		if a.logWriter != nil {
+			_ = a.logWriter.Close()
+		}
+		return err
+	}
+	if a.logWriter != nil {
+		_ = a.logWriter.Close()
 	}
 	return nil
 }
@@ -105,7 +115,17 @@ func (a *App) Init() error {
 	// 初始化 slog：用 LevelVar 让 /settings/log-level 可在运行时切换等级。
 	// 默认 LevelInfo（与旧的 nil HandlerOptions 行为一致）；DB 中持久化的等级在 configService 就绪后再 apply。
 	a.logLevelVar = new(slog.LevelVar)
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: a.logLevelVar}))
+	// 日志同时写 stdout（Docker/systemd 采集）与轮转文件（供 /logs/export 导出给用户提交 issue）。
+	// 落盘目录随 data 目录派生：<data_dir>/logs/。落盘 writer 创建失败时降级为仅 stdout，不阻塞启动。
+	var logOut io.Writer = os.Stdout
+	logDir := filepath.Join(filepath.Dir(a.config.DBPath), "logs")
+	if lw, err := logging.NewRotateWriter(logDir, 0, 0); err != nil {
+		slog.New(slog.NewTextHandler(os.Stdout, nil)).Warn("日志落盘初始化失败，降级为仅 stdout", "dir", logDir, "error", err)
+	} else {
+		a.logWriter = lw
+		logOut = io.MultiWriter(os.Stdout, lw)
+	}
+	logger := slog.New(slog.NewTextHandler(logOut, &slog.HandlerOptions{Level: a.logLevelVar}))
 	slog.SetDefault(logger)
 
 	// 确保数据库目录存在
@@ -545,8 +565,9 @@ func (a *App) BuildHandler() http.Handler {
 // Start 启动应用程序（阻塞监听）
 func (a *App) Start() error {
 	if a.config.UsingDefaultCredentials {
-		slog.Info("使用默认管理员账号密码启动")
-		slog.Info(fmt.Sprintf("默认管理员账号: %s，默认密码: %s", a.config.Username, a.config.Password))
+		// 不打印密码明文：日志可能被导出提交到 issue，凭证不应落盘。
+		// 使用默认凭证时账号/密码均为 admin，用户已知；此处仅提示。
+		slog.Info("使用默认管理员账号启动（账号密码均为 admin，请尽快修改）", "username", a.config.Username)
 	}
 
 	// 显式创建 listener：支持 port=0（由系统自动分配空闲端口，本地/Bundle 模式用），
