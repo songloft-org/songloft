@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -1123,6 +1124,7 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // @Param prefetch query string false "传 1 时异步预热缓存/转码，立即返回 202"
 // @Param media query string false "传 video 时按视频播放：直出原容器（忽略 format/quality 转码，避免 -vn 丢画面），并按容器真实类型返回 Content-Type（如 video/mp4）。用于应用内视频画面渲染与 DLNA 视频投屏"
 // @Param hls query string false "仅电台(HLS)有效。传 direct 时强制 302 直连源站、绕过本机 HLS 反代（即使 /settings/hls-proxy 已开）。原生 player 无 CORS 限制，直连可避免直播切片经反代往返后过期(404)；浏览器不传此参数以继续走反代解决 CORS"
+// @Param radio_transcode query string false "仅电台有效。传目标格式（如 mp3）时，服务端用 ffmpeg 把电台流实时转码为该格式（HLS 与裸流均适用）。用于只支持 MP3、无法解码 AAC/HE-AAC 或不支持 HLS 的音箱。缺 ffmpeg 或坏源时优雅降级为原样代理/302。与 format 分离：电台侧忽略 format，只认此参数"
 // @Success 200 {file} binary "音频文件"
 // @Success 202 {string} string "预拉取已触发"
 // @Success 302 {string} string "电台流重定向"
@@ -1416,6 +1418,38 @@ func (h *SongHandler) serveRadio(w http.ResponseWriter, r *http.Request, song *m
 		return
 	}
 
+	// radio_transcode=<fmt>：把电台流实时转码为目标格式（典型 mp3）。用于只支持 MP3、无法解码
+	// AAC/HE-AAC 或不支持 HLS 的音箱（songloft-org/songloft#275）。由客户端按设备能力下发；
+	// 浏览器/桌面自带解码能力，不传此参数以保留原码最高音质。
+	// 与 format 参数刻意分离：format 面向本地/网络歌曲的通用转码，电台侧一律忽略 format，
+	// 只认 radio_transcode，避免「统一转 MP3」开关误连带影响电台。
+	if transcodeFmt := services.NormalizeFormat(r.URL.Query().Get("radio_transcode")); transcodeFmt != "" && h.cacheService != nil {
+		w.Header().Set("Content-Type", radioTranscodeContentType(transcodeFmt))
+		w.Header().Set("Cache-Control", "no-cache, no-store")
+		var referer string
+		if u, err := url.Parse(song.URL); err == nil && u.Scheme != "" && u.Host != "" {
+			referer = u.Scheme + "://" + u.Host + "/"
+		}
+		err := h.cacheService.StreamTranscodedRadio(r.Context(), w, services.RadioTranscodeOptions{
+			UpstreamURL: song.URL,
+			Format:      transcodeFmt,
+			UserAgent:   radioStreamUserAgent,
+			Referer:     referer,
+		})
+		if err == nil {
+			return
+		}
+		if !errors.Is(err, services.ErrRadioTranscodeUnavailable) {
+			// 转码已开始后中途失败：响应已提交，无法再降级，直接结束。
+			return
+		}
+		// 转码未产出任何字节即失败（缺 ffmpeg / 坏源等）：此时尚未写出 body，
+		// 清掉预设的响应头，降级为下面的原样代理 / 302。
+		w.Header().Del("Content-Type")
+		w.Header().Del("Cache-Control")
+		slog.Warn("radio transcode unavailable, falling back to passthrough", "songId", song.ID, "url", song.URL, "error", err)
+	}
+
 	if isHLSURL(song.URL) {
 		// hls=direct：原生 player（mpv/ExoPlayer/AVPlayer）自带 HLS 解析且无 CORS 限制，
 		// 让它直接 302 到源站自行拉取切片。经本机反代会多一次「拉列表→改写→客户端回访切片」
@@ -1512,6 +1546,24 @@ func normalizeAudioContentType(ct string) string {
 		return "audio/aac"
 	}
 	return ct
+}
+
+// radioTranscodeContentType 返回电台实时转码目标格式对应的响应 Content-Type。
+func radioTranscodeContentType(format string) string {
+	switch format {
+	case "mp3":
+		return "audio/mpeg"
+	case "ogg":
+		return "audio/ogg"
+	case "m4a":
+		return "audio/mp4"
+	case "flac":
+		return "audio/flac"
+	case "wav":
+		return "audio/wav"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 // isHLSURL 判断 URL 是否指向 HLS 播放列表(.m3u8/.m3u),忽略大小写与查询串。

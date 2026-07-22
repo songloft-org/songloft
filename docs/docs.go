@@ -6656,6 +6656,12 @@ const docTemplate = `{
                         "description": "仅电台(HLS)有效。传 direct 时强制 302 直连源站、绕过本机 HLS 反代（即使 /settings/hls-proxy 已开）。原生 player 无 CORS 限制，直连可避免直播切片经反代往返后过期(404)；浏览器不传此参数以继续走反代解决 CORS",
                         "name": "hls",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "仅电台有效。传目标格式（如 mp3）时，服务端用 ffmpeg 把电台流实时转码为该格式（HLS 与裸流均适用）。用于只支持 MP3、无法解码 AAC/HE-AAC 或不支持 HLS 的音箱。缺 ffmpeg 或坏源时优雅降级为原样代理/302。与 format 分离：电台侧忽略 format，只认此参数",
+                        "name": "radio_transcode",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6749,6 +6755,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "仅电台(HLS)有效。传 direct 时强制 302 直连源站、绕过本机 HLS 反代（即使 /settings/hls-proxy 已开）。原生 player 无 CORS 限制，直连可避免直播切片经反代往返后过期(404)；浏览器不传此参数以继续走反代解决 CORS",
                         "name": "hls",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "仅电台有效。传目标格式（如 mp3）时，服务端用 ffmpeg 把电台流实时转码为该格式（HLS 与裸流均适用）。用于只支持 MP3、无法解码 AAC/HE-AAC 或不支持 HLS 的音箱。缺 ffmpeg 或坏源时优雅降级为原样代理/302。与 format 分离：电台侧忽略 format，只认此参数",
+                        "name": "radio_transcode",
                         "in": "query"
                     }
                 ],
