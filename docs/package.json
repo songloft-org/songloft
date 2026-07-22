@@ -6,8 +6,9 @@
   "scripts": {
     "sync": "node ../scripts/sync-docs.mjs",
     "fetch-issues": "node ../scripts/fetch-issues.mjs",
-    "docs:dev": "npm run sync && npm run fetch-issues && vitepress dev --host=0.0.0.0 --port=3030",
-    "docs:build": "npm run sync && npm run fetch-issues && vitepress build",
+    "swagger-to-md": "node ../scripts/swagger-to-md.mjs",
+    "docs:dev": "npm run sync && npm run fetch-issues && npm run swagger-to-md && vitepress dev --host=0.0.0.0 --port=3030",
+    "docs:build": "npm run sync && npm run fetch-issues && npm run swagger-to-md && vitepress build",
     "docs:preview": "vitepress preview",
     "screenshots": "node scripts/capture-screenshots.mjs"
   },

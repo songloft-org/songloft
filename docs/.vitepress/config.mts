@@ -38,7 +38,7 @@ export default async () => {
             {
               text: 'More',
               items: [
-                { text: 'API Docs', link: 'https://petstore.swagger.io/?url=https://raw.githubusercontent.com/songloft-org/songloft/refs/heads/main/docs/swagger.json' },
+                { text: 'API Docs', link: '/swagger-api/' },
                 { text: 'Docker Hub', link: 'https://hub.docker.com/r/songloft/songloft' },
                 { text: 'Privacy', link: '/en/PRIVACY' },
                 { text: 'NOTICE', link: '/en/NOTICE' },
@@ -69,15 +69,24 @@ export default async () => {
             { text: '插件列表', link: '/issues/4' },
             { text: '插件开发指南', link: '/js-plugin-development-guide' },
             { text: '插件源制作指南', link: '/plugin_registry' },
+            { text: '插件工具链', link: '/plugin-toolchain/' },
           ],
         },
         { text: '源码解析', link: '/repowiki/项目概述' },
+        {
+          text: '子项目',
+          items: [
+            { text: 'Flutter 客户端', link: '/player/architecture' },
+            { text: 'Tracely 可观测', link: '/tracely/' },
+            { text: 'HA 加载项', link: '/addon/' },
+          ],
+        },
         { text: 'FAQ', link: '/faq' },
         { text: '更新日志', link: '/changelog' },
         {
           text: '更多',
           items: [
-            { text: 'API 文档', link: 'https://petstore.swagger.io/?url=https://raw.githubusercontent.com/songloft-org/songloft/refs/heads/main/docs/swagger.json' },
+            { text: 'API 文档', link: '/swagger-api/' },
             { text: 'Docker Hub', link: 'https://hub.docker.com/r/songloft/songloft' },
             { text: '隐私说明', link: '/PRIVACY' },
             { text: 'NOTICE', link: '/NOTICE' },
@@ -107,6 +116,8 @@ export default async () => {
     sitemap: {
       hostname: 'https://songloft.hanxi.cc',
     },
+
+    ignoreDeadLinks: [/^https?:\/\/localhost/],
 
     lastUpdated: true,
 

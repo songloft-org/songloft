@@ -16,3 +16,11 @@ PRIVACY.md
 en/quick-start.md
 en/NOTICE.md
 en/PRIVACY.md
+# 子项目文档由 sync 生成
+player/
+tracely/
+addon/
+plugin-toolchain/
+
+# 由 swagger-to-md.mjs 从 swagger.json 自动生成
+swagger-api/
