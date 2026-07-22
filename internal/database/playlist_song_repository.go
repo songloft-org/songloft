@@ -193,35 +193,46 @@ func (r *PlaylistSongRepository) MaxPosition(ctx context.Context, playlistID int
 	return int(n), nil
 }
 
-// AddSongsBatch 在单一事务里把多首歌曲连续追加到歌单末尾，已存在的静默跳过。
+// AddSongsBatch 把多首歌曲连续追加到歌单末尾，已存在的静默跳过。
 // position 从 startPos+1 开始累加；只有实际插入成功的行才前进 position。
+// 内部按 sqlBatchSize 分事务执行，避免单事务持锁过久导致 SQLITE_BUSY。
 // 返回 (added, skipped, err)。
 func (r *PlaylistSongRepository) AddSongsBatch(ctx context.Context, playlistID int64, startPos int, songIDs []int64) (added int, skipped int, err error) {
 	if len(songIDs) == 0 {
 		return 0, 0, nil
 	}
-	err = r.runInTx(ctx, func(q *sqlc.Queries) error {
-		pos := startPos
-		for _, songID := range songIDs {
-			pos++
-			rows, ierr := q.AddSongToPlaylistIgnore(ctx, sqlc.AddSongToPlaylistIgnoreParams{
-				PlaylistID: playlistID,
-				SongID:     songID,
-				Position:   int64(pos),
-			})
-			if ierr != nil {
-				return fmt.Errorf("insert song %d into playlist %d: %w", songID, playlistID, ierr)
-			}
-			if rows > 0 {
-				added++
-			} else {
-				pos--
-				skipped++
-			}
+	pos := startPos
+	for start := 0; start < len(songIDs); start += sqlBatchSize {
+		end := start + sqlBatchSize
+		if end > len(songIDs) {
+			end = len(songIDs)
 		}
-		return nil
-	})
-	return added, skipped, err
+		chunk := songIDs[start:end]
+		err = r.runInTx(ctx, func(q *sqlc.Queries) error {
+			for _, songID := range chunk {
+				pos++
+				rows, ierr := q.AddSongToPlaylistIgnore(ctx, sqlc.AddSongToPlaylistIgnoreParams{
+					PlaylistID: playlistID,
+					SongID:     songID,
+					Position:   int64(pos),
+				})
+				if ierr != nil {
+					return fmt.Errorf("insert song %d into playlist %d: %w", songID, playlistID, ierr)
+				}
+				if rows > 0 {
+					added++
+				} else {
+					pos--
+					skipped++
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return added, skipped, err
+		}
+	}
+	return added, skipped, nil
 }
 
 // AddSongIgnore 把歌曲添加到歌单，已存在时静默跳过。

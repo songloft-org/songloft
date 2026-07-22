@@ -135,30 +135,40 @@ func (r *SongRepository) UpdateSource(ctx context.Context, id int64, pluginEntry
 // ListTypesByIDs 批量查询给定 song id 的 type 字段，返回 id → type 映射。
 // 用于歌单批量加歌前的类型兼容性预检查（避免逐首 SELECT）。
 // 不存在的 id 不会出现在返回 map 中。
+// 内部按 sqlBatchSize 分片查询以避免超过 SQLite 的变量数上限。
 func (r *SongRepository) ListTypesByIDs(ctx context.Context, ids []int64) (map[int64]string, error) {
 	if len(ids) == 0 {
 		return map[int64]string{}, nil
 	}
-	query, args, err := sq.Select("id", "type").From("songs").Where(sq.Eq{"id": ids}).ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build list song types sql: %w", err)
-	}
-	rows, err := r.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("list song types: %w", err)
-	}
-	defer rows.Close()
 	result := make(map[int64]string, len(ids))
-	for rows.Next() {
-		var id int64
-		var typ string
-		if err := rows.Scan(&id, &typ); err != nil {
-			return nil, fmt.Errorf("scan song type: %w", err)
+	for start := 0; start < len(ids); start += sqlBatchSize {
+		end := start + sqlBatchSize
+		if end > len(ids) {
+			end = len(ids)
 		}
-		result[id] = typ
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate song types: %w", err)
+		chunk := ids[start:end]
+		query, args, err := sq.Select("id", "type").From("songs").Where(sq.Eq{"id": chunk}).ToSql()
+		if err != nil {
+			return nil, fmt.Errorf("build list song types sql: %w", err)
+		}
+		rows, err := r.db.QueryContext(ctx, query, args...)
+		if err != nil {
+			return nil, fmt.Errorf("list song types: %w", err)
+		}
+		for rows.Next() {
+			var id int64
+			var typ string
+			if err := rows.Scan(&id, &typ); err != nil {
+				rows.Close()
+				return nil, fmt.Errorf("scan song type: %w", err)
+			}
+			result[id] = typ
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("iterate song types: %w", err)
+		}
+		rows.Close()
 	}
 	return result, nil
 }
