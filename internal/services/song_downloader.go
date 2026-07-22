@@ -175,7 +175,6 @@ func (d *SongDownloader) Download(ctx context.Context, songID int64, opts SongDo
 	song.Type = models.TypeLocal
 	song.FilePath = destPath
 	song.URL = ""
-	song.PluginEntryPath = ""
 	song.SourceData = ""
 	song.CachePath = ""
 	if err := d.songService.Update(ctx, song); err != nil {
