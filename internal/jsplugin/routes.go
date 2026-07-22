@@ -25,6 +25,37 @@ import (
 //go:embed assets/*
 var pluginAssets embed.FS
 
+// assetVersions 缓存公共资源（common.css / common.js）内容哈希的前 8 位 hex，
+// 用于给 injectHTMLHead 注入的资源 URL 加 ?v=<hash> 做 cache-busting。
+//
+// 背景（#278）：jsplugin-assets 用固定无版本 URL（/api/v1/jsplugin-assets/common.css）
+// + "immutable, max-age=1年" 长缓存服务。immutable 意味着浏览器连重新验证都不做——
+// 一旦某个浏览器缓存了旧 common.css，之后再改 common.css（如滚动条抖动修复）也永远
+// 到不了该用户，表现为"修了还抖"。加内容哈希版本号后，文件一变 URL 就变，老缓存自然失效；
+// 承载页 HTML 是 no-cache，每次都会带出最新版本号，故修复能即时下发。内容不变时 URL 恒定，
+// immutable 长缓存依旧生效。
+var assetVersions = computeAssetVersions()
+
+func computeAssetVersions() map[string]string {
+	versions := make(map[string]string, 2)
+	for _, name := range []string{"common.css", "common.js"} {
+		data, err := pluginAssets.ReadFile("assets/" + name)
+		if err != nil {
+			continue
+		}
+		versions[name] = sha256HexSum(data)[:8]
+	}
+	return versions
+}
+
+// assetURL 返回带内容哈希版本号的公共资源 URL；无对应版本时回退到无版本 URL。
+func assetURL(assetsBase, name string) string {
+	if v := assetVersions[name]; v != "" {
+		return assetsBase + name + "?v=" + v
+	}
+	return assetsBase + name
+}
+
 // authBridgeScriptTpl 注入到每个插件 HTML 页面 <head> 顶部的小脚本：
 //  1. authBridge：从 URL query parameter 读取 access_token 并存入 localStorage，
 //     使插件 JS 通过 ?access_token=xxx 传递的 token 可被读取；执行后通过
@@ -331,8 +362,8 @@ func (m *Manager) servePluginStaticFile(w http.ResponseWriter, r *http.Request, 
 	relPath := subPath
 	if relPath == "static" {
 		relPath = ""
-	} else if strings.HasPrefix(relPath, "static/") {
-		relPath = strings.TrimPrefix(relPath, "static/")
+	} else if after, ok := strings.CutPrefix(relPath, "static/"); ok {
+		relPath = after
 	}
 
 	slog.Debug("jsplugin-static: 收到请求",
@@ -422,8 +453,8 @@ func injectHTMLHead(html []byte, entryPath, basePath string) []byte {
 	baseTag := []byte(`<base href="` + basePath + `/api/v1/jsplugin/` + entryPath + `/">`)
 	authScript := []byte(authBridgeScriptTpl)
 	assetsBase := basePath + "/api/v1/jsplugin-assets/"
-	cssLink := []byte(`<link rel="stylesheet" href="` + assetsBase + `common.css">`)
-	jsScript := []byte(`<script src="` + assetsBase + `common.js"></script>`)
+	cssLink := []byte(`<link rel="stylesheet" href="` + assetURL(assetsBase, "common.css") + `">`)
+	jsScript := []byte(`<script src="` + assetURL(assetsBase, "common.js") + `"></script>`)
 
 	injectPayload := make([]byte, 0, len(baseTag)+len(authScript)+len(cssLink)+len(jsScript))
 	injectPayload = append(injectPayload, baseTag...)
