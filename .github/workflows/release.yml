@@ -15,9 +15,10 @@ on:
 
 env:
   GO_VERSION: '1.26'
-  # 全平台(含 web)统一 stable 3.44.6。注:web 端切后台 WebGL context 丢失白屏
-  # (flutter/flutter#184683)的引擎修复 #185116 尚未进 3.44.6(仅 beta 3.47+),
-  # 此问题按现状接受;待 3.47 进 stable 后升级即可根治。
+  # 原生 bundle(桌面/移动)统一 stable 3.44.6(下方各 bundle job 复用此变量)。
+  # web 前端(build-frontend job)单独用 beta 3.47:含引擎修复 #185116
+  # (flutter/flutter#184683,切后台 WebGL context 丢失致 LateInitializationError
+  # 崩溃/白屏),该修复尚未进 stable;待进 stable 后回退与 bundle 统一。
   FLUTTER_VERSION: '3.44.6'
   DOCKER_USERNAME: songloft
   IMAGE_NAME: songloft
