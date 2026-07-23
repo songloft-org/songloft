@@ -34,6 +34,7 @@ const syncItems = [
   { from: 'songloft-player/docs/cn/development.md',     to: 'docs/player/development.md',     subdir: 'songloft-player/docs/cn' },
   { from: 'songloft-player/docs/cn/platform-notes.md',  to: 'docs/player/platform-notes.md',  subdir: 'songloft-player/docs/cn' },
   { from: 'songloft-player/docs/cn/flutter_patcher_hotupdate.md',  to: 'docs/player/flutter_patcher_hotupdate.md',  subdir: 'songloft-player/docs/cn' },
+  { from: 'songloft-player/docs/cn/backend_hotupdate.md',  to: 'docs/player/backend_hotupdate.md',  subdir: 'songloft-player/docs/cn' },
 
   // ── Home Assistant 加载项文档 → docs/addon/ ──
   { from: 'addon/README.md',         to: 'docs/addon/index.md',       subdir: 'addon' },

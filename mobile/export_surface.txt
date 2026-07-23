@@ -1,0 +1,4 @@
+func GetPort() int
+func IsRunning() bool
+func Start(dataDir, musicDir string, port int) (int, error)
+func Stop()
