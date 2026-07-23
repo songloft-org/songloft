@@ -14,6 +14,7 @@ require (
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
+	golang.org/x/image v0.42.0
 	golang.org/x/net v0.56.0
 	golang.org/x/sync v0.21.0
 	golang.org/x/sys v0.46.0

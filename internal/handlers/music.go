@@ -957,10 +957,11 @@ func (h *SongHandler) AddRadios(w http.ResponseWriter, r *http.Request) {
 
 // GetSongCover 获取歌曲封面图片
 // @Summary 获取歌曲封面图片
-// @Description 根据歌曲 ID 获取封面图片。优先使用本地封面文件（CoverPath），其次代理 CoverURL。CoverURL 支持以 "/" 开头的相对路径，服务端自动经 InternalURLResolver 解析为内部 URL（含 access_token），用于插件歌曲封面代理。
+// @Description 根据歌曲 ID 获取封面图片。优先使用本地封面文件（CoverPath），其次代理 CoverURL。CoverURL 支持以 "/" 开头的相对路径，服务端自动经 InternalURLResolver 解析为内部 URL（含 access_token），用于插件歌曲封面代理。可选 query 参数 w：把本地封面等比缩放到该宽度（物理像素，绝不放大、上限 1024）后以 JPEG 返回，用于 Web 端降低 GPU 纹理体积（songloft-org/songloft#309）；缺省或非法时返回原图。缩略仅作用于本地封面，远程代理封面忽略 w。
 // @Tags 歌曲管理
 // @Produce image/jpeg
 // @Param id path int true "歌曲 ID"
+// @Param w query int false "本地封面缩略目标宽度（物理像素，绝不放大，上限 1024）"
 // @Success 200 {file} binary "封面图片"
 // @Failure 400 {object} map[string]string "无效的歌曲 ID"
 // @Failure 404 {object} map[string]string "歌曲或封面不存在"
@@ -1026,10 +1027,9 @@ func (h *SongHandler) GetSongCover(w http.ResponseWriter, r *http.Request) {
 	respondError(w, http.StatusNotFound, "封面不存在", nil)
 }
 
-// serveLocalCover 返回本地封面文件
+// serveLocalCover 返回本地封面文件（支持 ?w= 服务端缩略，见 serveCoverFile）。
 func (h *SongHandler) serveLocalCover(w http.ResponseWriter, r *http.Request, song *models.Song) {
-	w.Header().Set("Cache-Control", "public, max-age=31536000")
-	http.ServeFile(w, r, song.CoverPath)
+	serveCoverFile(w, r, song.CoverPath)
 }
 
 // CleanInvalidSongs 清理无效的本地歌曲
