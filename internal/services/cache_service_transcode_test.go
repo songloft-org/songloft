@@ -63,6 +63,50 @@ func TestNeedsTranscode(t *testing.T) {
 	}
 }
 
+func TestNeedsTranscodeForServe(t *testing.T) {
+	dir := t.TempDir()
+
+	// 真实 MP3 样本（tag.ReadFrom 识别为 MP3）
+	realMP3 := filepath.Join(dir, "real.mp3")
+	mp3Data, err := os.ReadFile("../../pkg/tag/testdata/with_tags/sample.id3v23.mp3")
+	if err != nil {
+		t.Fatalf("read sample mp3: %v", err)
+	}
+	if err := os.WriteFile(realMP3, mp3Data, 0644); err != nil {
+		t.Fatalf("write real mp3: %v", err)
+	}
+
+	// 「伪 mp3」：WebM/EBML 内容却用 .mp3 扩展名（tag.ReadFrom 无法识别为 MP3）。
+	// EBML magic 0x1A45DFA3 开头，模拟 YouTube 音频被错误落盘。
+	fakeMP3 := filepath.Join(dir, "fake.mp3")
+	if err := os.WriteFile(fakeMP3, []byte("\x1a\x45\xdf\xa3not really mp3 bytes"), 0644); err != nil {
+		t.Fatalf("write fake mp3: %v", err)
+	}
+
+	song := &models.Song{ID: 1, Type: "remote"}
+
+	tests := []struct {
+		name    string
+		srcPath string
+		target  string
+		want    bool
+	}{
+		{"empty target never transcodes", realMP3, "", false},
+		{"real mp3 to mp3 short-circuits", realMP3, "mp3", false},
+		{"fake mp3 (webm) forces transcode", fakeMP3, "mp3", true},
+		{"cross-format still transcodes", realMP3, "flac", true},
+		{"unknown source format not probed", filepath.Join(dir, "noext"), "mp3", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NeedsTranscodeForServe(song, tt.srcPath, tt.target)
+			if got != tt.want {
+				t.Errorf("NeedsTranscodeForServe(%q, %q) = %v, want %v", tt.srcPath, tt.target, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseBitrate(t *testing.T) {
 	tests := []struct {
 		input string

@@ -1319,7 +1319,7 @@ func (h *SongHandler) prepareSongPlayback(ctx context.Context, song *models.Song
 		}
 	}
 
-	if song.CueSourcePath == "" && !services.NeedsTranscode(services.EffectiveSourceFormat(song, srcPath), targetFormat) && bitrate == 0 {
+	if song.CueSourcePath == "" && !services.NeedsTranscodeForServe(song, srcPath, targetFormat) && bitrate == 0 {
 		return
 	}
 	if _, err := h.cacheService.GetOrTranscode(ctx, srcPath, song, services.NormalizeFormat(targetFormat), bitrate, -1); err != nil {
@@ -1379,7 +1379,7 @@ func (h *SongHandler) serveLocal(w http.ResponseWriter, r *http.Request, song *m
 		} else {
 			srcPath = path
 		}
-	} else if services.NeedsTranscode(services.EffectiveSourceFormat(song, srcPath), targetFormat) || bitrate > 0 {
+	} else if services.NeedsTranscodeForServe(song, srcPath, targetFormat) || bitrate > 0 {
 		tcCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 		sk := playactivity.SessionFromContext(r.Context())
@@ -1693,7 +1693,7 @@ func (h *SongHandler) serveRemote(w http.ResponseWriter, r *http.Request, song *
 
 // serveCachedFile 从缓存文件提供服务,支持转码。
 func (h *SongHandler) serveCachedFile(w http.ResponseWriter, r *http.Request, song *models.Song, cachedPath, targetFormat string, bitrate int) {
-	if services.NeedsTranscode(services.EffectiveSourceFormat(song, cachedPath), targetFormat) || bitrate > 0 {
+	if services.NeedsTranscodeForServe(song, cachedPath, targetFormat) || bitrate > 0 {
 		sk := playactivity.SessionFromContext(r.Context())
 		tcCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()

@@ -390,6 +390,33 @@ func NeedsTranscode(srcFormat, targetFormat string) bool {
 	return normSrc != NormalizeFormat(targetFormat)
 }
 
+// NeedsTranscodeForServe 判断「播放 / 预热」时是否需要转码，是内容感知版的 NeedsTranscode。
+//
+// 在 NeedsTranscode（仅比对声称格式）基础上，额外用 magic bytes 复核文件真实容器：
+// 当源与目标声称同格式、NeedsTranscode 因此短路时，若文件实际内容并非该格式（典型：
+// YouTube 的 WebM/Opus 音频被错误地存成 .mp3 扩展名的「伪 mp3」），仍强制转码修正，
+// 避免把设备（如小爱音箱）无法解码的 WebM 原样推给客户端（songloft-org/songloft#300）。
+//
+// 与 EnsureCachedFormat 里的守卫同源（复用 matchesFormatMagic），区别在于这里作用于
+// 按需播放路径（miot「强制 MP3」的 ?format= 请求），而 EnsureCachedFormat 作用于
+// 全局缓存转码落盘。targetFormat 为空 → 永不转码（不强制格式，透传原码）。
+func NeedsTranscodeForServe(song *models.Song, srcPath, targetFormat string) bool {
+	if targetFormat == "" {
+		return false
+	}
+	srcFmt := EffectiveSourceFormat(song, srcPath)
+	if NeedsTranscode(srcFmt, targetFormat) {
+		return true
+	}
+	// 到这里：srcFmt 未知（"") 或声称与目标同格式。仅在「声称同格式」时用 magic bytes
+	// 复核——防伪装扩展名绕过转码；保留「源格式未知不转码」的既有行为不动。
+	if srcPath != "" && NormalizeFormat(srcFmt) == NormalizeFormat(targetFormat) &&
+		!matchesFormatMagic(srcPath, targetFormat) {
+		return true
+	}
+	return false
+}
+
 // EffectiveSourceFormat 计算源格式，优先使用 song.Format，
 // 为空时回退到 srcPath 的文件扩展名。
 // song.Format 存的是 tag 库返回的元数据格式名（如 "ID3v2.3"、"VORBIS"、"MP4"），
