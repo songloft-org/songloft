@@ -138,7 +138,7 @@ The client embeds the Go backend — on first launch, click "Use local mode" and
 
 | Platform | Architecture | Download |
 |------|------|--------|
-| 🤖 Android | Universal (all ABIs) | [songloft-bundled-android.apk](https://github.com/songloft-org/songloft/releases/latest/download/songloft-bundled-android.apk) |
+| 🤖 Android | ARM64 + ARMv7 | [songloft-bundled-android-arm64-v8a.apk](https://github.com/songloft-org/songloft/releases/latest/download/songloft-bundled-android-arm64-v8a.apk) |
 | 🐧 Linux | x86_64 | [songloft-bundled-linux-x64.tar.gz](https://github.com/songloft-org/songloft/releases/latest/download/songloft-bundled-linux-x64.tar.gz) |
 | 🍎 macOS | ARM64 (Apple Silicon) | [songloft-bundled-macos-arm64.dmg](https://github.com/songloft-org/songloft/releases/latest/download/songloft-bundled-macos-arm64.dmg) |
 | 🪟 Windows | x86_64 | [songloft-bundled-windows-x64.zip](https://github.com/songloft-org/songloft/releases/latest/download/songloft-bundled-windows-x64.zip) |

@@ -605,23 +605,24 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           cd songloft-player
-          # 单个 universal APK（含全部 ABI），不再 split-per-abi。
-          flutter build apk --release \
+          flutter build apk --release --split-per-abi \
             --dart-define=HAS_BACKEND=true \
             --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} \
             --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }} \
             --dart-define=FRONTEND_GIT_COMMIT=${{ needs.prepare.outputs.git_commit }}
 
-      - name: Collect APK
+      - name: Collect APKs
         run: |
           cd songloft-player
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/songloft-bundled-android.apk"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "$GITHUB_WORKSPACE/songloft-bundled-android-arm64-v8a.apk"
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "$GITHUB_WORKSPACE/songloft-bundled-android-armeabi-v7a.apk"
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk "$GITHUB_WORKSPACE/songloft-bundled-android-x86_64.apk"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: bundled-android
-          path: songloft-bundled-android.apk
+          path: songloft-bundled-android-*.apk
           retention-days: 1
 
   build-bundled-linux:

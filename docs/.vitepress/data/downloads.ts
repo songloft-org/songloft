@@ -199,7 +199,7 @@ export const INSTALL: InstallMethod[] = [
         os: 'android',
         osLabel: { zh: 'Android', en: 'Android' },
         icon: 'android',
-        assets: [a('universal', { zh: 'Universal（含全部 ABI）', en: 'Universal (all ABIs)' }, 'songloft-bundled-android.apk')],
+        assets: [a('arm64', { zh: 'ARM64 + ARMv7', en: 'ARM64 + ARMv7' }, 'songloft-bundled-android-arm64-v8a.apk')],
       },
       {
         os: 'ios',
