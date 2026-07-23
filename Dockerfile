@@ -104,10 +104,9 @@ RUN mkdir -p /app/music /app/data
 
 # --link 使 COPY 层与 parent 层解耦：即使 apk add 层因包更新而变化，
 # 下面这些层的 digest 也保持不变（不再受 parent chain 影响）。
-# 同样 pin 到 digest：hanxi/ffmpeg 无 pin 时走 :latest，外部镜像一更新这两层 digest 就变，
-# 用户白白重拉。刷新方式：docker buildx imagetools inspect hanxi/ffmpeg:latest --format '{{.Manifest.Digest}}'
-COPY --link --from=hanxi/ffmpeg@sha256:7c1adfe55a0dd3902f136ad7aac28db1ee35140df34b6b140f60e0ba973ce848 /ffmpeg /bin/ffmpeg
-COPY --link --from=hanxi/ffmpeg@sha256:7c1adfe55a0dd3902f136ad7aac28db1ee35140df34b6b140f60e0ba973ce848 /ffprobe /bin/ffprobe
+# 直接引用 hanxi/ffmpeg:latest，始终拉取上游最新的 ffmpeg/ffprobe，无需手动维护/刷新 digest。
+COPY --link --from=hanxi/ffmpeg:latest /ffmpeg /bin/ffmpeg
+COPY --link --from=hanxi/ffmpeg:latest /ffprobe /bin/ffprobe
 
 # 启动脚本小、极少变动（--chmod 合并原独立 chmod 层）
 COPY --link --chmod=0755 scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
