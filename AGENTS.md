@@ -142,7 +142,7 @@ func (h *XxxHandler) Method(w http.ResponseWriter, r *http.Request) { ... }
 
 ### `/api/v1/settings/<name>` — 孤立配置端点（前端业务功能默认走这里）
 
-- 路径风格：`/settings/<kebab-case-name>`（如 `/settings/hls-proxy`、`/settings/music-path`、`/settings/http-proxy`、`/settings/library-browse`）
+- 路径风格：`/settings/<kebab-case-name>`（如 `/settings/hls-proxy`、`/settings/music-path`、`/settings/http-proxy`、`/settings/library-browse`、`/settings/proxy-private-allowlist`）
 - 数据形态：**强类型** JSON（如 `{enabled: bool}` 或聚合对象），不是 `{value: string}`
 - 默认值：handler 内部承担（配置缺失时 GET 返回业务默认，PUT 时直接写入即可，**前端无需先 POST 创建**）
 - 副作用：在 PUT 内部直接触发（如 `music_path` PUT 完异步 `onMusicPathChanged` 重建 Scanner）
@@ -335,6 +335,15 @@ Docker 镜像内含底包 `/app/songloft`，持久化 data 卷存放实际运行
 - 实现：`internal/httputil/proxy.go` 提供全局 `ProxyConfig` + 共享 `*http.Transport`，`httputil.NewClient(timeout)` 创建代理感知的 client
 - 启动时从 config 表加载已保存的代理地址（`app.go`）；PUT 时即时生效无需重启
 - 当前已接入的 service：`jsplugin/registry.go`、`jsplugin/package.go`、`services/upgrade_service.go`、`handlers/jsplugin_registry.go`（downloadZIP）
+
+### 私网代理白名单（/settings/proxy-private-allowlist）
+
+- 背景：通用资源代理 `GET /api/v1/proxy?url=` 默认用 `services.IsHostnameAllowed` 封禁一切内网 / 回环 / 链路本地地址（防 SSRF），导致「公网 Songloft 代理仅私网可达的 WebDAV」被拒（songloft-org/songloft#313）
+- 业务端点：`GET/PUT /api/v1/settings/proxy-private-allowlist` 体 `{allowlist: []string}`，默认 `[]`（空 = 维持全阻断，行为不变）
+- 每条为单个 IP（`192.168.1.100`）或 CIDR 网段（`192.168.1.0/24`），PUT 时 `services.ParseAllowlist` 校验，非法条目返回 400
+- 判定：`services.IsHostnameAllowedWithAllowlist(hostname, allowlist)`——外网恒放行，私网 IP 仅当命中白名单某条网段才放行；`localhost`/`.local`/空主机名仍字符串级封禁（白名单只按 IP/CIDR 匹配）
+- **仅影响通用 `/proxy`**；HLS 反代（`hls.go`）仍走 `IsHostnameAllowed(nil)`，语义不变
+- 实现：`internal/services/whitelist.go`（`ParseAllowlist` / `IsHostnameAllowedWithAllowlist`）+ `internal/handlers/proxy.go`（`ProxyHandler` 持有 `*ConfigService`，config key `proxy_private_allowlist`）
 
 ### 音乐缓存（cache_service）
 

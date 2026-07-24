@@ -142,7 +142,7 @@ The project has two kinds of configuration endpoints. **User-visible feature tog
 
 ### `/api/v1/settings/<name>` — Standalone config endpoints (frontend business features default here)
 
-- Path style: `/settings/<kebab-case-name>` (e.g. `/settings/hls-proxy`, `/settings/music-path`, `/settings/http-proxy`, `/settings/library-browse`)
+- Path style: `/settings/<kebab-case-name>` (e.g. `/settings/hls-proxy`, `/settings/music-path`, `/settings/http-proxy`, `/settings/library-browse`, `/settings/proxy-private-allowlist`)
 - Data shape: **strongly typed** JSON (e.g. `{enabled: bool}` or an aggregate object), not `{value: string}`
 - Default values: handled inside the handler (when config is missing, GET returns the business default; PUT just writes directly, **the frontend need not POST-create first**)
 - Side effects: triggered directly inside PUT (e.g. after a `music_path` PUT, asynchronously `onMusicPathChanged` rebuilds the Scanner)
@@ -335,6 +335,15 @@ The Docker image contains a base package `/app/songloft`, while the persistent d
 - Implementation: `internal/httputil/proxy.go` provides a global `ProxyConfig` + a shared `*http.Transport`, and `httputil.NewClient(timeout)` creates a proxy-aware client
 - The saved proxy address is loaded from the config table at startup (`app.go`); a PUT takes effect immediately without a restart
 - Currently integrated services: `jsplugin/registry.go`, `jsplugin/package.go`, `services/upgrade_service.go`, `handlers/jsplugin_registry.go` (downloadZIP)
+
+### Private network proxy allowlist (/settings/proxy-private-allowlist)
+
+- Background: the generic resource proxy `GET /api/v1/proxy?url=` blocks all internal / loopback / link-local addresses via `services.IsHostnameAllowed` by default (anti-SSRF), which rejects the "public Songloft proxying a WebDAV reachable only on the LAN" scenario (songloft-org/songloft#313)
+- Business endpoint: `GET/PUT /api/v1/settings/proxy-private-allowlist` with body `{allowlist: []string}`, default `[]` (empty = keep blocking everything, behavior unchanged)
+- Each entry is a single IP (`192.168.1.100`) or CIDR range (`192.168.1.0/24`); PUT validates via `services.ParseAllowlist`, returning 400 on invalid entries
+- Decision: `services.IsHostnameAllowedWithAllowlist(hostname, allowlist)` — public addresses always pass, private IPs pass only when covered by an allowlist range; `localhost`/`.local`/empty hostnames are still string-blocked (the allowlist matches by IP/CIDR only)
+- **Only affects the generic `/proxy`**; HLS reverse proxy (`hls.go`) still uses `IsHostnameAllowed(nil)`, semantics unchanged
+- Implementation: `internal/services/whitelist.go` (`ParseAllowlist` / `IsHostnameAllowedWithAllowlist`) + `internal/handlers/proxy.go` (`ProxyHandler` holds a `*ConfigService`, config key `proxy_private_allowlist`)
 
 ### Music caching (cache_service)
 

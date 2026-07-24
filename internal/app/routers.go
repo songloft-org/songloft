@@ -80,7 +80,7 @@ func (a *App) setupAPIV1Router() {
 	versionHandler := handlers.NewVersionHandler()
 	healthHandler := handlers.NewHealthHandler()
 	upgradeHandler := handlers.NewUpgradeHandler(a.upgradeService, a.configService)
-	proxyHandler := handlers.NewProxyHandler()
+	proxyHandler := handlers.NewProxyHandler(a.configService)
 
 	// 创建缓存处理器（使用 App 的 cacheService 和 configService）
 	cacheHandler := handlers.NewCacheHandler(
@@ -175,6 +175,8 @@ func (a *App) setupAPIV1Router() {
 
 			r.Get("/settings/hls-proxy", hlsHandler.GetProxySetting)
 			r.Put("/settings/hls-proxy", hlsHandler.UpdateProxySetting)
+			r.Get("/settings/proxy-private-allowlist", proxyHandler.GetProxyAllowlistSetting)
+			r.Put("/settings/proxy-private-allowlist", proxyHandler.UpdateProxyAllowlistSetting)
 			r.Get("/settings/music-path", scanHandler.GetMusicPathSetting)
 			r.Put("/settings/music-path", scanHandler.UpdateMusicPathSetting)
 			r.Get("/settings/scan-playlist-mode", scanHandler.GetPlaylistModeSetting)

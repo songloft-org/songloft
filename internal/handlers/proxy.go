@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -15,6 +17,11 @@ import (
 	"songloft/internal/services"
 )
 
+// proxyPrivateAllowlistConfigKey 是「私网代理白名单」在 configs 表中的 key。
+// 业务封装（GetPrivateAllowlist / SetPrivateAllowlist / Get/UpdateProxyAllowlistSetting）是唯一访问入口，
+// 通用 /api/v1/configs/{key} 不预置此 key，避免双入口造成不一致。
+const proxyPrivateAllowlistConfigKey = "proxy_private_allowlist"
+
 // RemoteResourceOptions controls the behavior of ServeRemoteResourceWithOptions.
 type RemoteResourceOptions struct {
 	Timeout      time.Duration
@@ -25,11 +32,13 @@ type RemoteResourceOptions struct {
 // ProxyHandler 通用资源代理处理器
 // 用于代理外部资源（图片、音频、视频流等），解决浏览器 CORS 限制
 type ProxyHandler struct {
-	client *http.Client
+	client        *http.Client
+	configService *services.ConfigService
 }
 
-// NewProxyHandler 创建代理处理器
-func NewProxyHandler() *ProxyHandler {
+// NewProxyHandler 创建代理处理器。
+// configService 可为 nil（测试场景）：此时私网白名单视为空，维持纯内网封禁行为。
+func NewProxyHandler(configService *services.ConfigService) *ProxyHandler {
 	return &ProxyHandler{
 		client: &http.Client{
 			Timeout: 60 * time.Second,
@@ -41,7 +50,45 @@ func NewProxyHandler() *ProxyHandler {
 				return nil
 			},
 		},
+		configService: configService,
 	}
+}
+
+// GetPrivateAllowlist 返回私网代理白名单原始条目（CIDR / 单 IP 字符串）。
+// 配置缺失或未注入 configService 时返回空切片。
+func (h *ProxyHandler) GetPrivateAllowlist() []string {
+	if h.configService == nil {
+		return []string{}
+	}
+	var entries []string
+	if err := h.configService.GetJSON(proxyPrivateAllowlistConfigKey, &entries); err != nil {
+		// 配置缺失（ErrNotFound）或解析失败：视为空白名单
+		return []string{}
+	}
+	if entries == nil {
+		return []string{}
+	}
+	return entries
+}
+
+// SetPrivateAllowlist 校验并持久化私网代理白名单。
+// 任一条目非法（非 IP / CIDR）时返回 error，不写入。
+func (h *ProxyHandler) SetPrivateAllowlist(entries []string) error {
+	if h.configService == nil {
+		return fmt.Errorf("configService 未注入，无法持久化私网代理白名单")
+	}
+	// 归一化：去空白、丢空串
+	cleaned := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if trimmed := strings.TrimSpace(e); trimmed != "" {
+			cleaned = append(cleaned, trimmed)
+		}
+	}
+	// 校验全部条目可解析
+	if _, err := services.ParseAllowlist(cleaned); err != nil {
+		return err
+	}
+	return h.configService.SetJSON(proxyPrivateAllowlistConfigKey, cleaned)
 }
 
 // Proxy 代理外部资源
@@ -77,9 +124,10 @@ func (h *ProxyHandler) Proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 域名白名单校验
+	// 域名白名单校验：外网恒放行，私网仅当命中用户配置的白名单（CIDR/单 IP）才放行
 	hostname := strings.ToLower(parsed.Hostname())
-	if !services.IsHostnameAllowed(hostname) {
+	allowlist, _ := services.ParseAllowlist(h.GetPrivateAllowlist()) // 已在写入时校验过，解析失败按空处理
+	if !services.IsHostnameAllowedWithAllowlist(hostname, allowlist) {
 		slog.Warn("代理请求被拒绝：域名不在白名单中", "hostname", hostname, "url", targetURL)
 		respondError(w, http.StatusForbidden, "该域名不允许代理", nil)
 		return
@@ -87,6 +135,53 @@ func (h *ProxyHandler) Proxy(w http.ResponseWriter, r *http.Request) {
 
 	// 调用通用代理服务（支持 Range、流式转发）
 	ServeRemoteResource(w, r, targetURL)
+}
+
+// proxyAllowlistSettingRequest /settings/proxy-private-allowlist 请求/响应体。
+type proxyAllowlistSettingRequest struct {
+	Allowlist []string `json:"allowlist"`
+}
+
+// GetProxyAllowlistSetting 处理 GET /api/v1/settings/proxy-private-allowlist
+// @Summary 获取私网代理白名单
+// @Description 获取「允许 /proxy 代理的私网地址」白名单。默认空数组：私网 / 回环 / 链路本地地址一律拒绝（SSRF 防护）。每条为单个 IP（如 192.168.1.100）或 CIDR 网段（如 192.168.1.0/24）。仅影响通用 /proxy 端点，不影响 HLS 反代。
+// @Tags 资源代理
+// @Produce json
+// @Success 200 {object} proxyAllowlistSettingRequest "返回 allowlist 字段，当前白名单条目列表"
+// @Security BearerAuth
+// @Router /settings/proxy-private-allowlist [get]
+func (h *ProxyHandler) GetProxyAllowlistSetting(w http.ResponseWriter, r *http.Request) {
+	respondJSON(w, http.StatusOK, proxyAllowlistSettingRequest{Allowlist: h.GetPrivateAllowlist()})
+}
+
+// UpdateProxyAllowlistSetting 处理 PUT /api/v1/settings/proxy-private-allowlist
+// @Summary 更新私网代理白名单
+// @Description 覆盖式更新私网代理白名单。每条须为单个 IP（IPv4/IPv6）或 CIDR 网段；空白条目自动忽略。任一条目非法返回 400。设置后，目标解析到的私网地址若被白名单覆盖，/proxy 即放行（用于「公网 Songloft 代理内网 WebDAV」等场景）。
+// @Tags 资源代理
+// @Accept json
+// @Produce json
+// @Param request body proxyAllowlistSettingRequest true "白名单条目列表（IP 或 CIDR）"
+// @Success 200 {object} proxyAllowlistSettingRequest "返回更新后的白名单"
+// @Failure 400 {object} map[string]string "请求格式错误或含非法条目"
+// @Failure 500 {object} map[string]string "保存配置失败"
+// @Security BearerAuth
+// @Router /settings/proxy-private-allowlist [put]
+func (h *ProxyHandler) UpdateProxyAllowlistSetting(w http.ResponseWriter, r *http.Request) {
+	var req proxyAllowlistSettingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "请求格式错误", err)
+		return
+	}
+	if err := h.SetPrivateAllowlist(req.Allowlist); err != nil {
+		// ParseAllowlist 的校验错误属客户端输入问题，返回 400
+		if strings.Contains(err.Error(), "非法的白名单条目") {
+			respondError(w, http.StatusBadRequest, err.Error(), nil)
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "保存配置失败", err)
+		return
+	}
+	respondJSON(w, http.StatusOK, proxyAllowlistSettingRequest{Allowlist: h.GetPrivateAllowlist()})
 }
 
 // forwardResponseHeaders 透传上游响应的关键头部

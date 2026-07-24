@@ -4658,6 +4658,86 @@ const docTemplate = `{
                 }
             }
         },
+        "/settings/proxy-private-allowlist": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取「允许 /proxy 代理的私网地址」白名单。默认空数组：私网 / 回环 / 链路本地地址一律拒绝（SSRF 防护）。每条为单个 IP（如 192.168.1.100）或 CIDR 网段（如 192.168.1.0/24）。仅影响通用 /proxy 端点，不影响 HLS 反代。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "资源代理"
+                ],
+                "summary": "获取私网代理白名单",
+                "responses": {
+                    "200": {
+                        "description": "返回 allowlist 字段，当前白名单条目列表",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.proxyAllowlistSettingRequest"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "覆盖式更新私网代理白名单。每条须为单个 IP（IPv4/IPv6）或 CIDR 网段；空白条目自动忽略。任一条目非法返回 400。设置后，目标解析到的私网地址若被白名单覆盖，/proxy 即放行（用于「公网 Songloft 代理内网 WebDAV」等场景）。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "资源代理"
+                ],
+                "summary": "更新私网代理白名单",
+                "parameters": [
+                    {
+                        "description": "白名单条目列表（IP 或 CIDR）",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.proxyAllowlistSettingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回更新后的白名单",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.proxyAllowlistSettingRequest"
+                        }
+                    },
+                    "400": {
+                        "description": "请求格式错误或含非法条目",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "保存配置失败",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/settings/remote-title-source": {
             "get": {
                 "security": [
@@ -7462,6 +7542,17 @@ const docTemplate = `{
                 },
                 "plugin_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "handlers.proxyAllowlistSettingRequest": {
+            "type": "object",
+            "properties": {
+                "allowlist": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
