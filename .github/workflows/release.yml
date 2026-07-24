@@ -609,7 +609,8 @@ jobs:
             --dart-define=HAS_BACKEND=true \
             --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} \
             --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }} \
-            --dart-define=FRONTEND_GIT_COMMIT=${{ needs.prepare.outputs.git_commit }}
+            --dart-define=FRONTEND_GIT_COMMIT=${{ needs.prepare.outputs.git_commit }} \
+            --dart-define=FLUTTER_BINDING=${{ env.FLUTTER_VERSION }}
 
       - name: Collect APKs
         run: |
@@ -618,11 +619,90 @@ jobs:
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "$GITHUB_WORKSPACE/songloft-bundled-android-armeabi-v7a.apk"
           cp build/app/outputs/flutter-apk/app-x86_64-release.apk "$GITHUB_WORKSPACE/songloft-bundled-android-x86_64.apk"
 
+      # 无基线热更:每次发版自动产出本渠道最新的前端补丁(libapp.so)+ 后端补丁
+      # (libgojni.so),随 release 上传;客户端查本渠道最新即更新。仅 arm64-v8a/armeabi-v7a
+      # (gomobile 只产这两个 ABI;x86_64 无 libgojni.so)。详见 songloft-player/docs/cn/backend_hotupdate.md。
+      - name: Guard mobile export surface (frozen)
+        run: |
+          go doc ./mobile | grep '^func ' | sort > /tmp/current_surface.txt
+          sort mobile/export_surface.txt > /tmp/expected_surface.txt
+          if ! diff -u /tmp/expected_surface.txt /tmp/current_surface.txt; then
+            echo "::error::mobile 包导出面已变更!只换 libgojni.so 不安全(须连 DEX/整包一起发)。若确为有意变更,请同步更新 mobile/export_surface.txt。"
+            exit 1
+          fi
+          echo "导出面守卫通过。"
+
+      - name: Produce hot-update patch assets (frontend zip + backend so)
+        env:
+          REPO: ${{ env.RELEASE_REPO }}
+          TAG: ${{ needs.prepare.outputs.version }}
+          SEMVER: ${{ needs.prepare.outputs.version_tag }}
+          GIT_COMMIT: ${{ needs.prepare.outputs.git_commit }}
+          BUILD_TIME: ${{ needs.prepare.outputs.build_time }}
+          FLUTTER_BINDING: ${{ env.FLUTTER_VERSION }}
+        run: |
+          set -e
+          cd songloft-player
+          for abi in arm64-v8a armeabi-v7a; do
+            apk="build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            [ -f "$apk" ] || { echo "跳过 $abi(无 APK)"; continue; }
+            LABEL="${SEMVER}-${GIT_COMMIT}"
+
+            # 前端补丁:libapp.so 打成 patch.zip + 扩展 manifest
+            rm -rf dist
+            dart run flutter_patcher:pack --apk "$apk" --version "$LABEL" --abi "$abi"
+            cp dist/patch.zip "$GITHUB_WORKSPACE/patch-${abi}.zip"
+            ZIP_MD5=$(md5sum "$GITHUB_WORKSPACE/patch-${abi}.zip" | cut -d' ' -f1)
+            cat > "$GITHUB_WORKSPACE/manifest-${abi}.json" <<EOF
+          {
+            "hasUpdate": true,
+            "patch": {
+              "version": "${LABEL}",
+              "semanticVersion": "${SEMVER}",
+              "gitCommit": "${GIT_COMMIT}",
+              "flutterBinding": "${FLUTTER_BINDING}",
+              "patchUrl": "https://github.com/${REPO}/releases/download/${TAG}/patch-${abi}.zip",
+              "md5": "${ZIP_MD5}"
+            }
+          }
+          EOF
+
+            # 后端补丁:从 APK 抽 libgojni.so + 断言 SONAME + manifest
+            unzip -p "$apk" "lib/${abi}/libgojni.so" > "$GITHUB_WORKSPACE/libgojni-${abi}.so"
+            SONAME=$(readelf -d "$GITHUB_WORKSPACE/libgojni-${abi}.so" | sed -n 's/.*SONAME.*\[\(.*\)\].*/\1/p')
+            if [ "$SONAME" != "libgojni.so" ]; then
+              echo "::error::libgojni-${abi}.so 的 DT_SONAME=[$SONAME],预加载 soname 去重将失效"
+              exit 1
+            fi
+            SO_MD5=$(md5sum "$GITHUB_WORKSPACE/libgojni-${abi}.so" | cut -d' ' -f1)
+            SO_SIZE=$(stat -c%s "$GITHUB_WORKSPACE/libgojni-${abi}.so")
+            cat > "$GITHUB_WORKSPACE/backend-manifest-${abi}.json" <<EOF
+          {
+            "hasUpdate": true,
+            "backend": {
+              "abi": "${abi}",
+              "version": "${TAG}",
+              "gitCommit": "${GIT_COMMIT}",
+              "buildTime": "${BUILD_TIME}",
+              "soUrl": "https://github.com/${REPO}/releases/download/${TAG}/libgojni-${abi}.so",
+              "md5": "${SO_MD5}",
+              "size": ${SO_SIZE}
+            }
+          }
+          EOF
+            echo "补丁 $abi: soname=$SONAME so_md5=$SO_MD5 zip_md5=$ZIP_MD5"
+          done
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: bundled-android
-          path: songloft-bundled-android-*.apk
+          path: |
+            songloft-bundled-android-*.apk
+            manifest-*.json
+            patch-*.zip
+            backend-manifest-*.json
+            libgojni-*.so
           retention-days: 1
 
   build-bundled-linux:
