@@ -643,6 +643,8 @@ jobs:
         run: |
           set -e
           cd songloft-player
+          # versionCode 取自 pubspec 的 +N(本项目恒定;仅作 flutter_patcher 绑定,非手挑基线)
+          VERSION_CODE=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f2)
           for abi in arm64-v8a armeabi-v7a; do
             apk="build/app/outputs/flutter-apk/app-${abi}-release.apk"
             [ -f "$apk" ] || { echo "跳过 $abi(无 APK)"; continue; }
@@ -650,7 +652,8 @@ jobs:
 
             # 前端补丁:libapp.so 打成 patch.zip + 扩展 manifest
             rm -rf dist
-            dart run flutter_patcher:pack --apk "$apk" --version "$LABEL" --abi "$abi"
+            dart run flutter_patcher:pack --apk "$apk" --version "$LABEL" \
+              --target-version-code "$VERSION_CODE" --abi "$abi"
             cp dist/patch.zip "$GITHUB_WORKSPACE/patch-${abi}.zip"
             ZIP_MD5=$(md5sum "$GITHUB_WORKSPACE/patch-${abi}.zip" | cut -d' ' -f1)
             cat > "$GITHUB_WORKSPACE/manifest-${abi}.json" <<EOF
@@ -661,6 +664,7 @@ jobs:
               "semanticVersion": "${SEMVER}",
               "gitCommit": "${GIT_COMMIT}",
               "flutterBinding": "${FLUTTER_BINDING}",
+              "targetVersionCode": ${VERSION_CODE},
               "patchUrl": "https://github.com/${REPO}/releases/download/${TAG}/patch-${abi}.zip",
               "md5": "${ZIP_MD5}"
             }
