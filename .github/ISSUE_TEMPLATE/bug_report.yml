@@ -74,7 +74,13 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: 日志 / 截图
-      description: 如有相关日志输出或截图，请粘贴在此（Docker 用户可通过 `docker logs` 获取）
+      label: 日志文件 / 截图
+      description: >-
+        **强烈建议附上日志文件**：在客户端「设置 → 关于与更新 → 导出日志」一键打包前后端日志（已脱敏）为 zip，
+        然后把 zip 文件拖拽到本输入框内即可上传。日志能极大加快问题定位。
+
+        如无法导出（如纯 Web 使用），Docker 用户可用 `docker logs songloft` 获取后端日志粘贴在此；
+        界面异常也欢迎附上截图。
+      placeholder: 将「导出日志」得到的 zip 拖拽到此处上传，或粘贴日志文本 / 截图
     validations:
       required: false
