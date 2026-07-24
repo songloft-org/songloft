@@ -671,13 +671,17 @@ jobs:
           }
           EOF
 
-            # 后端补丁:从 APK 抽 libgojni.so + 断言 SONAME + manifest
+            # 后端补丁:从 APK 抽 libgojni.so + 校验 SONAME + manifest
             unzip -p "$apk" "lib/${abi}/libgojni.so" > "$GITHUB_WORKSPACE/libgojni-${abi}.so"
+            # gomobile 产物**无 DT_SONAME**(正常),bionic 回退用文件 basename;客户端落地
+            # 文件名固定 libgojni.so,故去重仍生效。仅当存在**非空且非 libgojni.so** 的
+            # soname 时才会破坏去重 → 才失败。
             SONAME=$(readelf -d "$GITHUB_WORKSPACE/libgojni-${abi}.so" | sed -n 's/.*SONAME.*\[\(.*\)\].*/\1/p')
-            if [ "$SONAME" != "libgojni.so" ]; then
-              echo "::error::libgojni-${abi}.so 的 DT_SONAME=[$SONAME],预加载 soname 去重将失效"
+            if [ -n "$SONAME" ] && [ "$SONAME" != "libgojni.so" ]; then
+              echo "::error::libgojni-${abi}.so 的 DT_SONAME=[$SONAME](非空且非 libgojni.so),预加载去重将失效"
               exit 1
             fi
+            echo "soname 校验通过(soname=[$SONAME],空则走 basename 回退)"
             SO_MD5=$(md5sum "$GITHUB_WORKSPACE/libgojni-${abi}.so" | cut -d' ' -f1)
             SO_SIZE=$(stat -c%s "$GITHUB_WORKSPACE/libgojni-${abi}.so")
             cat > "$GITHUB_WORKSPACE/backend-manifest-${abi}.json" <<EOF
