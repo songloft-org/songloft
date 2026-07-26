@@ -271,6 +271,11 @@ func (s *Song) IsRadio() bool {
 // CoverURLPath 返回客户端用的统一封面 URL。
 // 有封面(本地或远程)时返回 /api/v1/playlists/{id}/cover 端点,后端自动判断本地/远程
 // 无封面时返回空字符串,避免客户端发起注定 404 的请求
+//
+// URL 携带 ?v=UpdatedAt 版本号:歌单封面端点缓存头是长 max-age,而 URL 按 ID 固定,
+// 用户替换封面后若 URL 不变,浏览器会一直用旧缓存(表现为封面上传后普通刷新/页面内
+// 导航仍显示旧图)。上传封面走 PlaylistService.UploadCover → Update,必然刷新
+// updated_at,故 ?v= 会随之变化,天然穿透缓存。与歌曲封面 Song.CoverURLPath 一致。
 func (p *Playlist) CoverURLPath() string {
 	if p.ID == 0 {
 		return ""
@@ -278,7 +283,7 @@ func (p *Playlist) CoverURLPath() string {
 	if p.CoverPath == "" && p.CoverURL == "" {
 		return ""
 	}
-	return fmt.Sprintf("/api/v1/playlists/%d/cover", p.ID)
+	return fmt.Sprintf("/api/v1/playlists/%d/cover?v=%d", p.ID, p.UpdatedAt.Unix())
 }
 
 // MarshalJSON 序列化时把 CoverURL 字段统一覆盖为服务端端点。
