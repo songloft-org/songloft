@@ -103,6 +103,13 @@ get_build_time() {
     fi
 }
 
+# 判断版本号是否为可比较的语义化版本（可选前导 v，随后为数字段，如 v2.11.0 / 2.11 / 2）
+# compare_versions 只能对这种形式的版本号排序；诸如自建镜像的自定义 tag
+# （fix-v4、test 等）无法解析，若强行送入比较会被当成 0 而误判为「旧」。
+is_semver() {
+    echo "$1" | grep -Eq '^v?[0-9]+([.-].*)?$'
+}
+
 # 获取版本通道：dev / stable / unknown
 get_version_channel() {
     version="$1"
@@ -205,7 +212,13 @@ else
             SKIP_REASON="数据目录 dev 构建时间（${TARGET_BUILD_TIME}）不低于底包（${SOURCE_BUILD_TIME}），无需替换"
         fi
     elif [ "$SOURCE_CHANNEL" = "stable" ]; then
-        if compare_versions "$SOURCE_VERSION" "$TARGET_VERSION"; then
+        if ! is_semver "$SOURCE_VERSION" || ! is_semver "$TARGET_VERSION"; then
+            # 版本号无法解析为语义化版本（如自建镜像的自定义 tag fix-v4 等），
+            # compare_versions 无法可靠排序。按「底包代表用户意图」原则用底包覆盖，
+            # 避免把无法比较的版本误判为「旧」而跳过热更、导致容器持续运行数据目录旧二进制。
+            NEED_UPDATE=true
+            UPDATE_REASON="版本号无法比较（${TARGET_VERSION} ↔ ${SOURCE_VERSION}），按底包覆盖"
+        elif compare_versions "$SOURCE_VERSION" "$TARGET_VERSION"; then
             # 同通道同类型 + release：按版本号选最新
             NEED_UPDATE=true
             UPDATE_REASON="检测到新版本（${TARGET_VERSION} → ${SOURCE_VERSION}）"
