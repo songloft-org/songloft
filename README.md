@@ -197,6 +197,12 @@ Songloft 提供三种版本，满足不同使用场景：
 🔗 **GitHub 仓库**：[songloft-org/plugin.audio.songloft](https://github.com/songloft-org/plugin.audio.songloft)
 📥 **下载**：[GitHub Releases](https://github.com/songloft-org/plugin.audio.songloft/releases/latest)
 
+### 📡 路由器 / 光猫部署
+
+路由器与光猫是家庭中常见的基础网络设备，天然支持 24 小时不间断运行，非常适合用于部署 Songloft。社区项目 **songloft-for-router** 提供了面向 OpenWrt、Entware 与梅林（Merlin，含 SWRTdev / Koolshare 软件中心）三类主流路由器固件生态的插件安装包，帮助你在路由器 / 光猫上轻松管理 Songloft 服务。
+
+🔗 **GitHub 仓库**：[songloft-org/songloft-for-router](https://github.com/songloft-org/songloft-for-router)
+
 ## 🚀 快速开始
 
 > 🔐 **安全提示（必读）**：默认管理员账号是 `admin / admin`，**仅适用于本地测试**。任何对外网暴露或多设备访问的部署，请务必通过环境变量 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 设置强密码后再启动；否则你的音乐库可能被陌生人访问。

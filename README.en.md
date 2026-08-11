@@ -197,6 +197,12 @@ In addition to the Flutter client, Songloft also provides an official **Kodi plu
 🔗 **GitHub repository**: [songloft-org/plugin.audio.songloft](https://github.com/songloft-org/plugin.audio.songloft)
 📥 **Download**: [GitHub Releases](https://github.com/songloft-org/plugin.audio.songloft/releases/latest)
 
+### 📡 Router / ONT Deployment
+
+Routers and ONTs (optical network terminals) are common home network devices that naturally run 24/7, making them ideal hosts for Songloft. The community project **songloft-for-router** provides plugin installation packages for three major router firmware ecosystems — OpenWrt, Entware, and Merlin (including SWRTdev / Koolshare software centers) — helping you easily manage Songloft on your router or ONT.
+
+🔗 **GitHub repository**: [songloft-org/songloft-for-router](https://github.com/songloft-org/songloft-for-router)
+
 ## 🚀 Quick Start
 
 > 🔐 **Security notice (must read)**: The default admin account is `admin / admin`, which is **suitable for local testing only**. For any deployment exposed to the internet or accessed by multiple devices, be sure to set a strong password via the `ADMIN_USERNAME` / `ADMIN_PASSWORD` environment variables before starting; otherwise your music library may be accessible to strangers.
