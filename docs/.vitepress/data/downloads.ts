@@ -254,12 +254,26 @@ export const INSTALL: InstallMethod[] = [
         title: { zh: '添加 Bucket 并安装', en: 'Add bucket and install' },
         code:
           'scoop bucket add songloft https://github.com/songloft-org/songloft-scoop\n' +
-          'scoop install songloft-player',
+          'scoop install songloft-player    # Flutter 客户端（GUI，需连接服务器）\n' +
+          'scoop install songloft-server    # 服务端（CLI，仅命令行程序）\n' +
+          'scoop install songloft-bundled   # Bundle 版（服务端 + 客户端一体化）',
       },
       {
         group: { zh: 'Windows · Scoop', en: 'Windows · Scoop' },
         title: { zh: '更新 / 卸载', en: 'Update / uninstall' },
-        code: 'scoop update songloft-player\nscoop uninstall songloft-player',
+        code:
+          'scoop update songloft-player     # 其余同理\n' +
+          'scoop uninstall songloft-player  # 加 --purge 一并删除配置数据',
+      },
+      {
+        group: { zh: 'Windows · Scoop', en: 'Windows · Scoop' },
+        title: {
+          zh: '⚠️ 注意：songloft-bundled 与 songloft-server、songloft-player 不能同时安装',
+          en: '⚠️ Note: songloft-bundled conflicts with songloft-server and songloft-player',
+        },
+        code:
+          '# songloft-bundled 与 songloft-server、songloft-player 存在文件冲突，不能同时安装\n' +
+          '# songloft-server 与 songloft-player 可以共存',
       },
     ],
   },
