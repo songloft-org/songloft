@@ -432,8 +432,6 @@ func (a *App) Init() error {
 			AppSecret:         tracelycfg.AppSecret,
 			Host:              tracelycfg.Host,
 			EnableHeartbeat:   true,
-			// ponytail: 从60s改为1h，无需高频连接（我没看后端，我猜的不是强制60s）
-			// 若需更精细的在线统计可改回更短间隔
 			HeartbeatInterval: 1 * time.Hour,,
 			Tags: map[string]string{
 				"version": version.GetFullVersion(),
