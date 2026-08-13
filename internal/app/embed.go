@@ -15,7 +15,8 @@ const webEmbedRoot = "songloft-player-build/web-embedded"
 // registerWebStatic 注册 Flutter Web 前端静态文件服务。
 // 精简构建（lite build tag）时 webDist 为空 embed.FS，不挂载根路由，以纯 API 模式运行。
 func (a *App) registerWebStatic() {
-	mime.AddExtensionType(".js", "application/javascript")
+	// 加 charset=utf-8，防止显式覆盖 .js MIME 时丢掉 charset 导致浏览器用默认编码解码 Unicode 字符为乱码。
+	mime.AddExtensionType(".js", "application/javascript; charset=utf-8")
 	mime.AddExtensionType(".css", "text/css; charset=utf-8")
 	mime.AddExtensionType(".svg", "image/svg+xml")
 	mime.AddExtensionType(".woff2", "font/woff2")
