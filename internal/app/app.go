@@ -100,20 +100,7 @@ func (a *App) Close() error {
 	if a.logWriter != nil {
 		_ = a.logWriter.Close()
 	}
-	if a.logWriter != nil {
-		_ = a.logWriter.Close()
-	}
-	return dbErr
-}
-
-// Shutdown 优雅关闭 HTTP 服务器并释放所有资源
-func (a *App) Shutdown(ctx context.Context) error {
-	if a.server != nil {
-		if err := a.server.Shutdown(ctx); err != nil {
-			slog.Warn("HTTP server shutdown error", "error", err)
-		}
-	}
-	return a.Close()
+	return nil
 }
 
 // Shutdown 优雅关闭 HTTP 服务器并释放所有资源
