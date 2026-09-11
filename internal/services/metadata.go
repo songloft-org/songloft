@@ -608,12 +608,55 @@ func (m *MetadataExtractor) probeWithTagLib(ctx context.Context, rawURL string, 
 }
 
 // probeWithFFProbe 通过 ffprobe 补充缺失的元数据字段。
+//
+// 默认给 ffprobe 注入开放区间「Range: bytes=0-」请求头：
+//   - 支持 Range 的源（embed=1 直链）返回
+//     206 + 真实总大小（Content-Range），ffmpeg 按需读取 analyzeduration/probesize
+//     内的数据即退出，客户端断开使服务器侧传输终止——避免触发个别「无 Range 就
+//     整曲预下载再回吐」的代理端点把整曲拉进内存；同时 ffmpeg 获知可 seek，
+//     m4a 尾部 moov 可按 Range 跳读，元数据更完整；
+//   - 忽略 Range 返回 200 全量的源，行为与旧版一致（ffmpeg 读够即断开）。
+//
+// 极少数对 Range 处理异常（返回 4xx）的源：去掉注入头按旧行为重试一次。
 func (m *MetadataExtractor) probeWithFFProbe(ctx context.Context, rawURL string, headers map[string]string, result *RemoteProbeResult) error {
+	err := m.runFFProbeOnURL(ctx, rawURL, headers, result, true)
+	if err == nil {
+		return nil
+	}
+	if _, hasRange := headers["Range"]; hasRange {
+		// 调用方自带 Range 头，失败与注入无关，不重试
+		return err
+	}
+	slog.Debug("ffprobe with Range probe header failed, retrying without it", "url", rawURL, "error", err)
+	return m.runFFProbeOnURL(ctx, rawURL, headers, result, false)
+}
+
+// ffprobeHeaders 组装 ffprobe 的请求头：withRange 时注入开放区间
+// 「Range: bytes=0-」（复制后注入，不修改调用方传入的 map——同一 headers
+// 还会传给 taglib 阶段与重试路径）。调用方自带 Range 时不覆盖。
+func ffprobeHeaders(headers map[string]string, withRange bool) map[string]string {
+	if !withRange {
+		return headers
+	}
+	merged := make(map[string]string, len(headers)+1)
+	for k, v := range headers {
+		merged[k] = v
+	}
+	if _, ok := merged["Range"]; !ok {
+		merged["Range"] = "bytes=0-"
+	}
+	return merged
+}
+
+// runFFProbeOnURL 执行一次 ffprobe 远程探测；withRange 时注入「Range: bytes=0-」。
+// result 只在本次成功解析后才被更新，失败重试不会残留脏数据。
+func (m *MetadataExtractor) runFFProbeOnURL(ctx context.Context, rawURL string, headers map[string]string, result *RemoteProbeResult, withRange bool) error {
 	if m.config.FFProbePath == "" {
 		return fmt.Errorf("ffprobe not configured")
 	}
 	args := []string{"-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-analyzeduration", "10000000"}
-	if h := httputil.FormatFFmpegHeaders(headers); h != "" {
+	probeHeaders := ffprobeHeaders(headers, withRange)
+	if h := httputil.FormatFFmpegHeaders(probeHeaders); h != "" {
 		args = append(args, "-headers", h)
 	}
 	args = append(args, rawURL)

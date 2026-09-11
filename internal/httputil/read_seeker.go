@@ -155,7 +155,18 @@ func setHeaders(req *http.Request, headers map[string]string) {
 	}
 }
 
+// fetchContentLength 获取远程文件总大小。
+// 优先 HEAD；部分服务器不路由 HEAD（404/405， 仅注册
+// GET/POST）或不回 Content-Length，此时回退 GET + Range: bytes=0-0 探测——
+// 两条路径都只读响应头、不下载文件内容。
 func fetchContentLength(client *http.Client, url string, headers map[string]string) (int64, error) {
+	if size, err := fetchContentLengthByHead(client, url, headers); err == nil {
+		return size, nil
+	}
+	return fetchContentLengthByRange(client, url, headers)
+}
+
+func fetchContentLengthByHead(client *http.Client, url string, headers map[string]string) (int64, error) {
 	req, err := http.NewRequest(http.MethodHead, url, nil)
 	if err != nil {
 		return 0, fmt.Errorf("HEAD request failed: %w", err)
@@ -182,6 +193,47 @@ func fetchContentLength(client *http.Client, url string, headers map[string]stri
 		return 0, fmt.Errorf("invalid Content-Length %q: %w", cl, err)
 	}
 	return size, nil
+}
+
+// fetchContentLengthByRange HEAD 不可用时的兜底：GET + Range: bytes=0-0。
+// - 206：从 Content-Range「bytes 0-0/total」解析总大小；
+// - 416：部分服务器以「bytes */total」回告总大小，同样可解析；
+// - 200：服务器忽略 Range 返回全量，Content-Length 即总大小
+//   （响应头已到手，body 不读取直接断开，不会拉取文件内容）。
+func fetchContentLengthByRange(client *http.Client, url string, headers map[string]string) (int64, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return 0, fmt.Errorf("range probe request failed: %w", err)
+	}
+	setHeaders(req, headers)
+	req.Header.Set("Range", "bytes=0-0")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("range probe request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusPartialContent, http.StatusRequestedRangeNotSatisfiable:
+		if total := parseContentRangeTotal(resp.Header.Get("Content-Range")); total > 0 {
+			return total, nil
+		}
+		return 0, fmt.Errorf("range probe: status %d without parsable total (Content-Range %q)",
+			resp.StatusCode, resp.Header.Get("Content-Range"))
+	case http.StatusOK:
+		cl := resp.Header.Get("Content-Length")
+		if cl == "" {
+			return 0, fmt.Errorf("range probe: 200 without Content-Length")
+		}
+		size, err := strconv.ParseInt(cl, 10, 64)
+		if err != nil || size <= 0 {
+			return 0, fmt.Errorf("range probe: invalid Content-Length %q", cl)
+		}
+		return size, nil
+	default:
+		return 0, fmt.Errorf("range probe returned status %d", resp.StatusCode)
+	}
 }
 
 func fetchRange(client *http.Client, url string, start, end int64, headers map[string]string) ([]byte, error) {
