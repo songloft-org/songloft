@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -86,6 +87,18 @@ func NewSourceResolver(lister PluginLister, invoker PluginInvoker, metrics *Sour
 	}
 }
 
+// resolverCacheKey 构造 Discover 的缓存键，必须覆盖所有会影响结果的输入：
+// 标题/艺术家决定 search keyword 与相似度，时长参与相似度打分，排除集决定候选插件集合。
+// 早期只按 title/artist 做键，会让「同标题/艺术家但主源或时长不同」的请求互相串缓存，
+// 返回为别的请求算出的候选（可用音源被漏掉 / 得分错位）。
+func resolverCacheKey(song *SongInfo, excludePlugins []string) string {
+	exclude := append([]string(nil), excludePlugins...)
+	sort.Strings(exclude)
+	return normalize(song.Title) + "|" + normalize(song.Artist) +
+		"|" + strconv.FormatFloat(song.Duration, 'f', -1, 64) +
+		"|" + strings.Join(exclude, ",")
+}
+
 // searchRequestBody 调用插件 /api/search 的请求体(POST)。
 type searchRequestBody struct {
 	Keyword  string `json:"keyword"`
@@ -115,7 +128,7 @@ func (r *SourceResolver) Discover(ctx context.Context, song *SongInfo, excludePl
 	if song == nil {
 		return nil, nil
 	}
-	cacheKey := normalize(song.Title) + "|" + normalize(song.Artist)
+	cacheKey := resolverCacheKey(song, excludePlugins)
 	excludeSet := make(map[string]struct{}, len(excludePlugins))
 	for _, p := range excludePlugins {
 		excludeSet[p] = struct{}{}
