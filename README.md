@@ -1,5 +1,7 @@
 # 🎵 Songloft 快速使用指南
 
+[![Deploy to Railyard](https://app.railyard.run/deploy/badge)](https://app.railyard.run/deploy?repo=https://github.com/songloft-org/songloft)
+
 <p align="center">
   <strong>简体中文</strong> • <a href="README.en.md">English</a>
 </p>
