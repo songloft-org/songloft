@@ -17,8 +17,8 @@ export const FEATURES: FeatureRow[] = [
     id: 'library',
     title: { zh: '本地音乐，尽在掌握', en: 'Your local library, fully in hand' },
     desc: {
-      zh: '扫描本地目录，自动识别 MP3 / FLAC / WAV / APE / OGG / Opus / M4A / M4B / WMA 等音频及 MP4 / MKV / FLV / MPG 等视频格式，提取封面、歌词与元数据。目录变更实时同步，支持定时与手动扫描。',
-      en: 'Scan local folders and auto-detect MP3 / FLAC / WAV / APE / OGG / Opus / M4A / M4B / WMA audio and MP4 / MKV / FLV / MPG video formats — covers, lyrics and metadata included. Changes sync in real time.',
+      zh: '扫描本地目录，自动识别 MP3 / FLAC / WAV / APE / OGG / Opus / M4A / M4B / WMA / DSF（DSD）等音频及 MP4 / MKV / FLV / MPG 等视频格式，提取封面、歌词与元数据。目录变更实时同步，支持定时与手动扫描。',
+      en: 'Scan local folders and auto-detect MP3 / FLAC / WAV / APE / OGG / Opus / M4A / M4B / WMA / DSF (DSD) audio and MP4 / MKV / FLV / MPG video formats — covers, lyrics and metadata included. Changes sync in real time.',
     },
     bullets: [
       { zh: '主流格式全支持', en: 'All common formats' },

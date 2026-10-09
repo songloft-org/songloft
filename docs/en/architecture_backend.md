@@ -205,7 +205,8 @@ Holds reusable public packages:
 
 #### tag/ - Audio metadata read/write library
 
-- **Reading**: MP3 (ID3v1/ID3v2.2/2.3/2.4), FLAC, OGG/Vorbis, M4A/MP4, WAV, APE, AIFF, DSF formats; cover images, lyrics, encoding detection
+- **Reading**: MP3 (ID3v1/ID3v2.2/2.3/2.4), FLAC, OGG/Vorbis, M4A/MP4, WAV, APE, AIFF, DSF (DSD), MKA (Matroska) formats; cover images, lyrics, encoding detection
+- **DSF scanning**: The default format whitelist includes `dsf`; migration `0039_scan_support_dsf.sql` appends it idempotently for existing deployments. Rescan after upgrading to discover the files. DSF supports reading tags and cover art but not writing them back; see the [FAQ](faq.md#q-which-music-file-formats-are-supported) for playback compatibility.
 - **Writing** (`WriteTag(filePath, opts)`, dispatched by extension, all using temp file + `os.Rename` atomic writes):
 
   | Format | Text fields | Lyrics | Cover |

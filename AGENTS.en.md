@@ -509,6 +509,12 @@ and only symlinks and unknown types fall back to `os.Stat` (following symlinks, 
 - On filesystems without `d_type`, `ReadDir` fills the type in via its own lstat, which is equivalent
   to the old behavior — no regression
 
+### DSF (DSD) scanning
+
+- `dsf` is a default scan format; keep both fallback lists in `app.go` aligned with migration `0039_scan_support_dsf.sql`, which appends it to existing configs idempotently (case-insensitive).
+- `pkg/tag` reads DSF metadata and cover art; the raw DSD sample rate may be 8 times the PCM-equivalent value reported by ffprobe. Existing metadata tests handle this difference.
+- Playback uses the existing libmpv / ffmpeg path; browsers and DLNA devices without DSD support need an explicit transcoding parameter such as `?format=mp3`; the current Flutter Web `AudioFormatHelper` does not add one automatically for DSF. DSF is outside the tag-writing matrix; use the existing fallback handling when writes are unsupported.
+
 ### Sidecar lyrics (.lrc)
 
 - **Matching rules** (`FindSidecarLyricFile`): `<base>.lrc` / `.LRC` / `.Lrc`, then `<full filename>.lrc` / `.LRC` / `.Lrc`.

@@ -214,7 +214,7 @@ func (a *App) Init() error {
 	}
 	if err := a.configService.GetJSON("scan_config", &scanConfigData); err != nil {
 		slog.Warn("读取扫描配置失败，使用默认值", "error", err)
-		scanConfigData.SupportedFormats = []string{"mp3", "flac", "wav", "ape", "ogg", "m4a", "mp4", "mov", "wma", "aif", "aiff", "mka", "mkv", "webm", "avi", "ts", "mpg", "opus", "m4b", "oga", "mpeg", "m4v", "flv", "wmv", "rm", "rmvb", "3gp"}
+		scanConfigData.SupportedFormats = []string{"mp3", "flac", "wav", "ape", "ogg", "m4a", "mp4", "mov", "wma", "aif", "aiff", "mka", "mkv", "webm", "avi", "ts", "mpg", "opus", "m4b", "oga", "mpeg", "m4v", "flv", "wmv", "rm", "rmvb", "3gp", "dsf"}
 	}
 
 	// 读取标题来源配置
@@ -523,7 +523,7 @@ func (a *App) onMusicPathConfigChanged(scanHandler *handlers.ScanHandler) {
 	}
 	if err := a.configService.GetJSON("scan_config", &scanConfigData); err != nil {
 		slog.Warn("配置变更回调：读取 scan_config 失败，使用默认值", "error", err)
-		scanConfigData.SupportedFormats = []string{"mp3", "flac", "wav", "ape", "ogg", "m4a", "mp4", "mov", "wma", "aif", "aiff", "mka", "mkv", "webm", "avi", "ts", "mpg", "opus", "m4b", "oga", "mpeg", "m4v", "flv", "wmv", "rm", "rmvb", "3gp"}
+		scanConfigData.SupportedFormats = []string{"mp3", "flac", "wav", "ape", "ogg", "m4a", "mp4", "mov", "wma", "aif", "aiff", "mka", "mkv", "webm", "avi", "ts", "mpg", "opus", "m4b", "oga", "mpeg", "m4v", "flv", "wmv", "rm", "rmvb", "3gp", "dsf"}
 	}
 
 	// 重建 Scanner

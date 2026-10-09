@@ -205,7 +205,8 @@ HTTP Server (main.go)
 
 #### tag/ - 音频元数据读写库
 
-- **读取**:MP3（ID3v1/ID3v2.2/2.3/2.4）、FLAC、OGG/Vorbis、M4A/MP4、WAV、APE、AIFF、DSF、MKA(Matroska) 格式;封面图片、歌词、编码检测
+- **读取**:MP3（ID3v1/ID3v2.2/2.3/2.4）、FLAC、OGG/Vorbis、M4A/MP4、WAV、APE、AIFF、DSF（DSD）、MKA(Matroska) 格式;封面图片、歌词、编码检测
+- **DSF 扫描**：默认格式白名单包含 `dsf`；迁移 `0039_scan_support_dsf.sql` 为已有部署幂等追加，升级后重新扫描即可发现文件。DSF 支持读取标签与封面，暂不支持写回；播放兼容性见 [FAQ](faq.md#q-支持哪些音乐文件格式)。
 - **写入**(`WriteTag(filePath, opts)`,按扩展名 dispatch,均为临时文件 + `os.Rename` 原子写入):
 
   | 格式 | 文本字段 | 歌词 | 封面 |

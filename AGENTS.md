@@ -464,6 +464,12 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
   `app.go` 重建 Scanner，缓存自然失效
 - d_type 不可用的文件系统上 `ReadDir` 内部会自行 lstat 补齐类型，等价于原行为，不会变慢
 
+### DSF（DSD）扫描
+
+- `dsf` 是默认扫描格式；`app.go` 两处回退列表和迁移 `0039_scan_support_dsf.sql` 保持同步，迁移为已有配置幂等追加（大小写无关）。
+- `pkg/tag` 可读取 DSF 元数据与封面；DSD raw 采样率可能是 ffprobe PCM-equivalent 的 8 倍，已有元数据测试处理该差异。
+- 播放沿用 libmpv / ffmpeg；浏览器与不支持 DSD 的 DLNA 设备需显式传 `?format=mp3` 等转码参数，当前 Flutter Web 的 `AudioFormatHelper` 不会为 DSF 自动追加。DSF 不在标签写入矩阵中，写入失败应沿用现有降级处理。
+
 ### 旁挂歌词（.lrc）
 
 - **匹配规则**（`FindSidecarLyricFile`）：`<base>.lrc` / `.LRC` / `.Lrc`，然后 `<含扩展名>.lrc` / `.LRC` / `.Lrc`。

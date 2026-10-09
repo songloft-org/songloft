@@ -237,7 +237,9 @@ Then double-click `songloft.bat` to start (note: not `songloft.exe`).
 
 ### Q: Which music file formats are supported?
 
-A: Mainstream audio formats are supported: **MP3, FLAC, WAV, APE, OGG, M4A, MP4, MOV, WMA, AIF/AIFF**, and more (MP4/MOV are ISO-BMFF/QuickTime containers handled the same as the M4A family).
+A: Mainstream audio formats are supported: **MP3, FLAC, WAV, APE, OGG, M4A, MP4, MOV, WMA, AIF/AIFF, DSF (DSD)**, and more (MP4/MOV are ISO-BMFF/QuickTime containers handled the same as the M4A family).
+
+DSF files are scanned by default, including embedded tags and cover art. Upgrading an existing deployment automatically adds `dsf` to the scan format list; rescan to discover the files. Native clients use the existing libmpv playback path; browsers or DLNA devices without DSD support must explicitly request server-side ffmpeg transcoding, for example `GET /api/v1/songs/{id}/play?format=mp3` (`format=flac` is also available, depending on device compatibility). The current Web client does not automatically add a transcoding parameter for DSF. Writing tags, lyrics, or cover art back to DSF files is currently unsupported.
 
 Common **video containers** are also scanned: **MKV, WEBM, AVI, TS** (along with MP4/MOV that carry a picture). During scanning the backend uses ffprobe to detect whether a file has a real video track and marks it as `is_video` (an embedded cover image does not count as video). Such files are common in audiobooks, online courses, and other listening-focused mixed audio/video content:
 
