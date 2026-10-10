@@ -1248,6 +1248,19 @@ jobs:
           IS_PRERELEASE: ${{ needs.prepare.outputs.is_prerelease }}
           RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
         run: |
+          # JSON 字符串通过带引号的 heredoc 写入文件，避免 shell 展开和环境变量长度限制。
+          python3 -c 'import json, sys; from pathlib import Path; Path(sys.argv[1]).write_text(json.load(sys.stdin) or "", encoding="utf-8")' "$RUNNER_TEMP/changelog.md" <<'CHANGELOG_JSON'
+          ${{ toJSON(steps.changelog.outputs.changes) }}
+          CHANGELOG_JSON
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+          printf 'Songloft %s\n\n' "$VERSION" > "$NOTES_FILE"
+          cat .github/release-notes.md >> "$NOTES_FILE"
+          # 用文件传给 gh，保留 Markdown 并支持长 changelog。
+          if [ -s "$RUNNER_TEMP/changelog.md" ]; then
+            printf '\n## 更新记录 / Changelog\n\n' >> "$NOTES_FILE"
+            cat "$RUNNER_TEMP/changelog.md" >> "$NOTES_FILE"
+            printf '\n' >> "$NOTES_FILE"
+          fi
           cd release-files
 
           # 收集所有文件
@@ -1259,29 +1272,6 @@ jobs:
             echo "Release ${RELEASE_TAG} already exists, deleting..."
             gh release delete "${RELEASE_TAG}" --repo "${{ env.RELEASE_REPO }}" --yes
           fi
-
-          # 构建 Release Notes（用 heredoc 避免 changelog 内容被 shell 展开执行）
-          RELEASE_NOTES=$(cat <<'NOTES_EOF'
-          ${{ steps.changelog.outputs.changes }}
-          NOTES_EOF
-          )
-          RELEASE_NOTES=$(echo "$RELEASE_NOTES" | sed '/^[[:space:]]*$/d')
-
-          # 如果 changelog 为空，使用默认内容
-          if [ -z "$RELEASE_NOTES" ]; then
-            if [[ "${IS_PRERELEASE}" == "true" ]]; then
-              RELEASE_NOTES="Development build from branch: ${{ github.ref_name }}"
-            else
-              RELEASE_NOTES="Release ${VERSION}"
-            fi
-          fi
-
-          # 把 Release Notes 写入文件，用 --notes-file 传入。
-          # changelog 可能很大（dev 构建会覆盖自上个 release 以来的全部提交，常达数十万字
-          # 节），若用 --notes "${RELEASE_NOTES}" 把它作为单个 argv 参数，会超过内核
-          # MAX_ARG_STRLEN（128KB），execve 报 E2BIG → "Argument list too long"（exit 126）。
-          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
-          printf '%s\n' "${RELEASE_NOTES}" > "${NOTES_FILE}"
 
           # 创建 Release
           if [[ "${IS_PRERELEASE}" == "true" ]]; then
