@@ -291,6 +291,7 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 ## 远程视频 HLS 转码会话（#541）
 
 - 入口：`POST /api/v1/proxy/transcode/hls/sessions`，JSON `{url, audio_bitrate?, user_agent?, referer?}`。`url` 为 HTTP/HTTPS TS、MP4 或普通 HLS 源；不接受 URL 用户凭证。码率为 64/96/128/192/256 kbps，默认 128。需配置的 ffmpeg 及其同目录或 PATH 中的 ffprobe。
+- 工具构建必须同时启用 **HLS 输入 demuxer** 和 **crypto 输入协议**；有 HLS 输出 muxer 不代表能读取 m3u8。`ffprobe -hide_banner -demuxers` 应有 `hls`，`ffprobe -hide_banner -protocols` 的 Input 应有 `crypto`（AES-128 HLS）。Docker 基础工具来自 `tools/ffmpeg-builder`；其产物测试覆盖 TS、普通及加密 HLS。Songloft 二进制在线升级不会替换容器内工具，工具修复后需重新构建 Songloft 镜像并拉取、重建容器。
 - 首版固定复制第一条**逐行 H.264** 视频轨、第一条音频转 **AAC-LC / 双声道 / 48kHz**，输出 MPEG-TS HLS。HEVC、隔行视频、缺少音视频轨返回 422；不自动重新编码视频。源的 H.264 profile/level、分辨率及关键帧仍需适合实际播放器，不承诺所有 IPTV 源均可在 Safari 播放。
 - 创建等待首个完整分片就绪，最长 30 秒；成功返回 201 `{id, playlist_url, idle_timeout_seconds:120}`，并设置 `Location`。`playlist_url` 包含部署 `BASE_PATH`、不包含 token。Safari 的 `<video>` 使用该地址时追加 `?access_token=<URL编码的访问token>`；服务端将其透传给相对分片链接。访问 token 到期仍会返回 401；调用方需刷新 token 并更新播放地址，同一 ClientID 可继续使用原会话。若播放器使用 Authorization 头，需自行给每条子请求发送该头。
 - `GET/HEAD /api/v1/proxy/transcode/hls/sessions/{id}/playlist.m3u8` 只读取现有会话；`GET/HEAD .../{id}/segments/{name}` 支持 Range；`DELETE .../{id}` 等待进程退出后返回 204。所有请求都需要 JWT，且会话绑定创建者 `ClientID`，其他客户端和过期会话返回 404。随机 ID 本身不是凭证。
