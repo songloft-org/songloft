@@ -10,6 +10,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### PLAYLIST-002: Built-in identity protection must not prohibit member ordering
+
+- Scope: playlist song reorder / move / sort and both clients, songloft-org/songloft#550; baseline `71635ae30ec76a6a0a8bf4efa94304fe2276a057`.
+- Rule: review identity guards separately from member operations. Permit favorites member position changes while preserving built-in name, type, label, visibility and deletion constraints.
+- Evidence and Done right: all 12 new real SQLite / HTTP cases failed with 403 against old code. After the fix, all three endpoints, persisted positions, membership, built-in identity and deletion protection pass. Verify real drags, backend positions and reads after reload for each client rather than extrapolating ordinary playlist behavior. Final identities, logs and device limits: [record](docs/en/issue-550.md).
+- Seen 1× (2026-11-02). Status: local fix and verification; no commit, push or release.
+
 ### AUTH-001: Distinguish permanent device credentials from signed-in sessions
 
 - Scope: authentication middleware, token management and permanent tokens in both clients; songloft-org/songloft#546, baseline `022a56cebe4b4b6bc1ff7ca043f56d426bddaf71`.

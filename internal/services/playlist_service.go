@@ -395,14 +395,10 @@ func (s *PlaylistService) CountSongs(ctx context.Context, playlistID int64, keyw
 	return count, nil
 }
 
-// ReorderSongs 重新排序歌单中的歌曲
+// ReorderSongs 重新排序歌单中的歌曲，内置收藏歌单同样允许调整成员顺序。
 func (s *PlaylistService) ReorderSongs(ctx context.Context, playlistID int64, songIDs []int64) error {
-	playlist, err := s.playlists.GetByID(ctx, playlistID)
-	if err != nil {
+	if _, err := s.playlists.GetByID(ctx, playlistID); err != nil {
 		return fmt.Errorf("failed to get playlist: %w", err)
-	}
-	if playlist.IsBuiltIn() {
-		return models.ErrBuiltInPlaylist
 	}
 
 	existingSongs, err := s.playlistSongs.GetSongs(ctx, playlistID)
@@ -444,21 +440,18 @@ func extractLeadingNumber(s string) (int, bool) {
 }
 
 // SortSongs 服务端排序歌单内歌曲（永久排序），直接更新 position。
-// action 必须是 name_asc / name_desc / number_prefix / shuffle 之一。
+// action 必须是 name_asc / name_desc / number_prefix / shuffle 之一；允许内置收藏歌单。
 func (s *PlaylistService) SortSongs(ctx context.Context, playlistID int64, action string) error {
 	if !validSortActions[action] {
 		return fmt.Errorf("invalid sort action: %s", action)
 	}
 
-	playlist, err := s.playlists.GetByID(ctx, playlistID)
-	if err != nil {
+	if _, err := s.playlists.GetByID(ctx, playlistID); err != nil {
 		return fmt.Errorf("failed to get playlist: %w", err)
-	}
-	if playlist.IsBuiltIn() {
-		return models.ErrBuiltInPlaylist
 	}
 
 	var songIDs []int64
+	var err error
 
 	switch action {
 	case "name_asc":
@@ -532,13 +525,10 @@ func (s *PlaylistService) shuffleSongIDs(ctx context.Context, playlistID int64) 
 }
 
 // MoveSong 移动歌单中单首歌曲到 afterSongID 之后（nil 表示移到最前面）。
+// 内置收藏歌单与普通歌单使用相同的成员排序规则。
 func (s *PlaylistService) MoveSong(ctx context.Context, playlistID int64, songID int64, afterSongID *int64) error {
-	playlist, err := s.playlists.GetByID(ctx, playlistID)
-	if err != nil {
+	if _, err := s.playlists.GetByID(ctx, playlistID); err != nil {
 		return fmt.Errorf("failed to get playlist: %w", err)
-	}
-	if playlist.IsBuiltIn() {
-		return models.ErrBuiltInPlaylist
 	}
 
 	currentOrder, err := s.playlistSongs.ListSongIDsOrdered(ctx, playlistID, "", "")

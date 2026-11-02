@@ -3505,7 +3505,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "将指定歌曲移到 after_song_id 之后（after_song_id 为 null 则移到第一位），不改变其余歌曲的相对顺序",
+                "description": "将指定歌曲移到 after_song_id 之后（after_song_id 为 null 则移到第一位），不改变其余歌曲的相对顺序\n支持普通歌单及内置收藏／电台收藏歌单，不改变歌单身份或收藏成员。",
                 "consumes": [
                     "application/json"
                 ],
@@ -3563,15 +3563,6 @@ const docTemplate = `{
                             }
                         }
                     },
-                    "403": {
-                        "description": "内置歌单不可操作",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
                     "500": {
                         "description": "移动失败",
                         "schema": {
@@ -3591,7 +3582,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "重新排序歌单中的歌曲",
+                "description": "按完整歌曲 ID 列表更新成员位置，支持普通歌单及内置收藏／电台收藏歌单，不改变歌单身份或收藏成员。",
                 "consumes": [
                     "application/json"
                 ],
@@ -3667,7 +3658,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "根据 action 参数对歌单内歌曲进行永久排序（更新 position）。\naction 取值：name_asc（按名称 A→Z）、name_desc（按名称 Z→A）、number_prefix（按标题数字前缀）、shuffle（随机打乱）。\nname_asc/name_desc 使用与 title 视图排序相同的歌曲名称拼音字母序，忽略大小写和首尾空白，多音字使用字典默认读音。\n与 /playlists/{id}/songs/reorder 不同，本端点无需客户端传入完整歌曲 ID 列表，排序由服务端完成。",
+                "description": "根据 action 参数对歌单内歌曲进行永久排序（更新 position）。\naction 取值：name_asc（按名称 A→Z）、name_desc（按名称 Z→A）、number_prefix（按标题数字前缀）、shuffle（随机打乱）。\nname_asc/name_desc 使用与 title 视图排序相同的歌曲名称拼音字母序，忽略大小写和首尾空白，多音字使用字典默认读音。\n与 /playlists/{id}/songs/reorder 不同，本端点无需客户端传入完整歌曲 ID 列表，排序由服务端完成。\n支持内置收藏／电台收藏歌单，仅调整成员位置，不改变歌单身份或收藏成员。",
                 "consumes": [
                     "application/json"
                 ],
@@ -3713,15 +3704,6 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "请求数据错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "内置歌单不可操作",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {

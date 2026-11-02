@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -364,6 +366,91 @@ func TestReorderPlaylistSongs(t *testing.T) {
 	json.NewDecoder(rr.Body).Decode(&resp)
 	if resp["message"] != "歌单歌曲已重新排序" {
 		t.Errorf("unexpected response message: got %v", resp["message"])
+	}
+}
+
+// 内置歌单保护针对歌单身份，不能阻止收藏成员的顺序调整。
+func TestBuiltInPlaylistSongOrdering(t *testing.T) {
+	for _, playlistID := range []int64{1, 2} {
+		for _, action := range []string{"reorder", "move", "name_asc", "name_desc", "number_prefix", "shuffle"} {
+			t.Run(fmt.Sprintf("%d/%s", playlistID, action), func(t *testing.T) {
+				env := newPlaylistHandlerEnv(t)
+				svc := env.newService()
+				handler := NewPlaylistHandler(svc, nil)
+				ctx := context.Background()
+				before, err := env.playlists.GetByID(ctx, playlistID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ids := make([]int64, 0, 3)
+				for i, title := range []string{"03 C", "01 A", "02 B"} {
+					typ := models.TypeLocal
+					if playlistID == 2 {
+						typ = models.TypeRadio
+					}
+					song := &models.Song{Type: typ, Title: title, FilePath: fmt.Sprintf("/music/%d.mp3", i), URL: fmt.Sprintf("https://example.com/%d", i)}
+					if err := env.songs.Create(ctx, song); err != nil {
+						t.Fatal(err)
+					}
+					if err := svc.AddSong(ctx, playlistID, song.ID); err != nil {
+						t.Fatal(err)
+					}
+					ids = append(ids, song.ID)
+				}
+				want := []int64{ids[1], ids[2], ids[0]}
+				method, endpoint := "POST", "sort"
+				var body any = map[string]string{"action": action}
+				handle := handler.SortPlaylistSongs
+				switch action {
+				case "reorder":
+					method, endpoint, handle = "PUT", "reorder", handler.ReorderPlaylistSongs
+					body = map[string][]int64{"song_ids": want}
+				case "move":
+					method, endpoint, handle = "PUT", "move", handler.MovePlaylistSong
+					body = map[string]any{"song_id": ids[0], "after_song_id": ids[2]}
+				case "name_desc":
+					slices.Reverse(want)
+				}
+				payload, err := json.Marshal(body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				id := strconv.FormatInt(playlistID, 10)
+				path := "/api/v1/playlists/" + id + "/songs/" + endpoint
+				rr := httptest.NewRecorder()
+				handle(rr, newRouteRequest(method, path, payload, map[string]string{"id": id}))
+				if rr.Code != http.StatusOK {
+					t.Fatalf("%s: %d %s", path, rr.Code, rr.Body.String())
+				}
+				// 从新的 service 读持久位置，不依赖请求内返回值或客户端视图。
+				gotSongs, err := env.newService().GetSongs(ctx, playlistID, database.PlaylistSongFilter{OrderBy: "position", Order: "asc"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				got := make([]int64, 0, len(gotSongs))
+				for _, song := range gotSongs {
+					got = append(got, song.ID)
+				}
+				if action == "shuffle" {
+					slices.Sort(got)
+					want = slices.Clone(ids)
+					slices.Sort(want)
+				}
+				if !slices.Equal(got, want) {
+					t.Fatalf("persisted order %v, want %v", got, want)
+				}
+				after, err := env.playlists.GetByID(ctx, playlistID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if before.ID != after.ID || before.Name != after.Name || before.Type != after.Type || !slices.Equal(before.Labels, after.Labels) {
+					t.Fatalf("built-in identity changed: %+v", after)
+				}
+				if err := svc.Delete(ctx, playlistID); err == nil {
+					t.Fatal("built-in deletion must remain forbidden")
+				}
+			})
+		}
 	}
 }
 

@@ -503,8 +503,8 @@ func TestPlaylistServiceSortSongsBuiltIn(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	if err := service.SortSongs(ctx, playlist.ID, "name_asc"); err == nil {
-		t.Error("SortSongs() should return error for built-in playlist")
+	if err := service.SortSongs(ctx, playlist.ID, "name_asc"); err != nil {
+		t.Errorf("SortSongs() should allow empty built-in playlist: %v", err)
 	}
 }
 

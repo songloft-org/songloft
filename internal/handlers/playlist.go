@@ -630,7 +630,7 @@ func (h *PlaylistHandler) RemoveSongFromPlaylist(w http.ResponseWriter, r *http.
 
 // ReorderPlaylistSongs 重新排序歌单中的歌曲
 // @Summary 重新排序歌单中的歌曲
-// @Description 重新排序歌单中的歌曲
+// @Description 按完整歌曲 ID 列表更新成员位置，支持普通歌单及内置收藏／电台收藏歌单，不改变歌单身份或收藏成员。
 // @Tags 歌单管理
 // @Accept json
 // @Produce json
@@ -661,10 +661,6 @@ func (h *PlaylistHandler) ReorderPlaylistSongs(w http.ResponseWriter, r *http.Re
 	}
 
 	if err := h.playlistService.ReorderSongs(ctx, playlistID, req.SongIDs); err != nil {
-		if errors.Is(err, models.ErrBuiltInPlaylist) {
-			respondError(w, http.StatusForbidden, "内置歌单不允许排序", err)
-			return
-		}
 		respondError(w, http.StatusInternalServerError, "重新排序歌单歌曲失败", err)
 		return
 	}
@@ -680,6 +676,7 @@ func (h *PlaylistHandler) ReorderPlaylistSongs(w http.ResponseWriter, r *http.Re
 // @Description action 取值：name_asc（按名称 A→Z）、name_desc（按名称 Z→A）、number_prefix（按标题数字前缀）、shuffle（随机打乱）。
 // @Description name_asc/name_desc 使用与 title 视图排序相同的歌曲名称拼音字母序，忽略大小写和首尾空白，多音字使用字典默认读音。
 // @Description 与 /playlists/{id}/songs/reorder 不同，本端点无需客户端传入完整歌曲 ID 列表，排序由服务端完成。
+// @Description 支持内置收藏／电台收藏歌单，仅调整成员位置，不改变歌单身份或收藏成员。
 // @Tags 歌单管理
 // @Accept json
 // @Produce json
@@ -687,7 +684,6 @@ func (h *PlaylistHandler) ReorderPlaylistSongs(w http.ResponseWriter, r *http.Re
 // @Param request body object{action=string} true "排序动作: name_asc / name_desc / number_prefix / shuffle"
 // @Success 200 {object} map[string]string "排序成功"
 // @Failure 400 {object} map[string]string "请求数据错误"
-// @Failure 403 {object} map[string]string "内置歌单不可操作"
 // @Failure 500 {object} map[string]string "排序失败"
 // @Security BearerAuth
 // @Router /playlists/{id}/songs/sort [post]
@@ -711,10 +707,6 @@ func (h *PlaylistHandler) SortPlaylistSongs(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := h.playlistService.SortSongs(ctx, playlistID, req.Action); err != nil {
-		if errors.Is(err, models.ErrBuiltInPlaylist) {
-			respondError(w, http.StatusForbidden, "内置歌单不允许排序", err)
-			return
-		}
 		respondError(w, http.StatusInternalServerError, "排序歌单歌曲失败", err)
 		return
 	}
@@ -727,6 +719,7 @@ func (h *PlaylistHandler) SortPlaylistSongs(w http.ResponseWriter, r *http.Reque
 // MovePlaylistSong 移动歌单中单首歌曲的位置
 // @Summary 移动歌单内歌曲位置
 // @Description 将指定歌曲移到 after_song_id 之后（after_song_id 为 null 则移到第一位），不改变其余歌曲的相对顺序
+// @Description 支持普通歌单及内置收藏／电台收藏歌单，不改变歌单身份或收藏成员。
 // @Tags 歌单管理
 // @Accept json
 // @Produce json
@@ -734,7 +727,6 @@ func (h *PlaylistHandler) SortPlaylistSongs(w http.ResponseWriter, r *http.Reque
 // @Param request body object{song_id=int64,after_song_id=int64} true "移动参数（after_song_id 为 null 或省略表示置顶）"
 // @Success 200 {object} map[string]string "移动成功"
 // @Failure 400 {object} map[string]string "请求数据错误"
-// @Failure 403 {object} map[string]string "内置歌单不可操作"
 // @Failure 500 {object} map[string]string "移动失败"
 // @Security BearerAuth
 // @Router /playlists/{id}/songs/move [put]
@@ -764,10 +756,6 @@ func (h *PlaylistHandler) MovePlaylistSong(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := h.playlistService.MoveSong(ctx, playlistID, req.SongID, req.AfterSongID); err != nil {
-		if errors.Is(err, models.ErrBuiltInPlaylist) {
-			respondError(w, http.StatusForbidden, "内置歌单不允许排序", err)
-			return
-		}
 		respondError(w, http.StatusInternalServerError, "移动歌曲位置失败", err)
 		return
 	}
