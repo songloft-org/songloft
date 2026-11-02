@@ -10,6 +10,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### DOC-001: A repository-relative file is not necessarily a documentation-site route
+
+- Scope: parent VitePress pages linking to client verification records, songloft-org/songloft#550; commit `24b05df18c03630968fd0aead904d1f68a349809`.
+- Evidence: [Pages CI](https://github.com/songloft-org/songloft/actions/runs/41391858600) reports four dead links. The `../clients/...` files exist in the checkout but lie outside the VitePress documentation root and are not included in its synchronization list.
+- Rule and fix: link to a pinned GitHub commit for client documents that are not synchronized. File-existence checks do not replace a full documentation build; retain dead-link validation.
+- Done right: replace all four bilingual links with pushed client commit URLs and run `npm run docs:build`; log: `/tmp/songloft-550-delivery-docs.log`. Final local/CI outcomes are recorded in this delivery.
+- Seen 1× (2026-11-02). Status: documentation link repair, with ordering code unchanged.
+
 ### PLAYLIST-002: Built-in identity protection must not prohibit member ordering
 
 - Scope: playlist song reorder / move / sort and both clients, songloft-org/songloft#550; baseline `71635ae30ec76a6a0a8bf4efa94304fe2276a057`.

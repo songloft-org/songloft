@@ -15,6 +15,6 @@ Flutter 原有流程是加载完整歌单、提交 `song_ids`、保存成功后�
 - 旧实现的新增真实 SQLite / HTTP 回归：两个内置 ID × 手动全量排序、单首移动、名称双方向、数字前缀、随机排序，共 12 个场景均因 403 失败；修复后通过，校验持久位置、成员集合、内置身份与删除保护。
 - `CGO_ENABLED=0 go test -p 2 -tags dev,lite ./...`、同标签 `go vet ./...`、`go test -race -tags dev,lite ./internal/handlers -run '^TestBuiltInPlaylistSongOrdering$'` 通过；`gofmt -w .`、`make swagger` 与 diff 检查通过。
 - 首次全量 Go 测试中既有 `TestHLSTranscodeRealFFmpeg` 报 `playlist did not advance`；该测试独立重跑及降低包并发后的全量测试均通过。保留失败日志，不将首次失败改写为通过。
-- 日志：`/tmp/songloft-550-{backend-before,backend-focused,backend-tests,backend-tests-final,backend-vet,backend-race,hls-retry,swagger}.log`。浏览器脚本、结果和截图：`/tmp/songloft-550-ui/`；客户端详细记录见 [Flutter](../clients/player/docs/cn/issue-550.md) 与 [Lynx](../clients/player-lynx/docs/project/issue-550.md)。
+- 日志：`/tmp/songloft-550-{backend-before,backend-focused,backend-tests,backend-tests-final,backend-vet,backend-race,hls-retry,swagger}.log`。浏览器脚本、结果和截图：`/tmp/songloft-550-ui/`；客户端详细记录见 [Flutter](https://github.com/songloft-org/songloft-player/blob/5be710cd57227fd60d16396b198be10f700ae91e/docs/cn/issue-550.md) 与 [Lynx](https://github.com/songloft-org/songloft-player-lynx/blob/8ed3c6484d6107a5f5fd0dc417b6d984578524fd/docs/project/issue-550.md)。
 
 Not run：Windows 原生客户端、Android/iOS/HarmonyOS 真机与远端 CI。浏览器验收不替代原生设备验收。尚未提交、推送、发布或回复 Issue；后端必须升级，Lynx 入口修复需同步分发客户端。

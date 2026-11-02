@@ -10,6 +10,14 @@
 
 ## 条目
 
+### DOC-001：仓库中存在的相对链接不一定是文档站路由
+
+- 范围：主仓库 VitePress 文档引用子仓库验证记录，songloft-org/songloft#550；提交 `24b05df18c03630968fd0aead904d1f68a349809`。
+- 证据：[Pages CI](https://github.com/songloft-org/songloft/actions/runs/41391858600) 报 4 个死链接。`../clients/...` 文件虽然在工作区存在，目标却不在 VitePress 文档根下，也未列入同步清单。
+- 规则与修复：跨到未同步的子仓库文档时使用固定提交的 GitHub 源码链接；文件存在性检查不能替代完整文档构建，不关闭死链接校验。
+- Done right：中英四个链接改为已推送子提交；执行 `npm run docs:build` 验证，日志 `/tmp/songloft-550-delivery-docs.log`；最终本地和 CI 结果以本批交付记录为准。
+- Seen 1× (2026-11-02)。状态：文档链接修正，不改变排序代码。
+
 ### PLAYLIST-002：内置身份保护不能禁止成员排序
 
 - 范围：歌单歌曲 reorder / move / sort 与两客户端，songloft-org/songloft#550；基线 `71635ae30ec76a6a0a8bf4efa94304fe2276a057`。
