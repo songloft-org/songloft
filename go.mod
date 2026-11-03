@@ -13,6 +13,7 @@ require (
 	github.com/hanxi/tracely/sdk/go/tracely v1.1.3
 	github.com/mozillazg/go-pinyin v0.21.0
 	github.com/pressly/goose/v3 v3.27.1
+	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
 	golang.org/x/crypto v0.53.0

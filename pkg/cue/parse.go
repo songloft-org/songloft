@@ -2,20 +2,10 @@ package cue
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
-	"unicode/utf8"
-
-	"golang.org/x/text/encoding/japanese"
-	"golang.org/x/text/encoding/korean"
-	xunicode "golang.org/x/text/encoding/unicode"
-	"golang.org/x/text/transform"
-
-	"github.com/hanxi/tag"
 )
 
 // ParseFile 解析 .cue 文件，自动检测编码并转为 UTF-8
@@ -34,7 +24,10 @@ func ParseFile(path string) (*CUESheet, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read cue file: %w", err)
 	}
-	content := decodeToUTF8(data)
+	content, err := decodeCUEText(data)
+	if err != nil {
+		return nil, fmt.Errorf("decode cue file: %w", err)
+	}
 	return Parse(content)
 }
 
@@ -181,96 +174,4 @@ func unquote(s string) string {
 		return s[1 : len(s)-1]
 	}
 	return s
-}
-
-// decodeToUTF8 检测编码并转换为 UTF-8
-func decodeToUTF8(data []byte) string {
-	// BOM 检测
-	if len(data) >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
-		return string(data[3:])
-	}
-	if len(data) >= 2 {
-		if data[0] == 0xFF && data[1] == 0xFE {
-			return decodeUTF16LE(data[2:])
-		}
-		if data[0] == 0xFE && data[1] == 0xFF {
-			return decodeUTF16BE(data[2:])
-		}
-	}
-
-	if utf8.Valid(data) && !hasMojibakeHeuristic(data) {
-		return string(data)
-	}
-
-	// 复用 tag.FixEncoding 处理 GBK/GB18030/GB2312
-	fixed := tag.FixEncoding(data)
-	if fixed != string(data) && utf8.ValidString(fixed) {
-		return fixed
-	}
-
-	// 尝试 Shift-JIS
-	if decoded, err := decodeWithTransform(data, japanese.ShiftJIS.NewDecoder()); err == nil {
-		return decoded
-	}
-	// 尝试 EUC-KR
-	if decoded, err := decodeWithTransform(data, korean.EUCKR.NewDecoder()); err == nil {
-		return decoded
-	}
-
-	return string(data)
-}
-
-func decodeWithTransform(data []byte, t transform.Transformer) (string, error) {
-	reader := transform.NewReader(bytes.NewReader(data), t)
-	decoded, err := io.ReadAll(reader)
-	if err != nil {
-		return "", err
-	}
-	result := string(decoded)
-	if utf8.ValidString(result) {
-		return result, nil
-	}
-	return "", fmt.Errorf("decoded result is not valid UTF-8")
-}
-
-func decodeUTF16LE(data []byte) string {
-	decoder := xunicode.UTF16(xunicode.LittleEndian, xunicode.IgnoreBOM).NewDecoder()
-	result, err := decoder.Bytes(data)
-	if err != nil {
-		return string(data)
-	}
-	return string(result)
-}
-
-func decodeUTF16BE(data []byte) string {
-	decoder := xunicode.UTF16(xunicode.BigEndian, xunicode.IgnoreBOM).NewDecoder()
-	result, err := decoder.Bytes(data)
-	if err != nil {
-		return string(data)
-	}
-	return string(result)
-}
-
-func hasMojibakeHeuristic(data []byte) bool {
-	s := string(data)
-	latinCount := 0
-	total := 0
-	consecutive := 0
-	maxConsecutive := 0
-	for _, r := range s {
-		total++
-		if r >= 0x00C0 && r <= 0x00FF {
-			latinCount++
-			consecutive++
-			if consecutive > maxConsecutive {
-				maxConsecutive = consecutive
-			}
-		} else {
-			consecutive = 0
-		}
-	}
-	if total > 0 && float64(latinCount)/float64(total) > 0.2 {
-		return true
-	}
-	return maxConsecutive >= 3
 }

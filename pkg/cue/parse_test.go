@@ -180,7 +180,10 @@ func TestCueTimeFormatFFmpeg(t *testing.T) {
 
 func TestDecodeToUTF8_ValidUTF8(t *testing.T) {
 	data := []byte("Hello, 世界")
-	result := decodeToUTF8(data)
+	result, err := decodeCUEText(data)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if result != "Hello, 世界" {
 		t.Errorf("expected 'Hello, 世界', got %q", result)
 	}
@@ -188,7 +191,10 @@ func TestDecodeToUTF8_ValidUTF8(t *testing.T) {
 
 func TestDecodeToUTF8_BOM(t *testing.T) {
 	data := append([]byte{0xEF, 0xBB, 0xBF}, []byte("Hello")...)
-	result := decodeToUTF8(data)
+	result, err := decodeCUEText(data)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if result != "Hello" {
 		t.Errorf("expected 'Hello', got %q", result)
 	}

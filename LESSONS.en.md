@@ -10,6 +10,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### CUE-001: Successful decoding or Chinese characters cannot identify a legacy encoding
+
+- Scope: external CUE encoding detection, songloft-org/songloft#554; baseline `5a9bed40ec8542acf72f5afb71074a8046245214`.
+- Evidence: the reporter's equivalent CP950 / UTF-8 samples produce different albums, artists and all 16 tracks with the old parser. `tag.FixEncoding` accepts GBK output containing Chinese characters even with U+FFFD. A separate regression confirms that the same Big5 input can decode to different GB18030 text without replacement characters, so rejecting replacements alone is insufficient.
+- Rule and fix: preserve valid Unicode; compare statistical confidence and candidate margins for legacy input, then separately reject replacement characters and unexpected controls. Undecidable input needs an actionable UTF-8 conversion error instead of silently guessing by decoder order. Reimport must parse successfully before deleting old records.
+- Done right: an isolated Go overlay of the old parser makes new parsing and real SQLite persistence regressions fail; the fix passes. A temporary backend's HTTP scan and reimport verify all 16 tracks. Final identities, commands, logs and boundaries: [verification record](docs/en/issue-554.md).
+- Seen 1× (2026-11-03). Status: local fix and verification; no commit, push or release.
+
 ### DOC-001: A repository-relative file is not necessarily a documentation-site route
 
 - Scope: parent VitePress pages linking to client verification records, songloft-org/songloft#550; commit `24b05df18c03630968fd0aead904d1f68a349809`.
