@@ -702,6 +702,14 @@ jobs:
     if: needs.prepare.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
+      - name: Free disk space for Go and Flutter native builds
+        run: |
+          df -h /
+          # Hosted Ubuntu images include large toolchains unused by this job.
+          # Keep Android SDK/NDK, Java, Go and the checked-out artifacts intact.
+          sudo rm -rf /usr/share/dotnet /usr/local/.ghcup /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -736,6 +744,12 @@ jobs:
           TRACELY_APP_SECRET: ${{ secrets.TRACELY_APP_SECRET }}
           TRACELY_HOST: ${{ secrets.TRACELY_HOST }}
         run: make build-go-mobile-android
+
+      - name: Release Go build cache before Flutter packaging
+        run: |
+          test -s clients/player/android/app/libs/songloft.aar
+          go clean -cache -testcache
+          df -h /
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2

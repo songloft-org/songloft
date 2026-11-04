@@ -10,6 +10,14 @@
 
 ## 条目
 
+### CI-003：Android Bundle 连续编译必须释放 runner 磁盘
+
+- 范围：主仓库 Go gomobile + Flutter Android 发布；基线 `299c4254ae4d4dd3b91cbcfa0b82830869d48e6d`。
+- 证据：2026-11-04，[v2.13.8 构建](https://github.com/songloft-org/songloft/actions/runs/41826126515) 在 `mergeReleaseNativeLibs` 仅剩 76 MB，随后报 `No space left on device`；服务器/Docker 成功不能证明 Android Bundle 已发布。
+- 规则与修复：在 GitHub 托管 Ubuntu runner 上先移除本任务不用的 .NET、Haskell 与 CodeQL 工具链；AAR 生成并检查非空后清理 Go 编译/测试缓存，再进入 Flutter 构建。保留 Android SDK/NDK、Java、模块缓存和 AAR；输出磁盘用量，不跳过 ABI 或 JNI 校验。
+- Done right：本次 59 项脚本测试、actionlint v1.7.12 与 diff 检查通过；实际磁盘余量、三 ABI APK 和补丁交付以修复版本的远端 CI 为准。原生设备运行 Not run，本次仅修改构建资源管理。
+- Seen 1× (2026-11-04)。状态：构建修复，远端发布验收待本批执行。
+
 ### CUE-001：传统编码不能按解码成功或出现汉字判定
 
 - 范围：外部 CUE 编码检测，songloft-org/songloft#554；基线 `5a9bed40ec8542acf72f5afb71074a8046245214`。
