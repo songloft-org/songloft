@@ -6,6 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [v2.13.8] - 2026-11-04
+### :sparkles: New Features
+- [`57543b7`](https://github.com/songloft-org/songloft/commit/57543b788b1be6ec4f37a2c28c481ec3707f287e) - **client**: 同步曲库全选与批量删除 (Ref [#549](https://github.com/songloft-org/songloft/pull/549)) *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :bug: Bug Fixes
+- [`cad6b0a`](https://github.com/songloft-org/songloft/commit/cad6b0a0c540b9f9e32a51830504145e7ce14300) - **client**: 同步插件本地安装与浏览器文件选择修复 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`59bca2f`](https://github.com/songloft-org/songloft/commit/59bca2fbb455022669aec88337281c0b968ff782) - **client**: 同步 WebKit 曲库回顶修复 (Ref [#540](https://github.com/songloft-org/songloft/pull/540)) *(commit by [@hanxi](https://github.com/hanxi))*
+- [`2ef6118`](https://github.com/songloft-org/songloft/commit/2ef6118cf3436792b7d5c4d231ed5770f07c2978) - **hls**: 同步支持 HLS 输入的 FFmpeg 工具构建 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`71635ae`](https://github.com/songloft-org/songloft/commit/71635ae30ec76a6a0a8bf4efa94304fe2276a057) - **player-lynx**: 同步曲库滚动修复 songloft-org/songloft[#540](https://github.com/songloft-org/songloft/pull/540) *(commit by [@hanxi](https://github.com/hanxi))*
+- [`24b05df`](https://github.com/songloft-org/songloft/commit/24b05df18c03630968fd0aead904d1f68a349809) - **playlist**: 允许内置收藏歌单保存歌曲排序 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`e204855`](https://github.com/songloft-org/songloft/commit/e204855590bdf4c38483ff87ee19769ba91df1fc) - **playlist**: 同步手动排序入口修复 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`5a9bed4`](https://github.com/songloft-org/songloft/commit/5a9bed40ec8542acf72f5afb71074a8046245214) - **clients**: 同步歌单跨屏拖动自动滚动修复 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`88c0b41`](https://github.com/songloft-org/songloft/commit/88c0b4138aea53a0caf65c3c29c1713c72586177) - **cue**: 正确识别 CP950 编码并拒绝不可靠的解码结果 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`9712f76`](https://github.com/songloft-org/songloft/commit/9712f76ab3169fa3833385265a7d923ccce898d7) - **clients**: 同步已保存歌词的恢复修复 *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :zap: Performance Improvements
+- [`dc76261`](https://github.com/songloft-org/songloft/commit/dc762612f5deb0df966b4e273d3d9623d897c4f7) - **client**: 同步曲库滚动与分页优化 (Ref [#540](https://github.com/songloft-org/songloft/pull/540)) *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :memo: Documentation Changes
+- [`8f7c493`](https://github.com/songloft-org/songloft/commit/8f7c49326fa2c4121293534e49014f2cc76eb35e) - update CHANGELOG for v2.13.7 *(commit by [@github-actions[bot]](https://github.com/apps/github-actions))*
+- [`ee5d16a`](https://github.com/songloft-org/songloft/commit/ee5d16ab38552ea0416f86a1cf9679e57a3f7a40) - **playlist**: 修正排序验证记录的跨仓库链接 *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :wrench: Chores
+- [`69c9d7c`](https://github.com/songloft-org/songloft/commit/69c9d7c5bc10a1a0f5bae4d94e5c314c717584dd) - **miot**: 更新多音箱 DLNA 插件至 2026.11.1.1 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`80b45c2`](https://github.com/songloft-org/songloft/commit/80b45c2df63b4b72be863839a2d379f65d7aac13) - **miot**: 同步分组 DLNA 和逐目标开关 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`5b90995`](https://github.com/songloft-org/songloft/commit/5b9099547ba292e9022378feb91d0a3c9e41fea0) - **miot**: 同步停止后自动播放调查文档 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`60a237d`](https://github.com/songloft-org/songloft/commit/60a237d4331247909ea15fabdbc1e45fb771c348) - **miot**: 同步全屏播放器歌手提示修复 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`9ac9f4b`](https://github.com/songloft-org/songloft/commit/9ac9f4b3f83a6ad0e7753c444b9bbe8b91268225) - release version 2.13.8 *(commit by [@hanxi](https://github.com/hanxi))*
+
+
 ## [v2.13.7] - 2026-10-28
 ### :sparkles: New Features
 - [`11e7725`](https://github.com/songloft-org/songloft/commit/11e772580d83608b5a1ea3ca7597eb0c1da8b1fe) - **home**: 同步双客户端首页收藏显示设置 *(commit by [@hanxi](https://github.com/hanxi))*
@@ -2314,3 +2344,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [v2.13.4]: https://github.com/songloft-org/songloft/compare/v2.13.3...v2.13.4
 [v2.13.5]: https://github.com/songloft-org/songloft/compare/v2.13.4...v2.13.5
 [v2.13.7]: https://github.com/songloft-org/songloft/compare/v2.13.5...v2.13.7
+[v2.13.8]: https://github.com/songloft-org/songloft/compare/v2.13.7...v2.13.8
