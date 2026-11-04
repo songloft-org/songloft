@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [v2.13.9] - 2026-11-04
+### :bug: Bug Fixes
+- [`507a4c0`](https://github.com/songloft-org/songloft/commit/507a4c0e82fcbbd5e047d78440ce103b46e1bdf6) - **ci**: 为 Android Bundle 编译释放磁盘空间 *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :memo: Documentation Changes
+- [`299c425`](https://github.com/songloft-org/songloft/commit/299c4254ae4d4dd3b91cbcfa0b82830869d48e6d) - update CHANGELOG for v2.13.8 *(commit by [@github-actions[bot]](https://github.com/apps/github-actions))*
+
+### :wrench: Chores
+- [`d34b8b8`](https://github.com/songloft-org/songloft/commit/d34b8b8a7a720065d13fccf4497785d7fb066d5f) - release version 2.13.9 *(commit by [@hanxi](https://github.com/hanxi))*
+
+
 ## [v2.13.8] - 2026-11-04
 ### :sparkles: New Features
 - [`57543b7`](https://github.com/songloft-org/songloft/commit/57543b788b1be6ec4f37a2c28c481ec3707f287e) - **client**: 同步曲库全选与批量删除 (Ref [#549](https://github.com/songloft-org/songloft/pull/549)) *(commit by [@hanxi](https://github.com/hanxi))*
@@ -2345,3 +2356,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [v2.13.5]: https://github.com/songloft-org/songloft/compare/v2.13.4...v2.13.5
 [v2.13.7]: https://github.com/songloft-org/songloft/compare/v2.13.5...v2.13.7
 [v2.13.8]: https://github.com/songloft-org/songloft/compare/v2.13.7...v2.13.8
+[v2.13.9]: https://github.com/songloft-org/songloft/compare/v2.13.8...v2.13.9
