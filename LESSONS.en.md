@@ -15,8 +15,8 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 - Scope: parent gomobile + Flutter Android release; baseline `299c4254ae4d4dd3b91cbcfa0b82830869d48e6d`.
 - Evidence: on 2026-11-04, the [v2.13.8 build](https://github.com/songloft-org/songloft/actions/runs/41826126515) had only 76 MB left during `mergeReleaseNativeLibs`, then failed with `No space left on device`. Successful server/Docker delivery does not prove Android Bundle delivery.
 - Rule and fix: remove unused .NET, Haskell and CodeQL toolchains on GitHub-hosted Ubuntu runners; after generating and checking the nonempty AAR, clear Go build/test caches before Flutter. Preserve Android SDK/NDK, Java, module cache and AAR; report disk usage and retain every ABI and JNI check.
-- Done right: 59 script tests, actionlint v1.7.12 and diff checks pass. Actual free space, all three APK ABIs and patch delivery require the fixed version's remote CI. Native device execution Not run; this change only manages build resources.
-- Seen 1× (2026-11-04). Status: build fix; remote release verification pending this delivery.
+- Done right: Fixed revision `d34b8b8a7a720065d13fccf4497785d7fb066d5f`'s [Android job](https://github.com/songloft-org/songloft/actions/runs/41864164882) reclaims about 11 GB, with 96 GB available before Flutter. ARM64/ARMv7/x86_64 APKs, all three JNI checks and frontend/backend patches pass and upload. Remote Quality, local Go tests/vet, 59 script tests and actionlint v1.7.12 pass. Native device execution Not run; this change only manages build resources.
+- Seen 1× (2026-11-04). Status: Android build fix verified; the Apple job was cancelled because GitHub could not allocate a hosted runner. Track complete stable publication separately.
 
 ### CUE-001: Successful decoding or Chinese characters cannot identify a legacy encoding
 
