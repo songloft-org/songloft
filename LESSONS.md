@@ -16,7 +16,7 @@
 - 证据：2026-11-04，[v2.13.8 构建](https://github.com/songloft-org/songloft/actions/runs/41826126515) 在 `mergeReleaseNativeLibs` 仅剩 76 MB，随后报 `No space left on device`；服务器/Docker 成功不能证明 Android Bundle 已发布。
 - 规则与修复：在 GitHub 托管 Ubuntu runner 上先移除本任务不用的 .NET、Haskell 与 CodeQL 工具链；AAR 生成并检查非空后清理 Go 编译/测试缓存，再进入 Flutter 构建。保留 Android SDK/NDK、Java、模块缓存和 AAR；输出磁盘用量，不跳过 ABI 或 JNI 校验。
 - Done right：修复版本 `d34b8b8a7a720065d13fccf4497785d7fb066d5f` 的 [Android job](https://github.com/songloft-org/songloft/actions/runs/41864164882) 释放约 11 GB，进入 Flutter 前有 96 GB 可用；ARM64/ARMv7/x86_64 APK、三项 JNI 检查和前后端补丁全部通过并上传。远端 Quality、本地 Go 测试/vet、59 项脚本测试及 actionlint v1.7.12 通过。原生设备运行 Not run，本次仅修改构建资源管理。
-- Seen 1× (2026-11-04)。状态：Android 构建修复已验收；该轮 Apple job 因 hosted runner 分配失败取消，完整正式发布另行追踪。
+- Seen 1× (2026-11-04)。状态：Android 构建修复已验收；首轮 Apple job 因 hosted runner 分配失败取消，2026-11-05 重跑后整轮 CI 通过，[v2.13.9](https://github.com/songloft-org/songloft/releases/tag/v2.13.9) 的 41 项资产完整发布。下载的版本文件和六份 Android 补丁清单均核对为 `d34b8b8`。
 
 ### CUE-001：传统编码不能按解码成功或出现汉字判定
 
