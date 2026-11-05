@@ -93,6 +93,31 @@ docker run -d \
   songloft/songloft:latest
 ```
 
+### Q: Why is scanning empty when my NAS music folder is not named `music`?
+
+A: The folder may be named “音乐” or anything else. **The host folder containing the songs, its container mount, and Songloft's music root must correspond.** Granting folder access in the NAS UI does not by itself establish the container's directory mapping.
+
+The official Docker image scans `/app/music` by default. For example, if your songs are stored in `/vol1/1000/音乐`, configure Compose as follows:
+
+```yaml
+volumes:
+  - /vol1/1000/音乐:/app/music
+  - /vol1/@appshare/songloft:/app/data
+```
+
+These host paths are examples; replace them with your actual directories. In a NAS graphical interface, select the folder containing the songs on the host side and enter `/app/music` as the container path. You do not need to rename the host folder.
+
+Check the following in order:
+
+1. Whether the songs are actually in “音乐” or `music`; these are different paths.
+2. Whether that folder is mounted at `/app/music`, rather than merely granted access or mounted elsewhere, such as `/app/audiobook`.
+3. If you changed the music root or set `MUSIC_DIR` or `-music`, use the effective path. An authenticated `GET /api/v1/settings/music-path` returns it in `path`; Docker uses the container path.
+4. “Specify directories” only selects subdirectories of the current music root. It cannot switch outside that root. Other mount points are not scanned automatically with the default configuration; see “How do I configure multiple music directories?” below.
+
+After changing mounts, recreate the container as required by your deployment tool, then scan local music again. If scanning is still empty, provide the installation source, directory mappings, effective music root, and scan logs, with sensitive information redacted.
+
+Troubleshooting example: In [Issue #557](https://github.com/songloft-org/songloft/issues/557#issuecomment-6649882763), the report says songs are in “音乐”, while the screenshot maps `music` and separately mounts `/app/audiobook`. This discrepancy calls for checking the paths first; no successful scan after adjustment has been reported at the time of writing.
+
 ### Q: What should I do if scheduled task times are wrong (incorrect timezone) during Docker deployment?
 
 A: You need to set the `TZ` environment variable to specify the timezone:
