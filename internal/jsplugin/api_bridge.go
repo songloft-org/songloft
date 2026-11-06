@@ -250,8 +250,8 @@ songloft.songs = {
         var s = await __callBridge('songs.download', data);
         return s ? JSON.parse(s) : null;
     },
-    create: async function(songs) {
-        var s = await __callBridge('songs.create', JSON.stringify({songs: songs || []}));
+    create: async function(songs, options) {
+        var s = await __callBridge('songs.create', JSON.stringify({songs: songs || [], probeMetadata: !options || options.probeMetadata !== false}));
         return s ? JSON.parse(s) : [];
     },
     update: async function(id, fields) {
@@ -315,6 +315,10 @@ songloft.playlists = {
     },
     removeSongs: async function(id, songIds) {
         await __callBridge('playlists.removeSongs', JSON.stringify({id: id, songIds: songIds || []}));
+    },
+    replaceSongs: async function(id, songIds) {
+        if (!Array.isArray(songIds)) throw new Error('songIds must be an array');
+        await __callBridge('playlists.replaceSongs', JSON.stringify({id: id, songIds: songIds}));
     },
     reorder: async function(id, songIds) {
         await __callBridge('playlists.reorder', JSON.stringify({id: id, songIds: songIds || []}));
@@ -800,7 +804,7 @@ func extractPermFromAction(action string) string {
 	case "playlists.list", "playlists.getById", "playlists.getSongs", "playlists.search":
 		return PermPlaylistsRead
 	case "playlists.create", "playlists.update", "playlists.delete",
-		"playlists.addSongs", "playlists.removeSongs", "playlists.reorder":
+		"playlists.addSongs", "playlists.removeSongs", "playlists.reorder", "playlists.replaceSongs":
 		return PermPlaylistsWrite
 	}
 
@@ -1215,7 +1219,8 @@ func (h *BridgeHandler) handleSongs(action, data string) (string, error) {
 			return "", fmt.Errorf("handleSongs: song service not configured")
 		}
 		var req struct {
-			Songs []struct {
+			ProbeMetadata *bool `json:"probeMetadata"`
+			Songs         []struct {
 				URL            string  `json:"url"`
 				Title          string  `json:"title"`
 				Artist         string  `json:"artist"`
@@ -1259,7 +1264,9 @@ func (h *BridgeHandler) handleSongs(action, data string) (string, error) {
 		// 音源无法自带时长，不探测则 duration 长期为 0，MIot 插件无法注册切歌定时器，表现为
 		// 「单曲循环、不推进列表」（songloft-org/songloft#437）。桥接路径暂无下载闸门，传 nil
 		// 不让路；inflight 去重 + 并发上限已足够收敛占用。
-		h.metadataRefresher.RefreshSongsBackground(songs, nil)
+		if req.ProbeMetadata == nil || *req.ProbeMetadata {
+			h.metadataRefresher.RefreshSongsBackground(songs, nil)
+		}
 		result, err := json.Marshal(songs)
 		if err != nil {
 			return "", fmt.Errorf("handleSongs: marshal create: %w", err)
@@ -1572,6 +1579,25 @@ func (h *BridgeHandler) handlePlaylists(action, data string) (string, error) {
 				}
 				return "", fmt.Errorf("handlePlaylists: removeSongs (songId=%d): %w", songID, err)
 			}
+		}
+		return "", nil
+
+	case "playlists.replaceSongs":
+		if h.playlistService == nil {
+			return "", fmt.Errorf("playlist service not configured")
+		}
+		var req struct {
+			ID      int64   `json:"id"`
+			SongIDs []int64 `json:"songIds"`
+		}
+		if err := json.Unmarshal([]byte(data), &req); err != nil {
+			return "", err
+		}
+		if req.SongIDs == nil {
+			return "", fmt.Errorf("songIds must be an array")
+		}
+		if err := h.playlistService.ReplaceSongs(ctx, req.ID, req.SongIDs); err != nil {
+			return "", err
 		}
 		return "", nil
 

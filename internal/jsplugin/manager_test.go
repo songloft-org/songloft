@@ -984,6 +984,7 @@ func TestExtractPermFromAction(t *testing.T) {
 		{"playlists.addSongs", PermPlaylistsWrite},
 		{"playlists.removeSongs", PermPlaylistsWrite},
 		{"playlists.reorder", PermPlaylistsWrite},
+		{"playlists.replaceSongs", PermPlaylistsWrite},
 		{"storage.get", PermStorage},
 		{"storage.set", PermStorage},
 		{"comm.send", PermInterPlugin},

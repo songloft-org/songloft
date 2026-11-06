@@ -55,3 +55,6 @@
 [submodule "clients/themes"]
 	path = clients/themes
 	url = git@github.com:songloft-org/songloft-themes.git
+[submodule "plugins/src/songloft-plugin-navidrome"]
+	path = plugins/src/songloft-plugin-navidrome
+	url = https://github.com/songloft-org/songloft-plugin-navidrome.git

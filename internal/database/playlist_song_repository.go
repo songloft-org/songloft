@@ -366,3 +366,8 @@ func (r *PlaylistSongRepository) runInTx(ctx context.Context, fn func(*sqlc.Quer
 	}
 	return fn(r.queries)
 }
+
+// Clear 移除歌单全部成员，事务由调用方的 UnitOfWork 提供。
+func (r *PlaylistSongRepository) Clear(ctx context.Context, playlistID int64) error {
+	return r.queries.DeletePlaylistSongsByPlaylistID(ctx, playlistID)
+}

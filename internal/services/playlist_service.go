@@ -55,6 +55,7 @@ type PlayHistoryCleaner interface {
 
 // PlaylistService 歌单服务
 type PlaylistService struct {
+	tx                Transactor
 	playlists         PlaylistRepository
 	playlistSongs     PlaylistSongRepository
 	songs             SongRepository
@@ -654,4 +655,45 @@ func (s *PlaylistService) UploadCover(ctx context.Context, playlistID int64, cov
 		return nil, fmt.Errorf("failed to update playlist: %w", err)
 	}
 	return playlist, nil
+}
+
+// SetTransactor 注入跨表原子写入能力。
+func (s *PlaylistService) SetTransactor(tx Transactor) { s.tx = tx }
+
+// ReplaceSongs 原子替换普通歌单的成员及顺序。任何校验或写入失败均回滚。
+// 内置歌单禁止整表替换；重复 ID 拒绝，空数组明确清空。
+func (s *PlaylistService) ReplaceSongs(ctx context.Context, playlistID int64, songIDs []int64) error {
+	if s.tx == nil {
+		return fmt.Errorf("playlist transactor not configured")
+	}
+	return s.tx.RunInTx(ctx, func(ctx context.Context, uow *database.UnitOfWork) error {
+		playlist, err := uow.Playlists.GetByID(ctx, playlistID)
+		if err != nil {
+			return err
+		}
+		if slices.Contains(playlist.Labels, models.PlaylistLabelBuiltIn) {
+			return fmt.Errorf("cannot replace built-in playlist")
+		}
+		types, err := uow.Songs.ListTypesByIDs(ctx, songIDs)
+		if err != nil {
+			return err
+		}
+		seen := make(map[int64]bool, len(songIDs))
+		for _, id := range songIDs {
+			typ, ok := types[id]
+			if id <= 0 || seen[id] || !ok || !playlist.CanAddSong(typ) {
+				return fmt.Errorf("invalid or duplicate song id: %d", id)
+			}
+			seen[id] = true
+		}
+		if err := uow.PlaylistSongs.Clear(ctx, playlistID); err != nil {
+			return err
+		}
+		for i, id := range songIDs {
+			if err := uow.PlaylistSongs.AddSong(ctx, playlistID, id, i+1); err != nil {
+				return err
+			}
+		}
+		return uow.Playlists.Touch(ctx, playlistID)
+	})
 }

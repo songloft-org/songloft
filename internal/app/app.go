@@ -271,6 +271,7 @@ func (a *App) Init() error {
 	a.metadataExtractor = services.NewMetadataExtractor(metadataConfig)
 
 	a.playlistService = services.NewPlaylistService(db.PlaylistRepository(), db.PlaylistSongRepository(), db.SongRepository(), a.metadataExtractor)
+	a.playlistService.SetTransactor(db)
 	a.songService = services.NewSongService(db.SongRepository(), db, a.metadataExtractor, a.scanner, a.configService, db.PlaylistRepository())
 	a.backupService = services.NewBackupService(db)
 	a.playHistoryService = services.NewPlayHistoryService(db)
