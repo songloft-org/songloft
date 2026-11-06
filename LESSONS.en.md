@@ -10,6 +10,15 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### MOBILE-001: Configure a writable temporary directory before initializing an embedded mobile backend
+
+- Scope: `mobile.Start` and services using Go's default temporary directory; songloft-org/songloft#559, baseline `f1c4936d5a6dda299dd26cc3178beb61d5e71dce`.
+- Evidence: Android Bundle startup failed with `mkdir /data/local/tmp/songloft-hls-*: permission denied`; Go 1.26 defaults to `/data/local/tmp` on Android. A new regression using a file as an unavailable `TMPDIR` failed during HLS initialization with the old implementation; log: `/tmp/songloft-559-before.log`.
+- Rule and fix: before initializing any service, the mobile entry creates sandbox `<dataDir>/tmp` and sets `TMPDIR`; fixing only one `MkdirTemp` call is insufficient. Directory creation failure must return before opening the database. Retain the environment setting after stopping, and let each service remove its own temporary files. See [Bundle path conventions](docs/en/architecture_frontend.md#deployment-modes).
+- Done right: Linux amd64 / Go 1.26.0; real SQLite, HTTP health checks, two start/stop cycles, temporary file creation, and HLS directory cleanup passed after the fix. `CGO_ENABLED=0 go test -tags dev,lite ./...`, vet with the same tags, and the frozen export surface check passed. Logs: `/tmp/songloft-559-{after,tests,vet}.log`.
+- Remaining validation: mobile `-race -count=3` failed, exposing an existing race between asynchronous plugin manager Start and Close. An isolated old entry with a working system temporary directory also failed under rapid start/stop; evidence: `/tmp/songloft-559-{race,baseline-race}.log`. Plugin lifecycle was not changed. Android/iOS packaging and real devices: Not run (toolchains/devices unavailable).
+- Seen 1× (2026-11-06). Status: permission fix and local validation complete; see subsequent #559 replies for commit, push, and CI status; the race remains separate work.
+
 ### CI-003: Sequential Android Bundle builds must release runner disk space
 
 - Scope: parent gomobile + Flutter Android release; baseline `299c4254ae4d4dd3b91cbcfa0b82830869d48e6d`.

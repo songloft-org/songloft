@@ -527,6 +527,7 @@ flutter build windows --dart-define=HAS_BACKEND=true  # Windows
 - 本地模式启动流程：申请存储权限 → 启动嵌入后端 `127.0.0.1:<port>` → 健康检查轮询（最多 10 次 × 300ms）→ 自动 `admin/admin` 登录
 - `BackendLifecycle`（WidgetsBindingObserver）监听 App 生命周期，前台恢复时自动重启后端
 - **Android 路径**：Bundle 模式 CWD 是 `/`，covers 等目录必须相对 `DBPath` 解析，不能按 CWD 解析
+- **移动端临时目录**：`mobile.Start` 在服务初始化前创建 `<dataDir>/tmp` 并设置 Go 进程的 `TMPDIR`，供直播转码、下载和封面等临时文件使用；Android 默认 `/data/local/tmp` 对普通应用不可写。`Stop` 保留该环境配置，HLS 服务关闭时清理自己的会话目录。
 - **原生桥接**：Android 用 `Class.forName("mobile.Mobile")` 反射调用 gomobile 生成类，未打包 `.aar` 时 `isAvailable()` 返回 false（优雅降级）；iOS 用 Swift 调用 `MobileStart` 等 Objective-C 函数
 - **桌面子进程**：`DesktopBackendService` 在 Flutter 可执行文件同目录查找 `songloft-server`（macOS 为 `Contents/Resources/`），并从 stdout 解析实际监听端口
 - **CI 产物**：统一以 `songloft-bundled-` 开头；Android/Linux/Windows 带架构，Apple 为 `songloft-bundled-macos.zip`、`songloft-bundled-ios-nosign.ipa`。4 个并行 Job（Android/Linux/Apple/Windows）失败不阻塞主 Release

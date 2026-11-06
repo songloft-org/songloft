@@ -60,6 +60,17 @@ func Start(dataDir, musicDir string, port int) (int, error) {
 		return -1, fmt.Errorf("创建数据目录失败: %w", err)
 	}
 
+	// Android 的 Go 默认临时目录 /data/local/tmp 不允许普通应用写入。
+	// 在初始化任何服务前设置沙盒路径，同时覆盖 HLS、封面和下载等临时文件。
+	// TMPDIR 属于进程级配置，Stop 后保留，避免尚在退出的任务退回不可写目录。
+	tmpDir := filepath.Join(dataDir, "tmp")
+	if err := os.MkdirAll(tmpDir, 0700); err != nil {
+		return -1, fmt.Errorf("创建临时目录失败: %w", err)
+	}
+	if err := os.Setenv("TMPDIR", tmpDir); err != nil {
+		return -1, fmt.Errorf("设置临时目录失败: %w", err)
+	}
+
 	dbPath := filepath.Join(dataDir, "songloft.db")
 	portStr := "0"
 	if port > 0 {

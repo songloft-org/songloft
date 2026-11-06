@@ -10,6 +10,15 @@
 
 ## 条目
 
+### MOBILE-001：嵌入移动端后端必须先配置可写临时目录
+
+- 范围：`mobile.Start` 与调用默认 Go 临时目录的服务；songloft-org/songloft#559，基线 `f1c4936d5a6dda299dd26cc3178beb61d5e71dce`。
+- 证据：Android Bundle 启动时报 `mkdir /data/local/tmp/songloft-hls-*: permission denied`；Go 1.26 的 Android 默认临时目录是 `/data/local/tmp`。用文件充当不可用 `TMPDIR` 的新回归在旧实现下于 HLS 初始化失败，日志 `/tmp/songloft-559-before.log`。
+- 规则与修复：移动入口在任何服务初始化前创建沙盒 `<dataDir>/tmp` 并设置 `TMPDIR`；不能只修复某一个 `MkdirTemp` 调用。目录创建失败须在打开数据库前返回；停止后保留环境配置，由各服务清理自己的临时文件。说明见 [Bundle 路径约定](docs/architecture_frontend.md#deployment-modes)。
+- Done right：Linux amd64 / Go 1.26.0，修复后真实 SQLite、HTTP 健康检查、两次启动/停止、临时文件创建与 HLS 目录回收通过；`CGO_ENABLED=0 go test -tags dev,lite ./...`、同标签 vet 和冻结导出面检查通过。日志 `/tmp/songloft-559-{after,tests,vet}.log`。
+- 剩余验证：移动入口 `-race -count=3` 失败，暴露插件管理器异步 Start/Close 的既有竞态；隔离旧入口、使用正常系统临时目录的快速启停同样失败，证据 `/tmp/songloft-559-{race,baseline-race}.log`。本次未修改插件生命周期；Android/iOS 打包和真机 Not run（未配置工具链/设备）。
+- Seen 1× (2026-11-06)。状态：权限修复与本地验证完成；提交、推送和 CI 状态以 #559 后续回复为准；竞态单独待处理。
+
 ### CI-003：Android Bundle 连续编译必须释放 runner 磁盘
 
 - 范围：主仓库 Go gomobile + Flutter Android 发布；基线 `299c4254ae4d4dd3b91cbcfa0b82830869d48e6d`。
