@@ -402,14 +402,19 @@ func (m *Manager) UnloadPlugin(ctx context.Context, entryPath string) error {
 	// 从 map 中移除
 	m.services.Delete(entryPath)
 
-	// 清理播放事件订阅
-	m.playEventSubscribers.Delete(entryPath)
-	// 注意：这里**不**清理 lyricProviders。UnloadPlugin 也用于空闲驱逐场景(health.checkIdle)，
-	// 此时插件在 DB 仍为 active，只是临时卸了 VM 省资源。若在这里删掉歌词提供者身份，
-	// 驱逐后 SearchLyrics 遍历到空集合会直接返回 "no lyrics found"，再也不会经 InvokeHTTP→
-	// EnsureLoaded 把插件唤醒(#303)。真正需要撤销身份的两条路径各自显式处理：
-	// 用户在插件里关闭歌词 → JS unregisterProvider → UnregisterLyricProvider；
-	// 用户禁用插件 → DisablePlugin 显式 Delete。已删除/禁用的残留项也会在 SearchLyrics 中惰性清理。
+	// 注意：这里**不**清理 playEventSubscribers / lyricProviders / coverProviders。
+	// UnloadPlugin 也用于空闲驱逐场景(health.checkIdle)，此时插件在 DB 仍为 active，
+	// 只是临时卸了 VM 省资源。若在这里删掉这些身份，驱逐后：
+	//   - 播放事件广播遍历不到该插件且不会尝试唤醒，播放记录静默断流（统计类插件丢数据）；
+	//   - SearchLyrics 遍历到空集合会直接返回 "no lyrics found"，再也不会经 InvokeHTTP→
+	//     EnsureLoaded 把插件唤醒(#303)。
+	// 真正需要撤销身份的两条路径各自显式处理：
+	//   - 用户在插件里关闭歌词 → JS unregisterProvider → UnregisterLyricProvider；
+	//     JS offPlayEvent → UnregisterPlayEvent；
+	//   - 用户禁用插件 → DisablePlugin 显式 Delete；删除插件 → handleDelete 显式 Delete。
+	// 已删除/禁用的残留项也会在 BroadcastPlayEvent / SearchLyrics / SearchCover 中惰性清理。
+	// 注意 UnloadPlugin 对"根本不在内存"的插件会提前返回（service not found），所以
+	// 驱逐后执行禁用/删除时上面这条路走不到，显式 Delete 不能省。
 
 	return nil
 }
@@ -479,10 +484,12 @@ func (m *Manager) DisablePlugin(ctx context.Context, id int64) error {
 	// 卸载插件
 	_ = m.UnloadPlugin(ctx, plugin.EntryPath)
 
-	// 撤销歌词提供者身份：UnloadPlugin 出于空闲驱逐考虑不再清理 lyricProviders，
-	// 但禁用是用户主动、持久的意图，必须在这里显式移除，避免 SearchLyrics 反复尝试唤醒已禁用插件。
+	// 撤销各提供者/订阅者身份：UnloadPlugin 出于空闲驱逐考虑不再清理这些集合，
+	// 但禁用是用户主动、持久的意图，必须在这里显式移除，避免广播/搜索反复尝试唤醒已禁用插件。
+	// 对已被空闲驱逐的插件 UnloadPlugin 提前返回，这里的显式 Delete 是唯一清理机会。
 	m.lyricProviders.Delete(plugin.EntryPath)
 	m.coverProviders.Delete(plugin.EntryPath)
+	m.playEventSubscribers.Delete(plugin.EntryPath)
 
 	// 清理自愈/唤醒计划，避免 disable 后被自动恢复或唤醒。
 	if m.healthChecker != nil {
@@ -546,7 +553,10 @@ func (m *Manager) EnsureLoaded(ctx context.Context, entryPath string) (*JSServic
 
 		plugin, err := m.repo.GetByEntryPath(ctx, entryPath)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
+			// repo 对缺失记录返回 database.ErrNotFound（不包装 sql.ErrNoRows），
+			// 两者都要映射成 ErrPluginNotFound，否则调用方的惰性清理
+			// （SearchLyrics/SearchCover/BroadcastPlayEvent）对已删除插件永不生效。
+			if errors.Is(err, sql.ErrNoRows) || errors.Is(err, database.ErrNotFound) {
 				return nil, ErrPluginNotFound
 			}
 			return nil, fmt.Errorf("get plugin by entry_path %q: %w", entryPath, err)
@@ -686,6 +696,13 @@ func (m *Manager) HasLyricProvider() bool {
 	return has
 }
 
+// HasPlayEventSubscriber 报告指定插件当前是否已订阅播放事件。
+// 供测试断言与后续 keep-alive 策略（如把播放事件订阅者视为常驻候选）使用。
+func (m *Manager) HasPlayEventSubscriber(entryPath string) bool {
+	_, ok := m.playEventSubscribers.Load(entryPath)
+	return ok
+}
+
 // RegisterCoverProvider 将插件注册为封面提供者
 func (m *Manager) RegisterCoverProvider(entryPath string) {
 	m.coverProviders.Store(entryPath, true)
@@ -758,6 +775,11 @@ func (m *Manager) HasCoverProvider() bool {
 }
 
 // BroadcastPlayEvent 向所有已订阅的插件异步发送播放事件
+// BroadcastPlayEvent 向所有已订阅的插件异步发送播放事件。
+// 订阅者可能已被空闲驱逐（service 不在内存）：为避免播放记录静默丢失，
+// 这里经 EnsureLoaded 把 active 状态的订阅者拉起再投递——与歌词/封面 provider
+// 的懒唤醒(#303)同策略。EnsureLoaded 按 DB status 门控，禁用/删除/error 的插件
+// 不会被拉起，残留订阅在此惰性清理。
 func (m *Manager) BroadcastPlayEvent(song *PlayEventSong, eventType, source string) {
 	eventData := &PlayEventData{
 		Type:      eventType,
@@ -768,6 +790,23 @@ func (m *Manager) BroadcastPlayEvent(song *PlayEventSong, eventType, source stri
 
 	m.playEventSubscribers.Range(func(key, _ interface{}) bool {
 		entryPath := key.(string)
+		if _, ok := m.GetService(entryPath); !ok {
+			// 已订阅但未加载：同步拉起后再投递。调用方（music.go 的播放上报）
+			// 已在独立 goroutine 里广播，不会阻塞 204 响应；Range 内同步执行
+			// 保证同一插件的事件按广播顺序入队；singleflight 合并并发唤醒。
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			_, err := m.EnsureLoaded(ctx, entryPath)
+			cancel()
+			if err != nil {
+				if errors.Is(err, ErrPluginDisabled) || errors.Is(err, ErrPluginNotFound) {
+					// 插件已禁用/删除，订阅项永远唤醒不了，惰性移除
+					m.playEventSubscribers.Delete(entryPath)
+				}
+				slog.Debug("broadcast play event: lazy load failed",
+					"plugin", entryPath, "error", err)
+				return true
+			}
+		}
 		if err := m.scheduler.Send(&Message{
 			Type:   MsgPlayEvent,
 			Target: entryPath,

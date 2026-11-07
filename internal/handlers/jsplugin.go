@@ -380,6 +380,9 @@ func (h *JSPluginHandler) handleDelete(w http.ResponseWriter, r *http.Request) {
 	// 卸载运行中的服务
 	if h.manager != nil {
 		_ = h.manager.UnloadPlugin(r.Context(), plugin.EntryPath)
+		// 撤销播放事件订阅：UnloadPlugin 出于空闲驱逐考虑不再清理该集合，
+		// 删除是用户主动、持久的意图，必须在这里显式移除（禁用路径在 DisablePlugin 内处理）。
+		h.manager.UnregisterPlayEvent(plugin.EntryPath)
 	}
 
 	// 执行卸载
