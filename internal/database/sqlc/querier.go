@@ -19,6 +19,7 @@ type Querier interface {
 	ClearPlayHistory(ctx context.Context, arg ClearPlayHistoryParams) (int64, error)
 	ClearPlayHistoryByPlaylist(ctx context.Context, contextKey string) (int64, error)
 	ClearPlayHistoryByTag(ctx context.Context, contextKey string) (int64, error)
+	ClearPlaylistTagReferences(ctx context.Context, label string) error
 	CountArtistSongs(ctx context.Context, artistID int64) (int64, error)
 	CountLocalFingerprints(ctx context.Context) (CountLocalFingerprintsRow, error)
 	CountPersonalTokens(ctx context.Context) (int64, error)
@@ -29,6 +30,7 @@ type Querier interface {
 	CountSongsByCoverPath(ctx context.Context, coverPath string) (int64, error)
 	CountSongsByFilePath(ctx context.Context, filePath string) (int64, error)
 	CountSongsByTag(ctx context.Context, tagID int64) (int64, error)
+	CountVisiblePlaylistsByTag(ctx context.Context, label string) (int64, error)
 	CreateJSPlugin(ctx context.Context, arg CreateJSPluginParams) (int64, error)
 	CreatePersonalToken(ctx context.Context, arg CreatePersonalTokenParams) error
 	CreatePlaylist(ctx context.Context, arg CreatePlaylistParams) (int64, error)
@@ -61,6 +63,7 @@ type Querier interface {
 	GetMaxPlaylistPosition(ctx context.Context) (int64, error)
 	GetPersonalTokenByHash(ctx context.Context, tokenHash string) (GetPersonalTokenByHashRow, error)
 	GetPlaylistByID(ctx context.Context, arg GetPlaylistByIDParams) (GetPlaylistByIDRow, error)
+	GetPlaylistCoverCandidates(ctx context.Context, playlistID int64) ([]GetPlaylistCoverCandidatesRow, error)
 	GetPlaylistSongs(ctx context.Context, playlistID int64) ([]Song, error)
 	GetPlaylistSongsPaginated(ctx context.Context, arg GetPlaylistSongsPaginatedParams) ([]Song, error)
 	GetPluginStorage(ctx context.Context, arg GetPluginStorageParams) (string, error)
@@ -69,6 +72,7 @@ type Querier interface {
 	GetSongTagByID(ctx context.Context, id int64) (SongTag, error)
 	GetSongTagByName(ctx context.Context, name string) (SongTag, error)
 	GetSongTimestamps(ctx context.Context, id int64) (GetSongTimestampsRow, error)
+	GetTagsByPlaylistID(ctx context.Context, id int64) ([]SongTag, error)
 	GetTagsBySongID(ctx context.Context, songID int64) ([]SongTag, error)
 	GetThemePackByThemeID(ctx context.Context, themeID string) (ThemePack, error)
 	GetTokenByID(ctx context.Context, tokenID string) (GetTokenByIDRow, error)
@@ -117,6 +121,7 @@ type Querier interface {
 	UpdateJSPluginHashes(ctx context.Context, arg UpdateJSPluginHashesParams) error
 	UpdateJSPluginStatus(ctx context.Context, arg UpdateJSPluginStatusParams) error
 	UpdatePlaylist(ctx context.Context, arg UpdatePlaylistParams) (int64, error)
+	UpdatePlaylistLabels(ctx context.Context, arg UpdatePlaylistLabelsParams) (int64, error)
 	UpdatePlaylistPosition(ctx context.Context, arg UpdatePlaylistPositionParams) (int64, error)
 	UpdatePlaylistSort(ctx context.Context, arg UpdatePlaylistSortParams) (int64, error)
 	UpdateRemoteSongMutable(ctx context.Context, arg UpdateRemoteSongMutableParams) error

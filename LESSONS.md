@@ -10,6 +10,22 @@
 
 ## 条目
 
+### COVER-001：动态封面候选不能共用过期上下文或修改时间
+
+- 范围：歌单远程／本地封面回退，songloft-org/songloft#562。
+- 规则：总远程预算只约束网络尝试，不能取消后续本地候选读取；动态地址更换候选时，旧文件的 `Last-Modified` 不能验证新文件。缩略图 ETag 须包含文件身份。
+- 证据与 Done right：审核新增真实 HTTP 超时回归，两条路径在修复前均错误返回 404；更换为修改时间较早的成员封面时，旧实现误返回 304。分离远程上下文、继续读取本地候选，并在动态回退移除日期校验后全部通过。日志 `/tmp/songloft-562-review-{before,covers}.log`，详见 [验证记录](docs/issue-562-verification.md)。
+- Seen 1× (2026-11-11)。状态：本地审核发现并修复，未提交或发布。
+
+### TAG-001：JSON 标签引用须与定义删除串行化
+
+- 范围：共享歌单标签，songloft-org/songloft#562。
+- 规则：普通 `INTEGER PRIMARY KEY` 会复用 ID；JSON 中的引用没有外键保护，删除、引用清理与绑定校验/写入要使用同一 UnitOfWork。元数据更新不得从旧对象恢复标签引用。
+- 证据与 Done right：去掉清理的 Go overlay 在 ID 复用与旧对象回写回归中失败，保留 `tag:1`；实际实现通过无效批次回滚、系统标记保留、隐藏计数和跨实例备份测试。见 [验证记录](docs/issue-562-verification.md)。
+- 同次审核补充：标签删除还须刷新客户端缓存的歌单元数据与绑定。Flutter 实际删除交互和 Lynx QueryClient 回归在修复前均读到旧 `tag:1`，补齐失效后通过；这不增加独立事件次数。
+- 同次计数补查：歌单单个／批量删除及隐藏／恢复也须刷新标签目录中的可见歌单数；两端四种操作的缓存回归均在修复前失败。日志 `/tmp/songloft-562-review-counts-*-before.log`。
+- Seen 1× (2026-11-11)。状态：本地实现，未提交或发布；这是机制回归验证，非新增线上事故。
+
 ### MOBILE-001：嵌入移动端后端必须先配置可写临时目录
 
 - 范围：`mobile.Start` 与调用默认 Go 临时目录的服务；songloft-org/songloft#559，基线 `f1c4936d5a6dda299dd26cc3178beb61d5e71dce`。

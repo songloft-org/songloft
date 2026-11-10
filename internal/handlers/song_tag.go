@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"songloft/internal/database"
+	"songloft/internal/models"
 	"songloft/internal/services"
 
 	"github.com/hanxi/tag"
@@ -23,6 +24,88 @@ type SongTagHandler struct {
 	tagService    *services.SongTagService
 	songService   *services.SongService
 	configService *services.ConfigService
+}
+
+// GetPlaylistTags 获取歌单的自定义标签
+// @Summary 获取歌单自定义标签
+// @Description 返回共享标签定义，不包含 built_in、hidden 等系统标记；歌单不存在返回 404。
+// @Tags 标签管理
+// @Produce json
+// @Param id path int true "歌单 ID"
+// @Success 200 {array} models.SongTag "自定义标签"
+// @Failure 400 {object} map[string]string "无效的 ID"
+// @Failure 404 {object} map[string]string "歌单不存在"
+// @Security BearerAuth
+// @Router /playlists/{id}/tags [get]
+func (h *SongTagHandler) GetPlaylistTags(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		respondError(w, 400, "无效的歌单 ID", err)
+		return
+	}
+	tags, err := h.tagService.GetPlaylistTags(r.Context(), id)
+	if errors.Is(err, database.ErrNotFound) {
+		respondError(w, 404, "歌单不存在", err)
+		return
+	}
+	if err != nil {
+		respondError(w, 500, "获取歌单标签失败", err)
+		return
+	}
+	respondJSON(w, 200, tags)
+}
+
+type PlaylistTagsRequest struct {
+	TagIDs *[]int64 `json:"tag_ids"`
+}
+
+// SetPlaylistTags 设置歌单的自定义标签
+// @Summary 设置歌单自定义标签
+// @Description 原子替换自定义标签，保留系统标记。tag_ids 必填，空数组清空；无效标签整体失败。
+// @Tags 标签管理
+// @Accept json
+// @Produce json
+// @Param id path int true "歌单 ID"
+// @Param request body PlaylistTagsRequest true "标签 ID"
+// @Success 200 {array} models.SongTag "更新后的标签"
+// @Failure 400 {object} map[string]string "请求或标签无效"
+// @Failure 404 {object} map[string]string "歌单或标签不存在"
+// @Security BearerAuth
+// @Router /playlists/{id}/tags [put]
+func (h *SongTagHandler) SetPlaylistTags(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		respondError(w, 400, "无效的歌单 ID", err)
+		return
+	}
+	var req PlaylistTagsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TagIDs == nil {
+		respondError(w, 400, "tag_ids 必须是数组", err)
+		return
+	}
+	for _, tagID := range *req.TagIDs {
+		if tagID <= 0 {
+			respondError(w, 400, "无效的标签 ID", nil)
+			return
+		}
+	}
+	if err := h.tagService.SetPlaylistTags(r.Context(), id, *req.TagIDs); err != nil {
+		status := 500
+		if errors.Is(err, database.ErrNotFound) {
+			status = 404
+		}
+		respondError(w, status, "设置歌单标签失败", err)
+		return
+	}
+	tags, err := h.tagService.GetPlaylistTags(r.Context(), id)
+	if err != nil {
+		respondError(w, 500, "获取歌单标签失败", err)
+		return
+	}
+	if tags == nil {
+		tags = []models.SongTag{}
+	}
+	respondJSON(w, 200, tags)
 }
 
 // NewSongTagHandler 创建标签处理器
@@ -40,11 +123,11 @@ func NewSongTagHandler(
 
 // List 列出所有标签
 // @Summary 列出所有标签
-// @Description 返回标签列表，含每个标签下的歌曲数量和代表封面。支持关键词搜索、排序和分页。
+// @Description 返回标签列表，含每个标签下的歌曲数量、可见歌单数量和歌曲代表封面。支持关键词搜索、排序和分页。
 // @Tags 标签管理
 // @Produce json
 // @Param keyword query string false "搜索关键词（模糊匹配标签名）"
-// @Param sort query string false "排序字段" Enums(song_count, name, created_at) default(song_count)
+// @Param sort query string false "排序字段" Enums(id, song_count, playlist_count, name, created_at) default(song_count)
 // @Param order query string false "排序方向" Enums(asc, desc) default(desc)
 // @Param limit query int false "每页数量" default(60)
 // @Param offset query int false "偏移量" default(0)

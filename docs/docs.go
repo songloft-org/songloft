@@ -2585,6 +2585,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "description": "按共享自定义标签筛选",
+                        "name": "tag_id",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "default": "hidden",
                         "description": "要排除的标签(逗号分隔), 默认排除 hidden; 传 none 显示全部",
@@ -2754,7 +2760,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "导出所有歌单（含曲目关联）为 JSON 文件，响应头携带 Content-Disposition 直接触发浏览器下载",
+                "description": "导出所有歌单、曲目关联和共享标签为 v2 JSON 文件；标签引用使用备份内 ID。响应头携带 Content-Disposition 直接触发浏览器下载。",
                 "produces": [
                     "application/json"
                 ],
@@ -2788,7 +2794,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "从 multipart/form-data 上传的 JSON 备份文件还原歌单。已存在的歌单按名称合并，曲目按内容匹配去重。",
+                "description": "从 multipart/form-data 上传的 v1/v2 JSON 备份还原歌单。已有歌单按名称合并、曲目按内容匹配去重；v2 标签按名称匹配并重映射 ID，保留已有绑定与系统标记。",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -3089,7 +3095,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "返回歌单封面图片文件。可选 query 参数 w：把本地封面等比缩放到该宽度（物理像素，绝不放大、上限 1024）后以 JPEG 返回，用于 Web 端降低 GPU 纹理体积（songloft-org/songloft#309）；缺省或非法时返回原图。缩略仅作用于本地封面，远程代理封面忽略 w。",
+                "description": "无独立封面时回退到前 20 个有封面的成员候选，支持远程与插件相对地址；远程回退共用 5 秒预算，动态成员封面要求缓存重新验证。\n返回歌单封面图片文件。可选 query 参数 w：把本地封面等比缩放到该宽度（物理像素，绝不放大、上限 1024）后以 JPEG 返回，用于 Web 端降低 GPU 纹理体积（songloft-org/songloft#309）；缺省或非法时返回原图。缩略仅作用于本地封面，远程代理封面忽略 w。",
                 "produces": [
                     "image/jpeg"
                 ],
@@ -3845,6 +3851,126 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "更新失败",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/playlists/{id}/tags": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "返回共享标签定义，不包含 built_in、hidden 等系统标记；歌单不存在返回 404。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "标签管理"
+                ],
+                "summary": "获取歌单自定义标签",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "歌单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "自定义标签",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.SongTag"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "无效的 ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "歌单不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "原子替换自定义标签，保留系统标记。tag_ids 必填，空数组清空；无效标签整体失败。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "标签管理"
+                ],
+                "summary": "设置歌单自定义标签",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "歌单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "标签 ID",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.PlaylistTagsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新后的标签",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.SongTag"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "请求或标签无效",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "歌单或标签不存在",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -6779,7 +6905,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "返回标签列表，含每个标签下的歌曲数量和代表封面。支持关键词搜索、排序和分页。",
+                "description": "返回标签列表，含每个标签下的歌曲数量、可见歌单数量和歌曲代表封面。支持关键词搜索、排序和分页。",
                 "produces": [
                     "application/json"
                 ],
@@ -6796,7 +6922,9 @@ const docTemplate = `{
                     },
                     {
                         "enum": [
+                            "id",
                             "song_count",
+                            "playlist_count",
                             "name",
                             "created_at"
                         ],
@@ -10704,6 +10832,17 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.PlaylistTagsRequest": {
+            "type": "object",
+            "properties": {
+                "tag_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "handlers.ScanRequest": {
             "type": "object",
             "properties": {
@@ -12175,6 +12314,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "playlist_count": {
+                    "type": "integer"
                 },
                 "song_count": {
                     "type": "integer"

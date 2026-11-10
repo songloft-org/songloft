@@ -2,8 +2,10 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"songloft/internal/database"
@@ -24,7 +26,7 @@ func NewBackupService(db database.DB) *BackupService {
 func (s *BackupService) Export(ctx context.Context) (*models.BackupData, error) {
 	db := *s.db
 	playlists, err := db.PlaylistRepository().List(ctx, &database.PlaylistFilter{
-		Limit: models.MaxPaginationLimit,
+		Limit: 0,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list playlists: %w", err)
@@ -39,12 +41,25 @@ func (s *BackupService) Export(ctx context.Context) (*models.BackupData, error) 
 
 		backupSongs := make([]models.BackupSong, 0, len(songs))
 		for _, song := range songs {
-			backupSongs = append(backupSongs, songToBackup(song))
+			bs := songToBackup(song)
+			tags, err := db.SongTagRepository().GetBySongID(ctx, song.ID)
+			if err != nil {
+				return nil, err
+			}
+			for _, tag := range tags {
+				bs.TagIDs = append(bs.TagIDs, tag.ID)
+			}
+			backupSongs = append(backupSongs, bs)
 		}
 
-		labels := p.Labels
-		if labels == nil {
-			labels = []string{}
+		labels := []string{}
+		tagIDs := []int64{}
+		for _, label := range p.Labels {
+			if id, ok := models.ParsePlaylistTagLabel(label); ok {
+				tagIDs = append(tagIDs, id)
+			} else if !strings.HasPrefix(label, "tag:") {
+				labels = append(labels, label)
+			}
 		}
 
 		backupPlaylists = append(backupPlaylists, models.BackupPlaylist{
@@ -53,32 +68,66 @@ func (s *BackupService) Export(ctx context.Context) (*models.BackupData, error) 
 			Description: p.Description,
 			Labels:      labels,
 			Songs:       backupSongs,
+			TagIDs:      tagIDs,
 		})
 	}
 
+	tags, err := db.SongTagRepository().List(ctx, "", "id", "asc", 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	definitions := make([]models.BackupTag, 0, len(tags))
+	for _, tag := range tags {
+		definitions = append(definitions, models.BackupTag{ID: tag.ID, Name: tag.Name, Color: tag.Color})
+	}
 	return &models.BackupData{
 		Version:    models.BackupVersion,
 		ExportedAt: time.Now(),
 		Playlists:  backupPlaylists,
+		Tags:       definitions,
 	}, nil
 }
 
 // Import 从备份数据导入歌单，同名歌单合并歌曲
 func (s *BackupService) Import(ctx context.Context, data *models.BackupData) (*models.ImportResult, error) {
-	if data.Version != models.BackupVersion {
+	if data.Version != 1 && data.Version != models.BackupVersion {
 		return nil, fmt.Errorf("不支持的备份版本: %d", data.Version)
 	}
 
 	result := &models.ImportResult{}
 
 	err := (*s.db).RunInTx(ctx, func(ctx context.Context, uow *database.UnitOfWork) error {
+		tagMap := make(map[int64]int64)
+		if data.Version >= 2 {
+			for _, tag := range data.Tags {
+				if tag.ID <= 0 || tagMap[tag.ID] != 0 {
+					return fmt.Errorf("invalid backup tag ID: %d", tag.ID)
+				}
+				if err := validateTagName(tag.Name); err != nil {
+					return err
+				}
+				existing, err := uow.SongTags.GetByName(ctx, tag.Name)
+				if err == nil {
+					tagMap[tag.ID] = existing.ID
+					continue
+				}
+				if !errors.Is(err, database.ErrNotFound) {
+					return err
+				}
+				id, err := uow.SongTags.Create(ctx, tag.Name, tag.Color)
+				if err != nil {
+					return err
+				}
+				tagMap[tag.ID] = id
+			}
+		}
 		localPaths, err := uow.Songs.ListLocalPaths(ctx)
 		if err != nil {
 			return fmt.Errorf("load local paths: %w", err)
 		}
 
 		for _, bp := range data.Playlists {
-			if err := s.importPlaylist(ctx, uow, &bp, localPaths, result); err != nil {
+			if err := s.importPlaylist(ctx, uow, &bp, localPaths, result, tagMap); err != nil {
 				return fmt.Errorf("import playlist %q: %w", bp.Name, err)
 			}
 		}
@@ -96,18 +145,44 @@ func (s *BackupService) importPlaylist(
 	bp *models.BackupPlaylist,
 	localPaths map[string]database.LocalPathInfo,
 	result *models.ImportResult,
+	tagMap map[int64]int64,
 ) error {
 	songIDs := make([]int64, 0, len(bp.Songs))
 	for _, bs := range bp.Songs {
 		songID := s.matchOrCreateSong(ctx, uow, &bs, localPaths, result)
 		if songID > 0 {
 			songIDs = append(songIDs, songID)
+			for _, oldID := range bs.TagIDs {
+				if id := tagMap[oldID]; id > 0 {
+					if err := uow.SongTags.LinkSongTag(ctx, songID, id); err != nil {
+						return err
+					}
+				}
+			}
 		}
 	}
 
 	playlistID, err := s.findOrCreatePlaylist(ctx, uow, bp, result)
 	if err != nil {
 		return err
+	}
+	if len(bp.TagIDs) > 0 {
+		existing, err := uow.SongTags.GetByPlaylistID(ctx, playlistID)
+		if err != nil {
+			return err
+		}
+		ids := make([]int64, 0, len(existing)+len(bp.TagIDs))
+		for _, tag := range existing {
+			ids = append(ids, tag.ID)
+		}
+		for _, oldID := range bp.TagIDs {
+			if id := tagMap[oldID]; id > 0 {
+				ids = append(ids, id)
+			}
+		}
+		if err := uow.SongTags.SetPlaylistTags(ctx, playlistID, ids); err != nil {
+			return err
+		}
 	}
 
 	existingCount, err := uow.PlaylistSongs.CountSongs(ctx, playlistID)
@@ -195,7 +270,7 @@ func (s *BackupService) findOrCreatePlaylist(
 	// 不创建新的 built_in 歌单
 	filtered := make([]string, 0, len(labels))
 	for _, l := range labels {
-		if l != models.PlaylistLabelBuiltIn {
+		if l != models.PlaylistLabelBuiltIn && !strings.HasPrefix(l, "tag:") {
 			filtered = append(filtered, l)
 		}
 	}

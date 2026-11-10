@@ -2,12 +2,19 @@ package models
 
 import "time"
 
-const BackupVersion = 1
+const BackupVersion = 2
 
 type BackupData struct {
 	Version    int              `json:"version"`
 	ExportedAt time.Time        `json:"exported_at"`
 	Playlists  []BackupPlaylist `json:"playlists"`
+	Tags       []BackupTag      `json:"tags,omitempty"`
+}
+
+type BackupTag struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Color string `json:"color"`
 }
 
 type BackupPlaylist struct {
@@ -16,9 +23,11 @@ type BackupPlaylist struct {
 	Description string       `json:"description"`
 	Labels      []string     `json:"labels"`
 	Songs       []BackupSong `json:"songs"`
+	TagIDs      []int64      `json:"tag_ids,omitempty"`
 }
 
 type BackupSong struct {
+	TagIDs          []int64 `json:"tag_ids,omitempty"`
 	Type            string  `json:"type"`
 	Title           string  `json:"title"`
 	Artist          string  `json:"artist"`

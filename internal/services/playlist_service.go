@@ -33,6 +33,7 @@ type PlaylistRepository interface {
 
 // PlaylistSongRepository 是 PlaylistService 依赖的歌单-歌曲关联仓储接口。
 type PlaylistSongRepository interface {
+	GetCoverCandidates(ctx context.Context, id int64) ([]*models.Song, error)
 	AddSong(ctx context.Context, playlistID, songID int64, position int) error
 	RemoveSong(ctx context.Context, playlistID, songID int64) error
 	GetSongs(ctx context.Context, playlistID int64) ([]*models.Song, error)
@@ -44,6 +45,10 @@ type PlaylistSongRepository interface {
 	MaxPosition(ctx context.Context, playlistID int64) (int, error)
 	AddSongsBatch(ctx context.Context, playlistID int64, startPos int, songIDs []int64) (added int, skipped int, err error)
 	ListSongIDsOrdered(ctx context.Context, playlistID int64, sort, order string) ([]int64, error)
+}
+
+func (s *PlaylistService) GetCoverCandidates(ctx context.Context, id int64) ([]*models.Song, error) {
+	return s.playlistSongs.GetCoverCandidates(ctx, id)
 }
 
 // PlayHistoryCleaner 在删除歌单时清理其播放历史。

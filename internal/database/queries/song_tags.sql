@@ -31,3 +31,23 @@ ORDER BY t.name;
 
 -- name: CountSongsByTag :one
 SELECT COUNT(*) FROM song_tag_links WHERE tag_id = ?;
+
+-- name: GetTagsByPlaylistID :many
+SELECT t.id, t.name, t.color, t.created_at
+FROM song_tags t
+WHERE EXISTS (
+    SELECT 1 FROM playlists p, json_each(p.labels) j
+    WHERE p.id = ? AND j.value = 'tag:' || t.id
+)
+ORDER BY t.name;
+
+-- name: CountVisiblePlaylistsByTag :one
+SELECT COUNT(*) FROM playlists p
+WHERE EXISTS (SELECT 1 FROM json_each(p.labels) j WHERE j.value = CAST(sqlc.arg(label) AS TEXT))
+AND NOT EXISTS (SELECT 1 FROM json_each(p.labels) h WHERE h.value = 'hidden');
+
+-- name: ClearPlaylistTagReferences :exec
+UPDATE playlists
+SET labels = (SELECT json_group_array(j.value) FROM json_each(playlists.labels) j WHERE j.value != CAST(sqlc.arg(label) AS TEXT)),
+    updated_at = CURRENT_TIMESTAMP
+WHERE EXISTS (SELECT 1 FROM json_each(playlists.labels) j WHERE j.value = CAST(sqlc.arg(label) AS TEXT));

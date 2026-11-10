@@ -640,6 +640,8 @@ Directory sync may call `await songloft.songs.create(inputs, { probeMetadata: fa
 
 Requires permission: `tags.read` (read) or `tags.write` (modify); or the wildcard sugar `tags.*`.
 
+Hosts containing #562 share tag definitions across songs and playlists. `song_count` counts songs; `playlist_count` counts visible playlists. Playlist relationships live in existing `labels` as `tag:<id>` and preserve system markers. Use the tag API for relationships; metadata edits preserve current bindings. Deleting a tag clears both kinds of relationships in one transaction.
+
 ```javascript
 async function tagsExample() {
     // —— Read operations (requires tags.read) ——
@@ -665,16 +667,16 @@ async function tagsExample() {
     var newTag = await songloft.tags.create({ name: "My Tag", color: "#ff6600" });
 
     // Update a tag
-    await songloft.tags.update({ id: 1, name: "New Name", color: "#00cc00" });
+    await songloft.tags.update(1, { name: "New Name", color: "#00cc00" });
 
     // Delete a tag
     await songloft.tags.delete(1);
 
     // Batch-bind songs to a tag (returns { bound: <actual count> })
-    var result = await songloft.tags.bindSongs({ tagId: 1, songIds: [10, 20, 30] });
+    var result = await songloft.tags.bindSongs(1, [10, 20, 30]);
 
     // Batch-unbind songs (returns { unbound: <actual count> })
-    var result2 = await songloft.tags.unbindSongs({ tagId: 1, songIds: [10, 20] });
+    var result2 = await songloft.tags.unbindSongs(1, [10, 20]);
 }
 ```
 
@@ -685,11 +687,14 @@ async function tagsExample() {
 | `list(options?)` | `tags.read` | `{ keyword?, orderBy?, order?, limit?, offset? }` | Tag[] |
 | `getById(id)` | `tags.read` | `id: number` | Tag |
 | `getSongTags(songId)` | `tags.read` | `songId: number` | Tag[] |
+| `getPlaylistTags(playlistId)` | `tags.read` | `playlistId: number` | Tag[] |
+| `bindPlaylists(tagId, playlistIds)` | `tags.write` | `number, number[]` | `{ bound: number }` |
+| `unbindPlaylists(tagId, playlistIds)` | `tags.write` | `number, number[]` | `{ unbound: number }` |
 | `create(options)` | `tags.write` | `{ name: string, color: string }` | Tag |
-| `update(options)` | `tags.write` | `{ id: number, name: string, color: string }` | void |
+| `update(id, fields)` | `tags.write` | `number, { name?: string, color?: string }` | void |
 | `delete(id)` | `tags.write` | `id: number` | void |
-| `bindSongs(options)` | `tags.write` | `{ tagId: number, songIds: number[] }` | `{ bound: number }` |
-| `unbindSongs(options)` | `tags.write` | `{ tagId: number, songIds: number[] }` | `{ unbound: number }` |
+| `bindSongs(tagId, songIds)` | `tags.write` | `number, number[]` | `{ bound: number }` |
+| `unbindSongs(tagId, songIds)` | `tags.write` | `number, number[]` | `{ unbound: number }` |
 
 ### songloft.comm — Inter-Plugin Communication
 

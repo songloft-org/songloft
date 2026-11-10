@@ -335,6 +335,23 @@ func (q *Queries) UpdatePlaylist(ctx context.Context, arg UpdatePlaylistParams) 
 	return result.RowsAffected()
 }
 
+const updatePlaylistLabels = `-- name: UpdatePlaylistLabels :execrows
+UPDATE playlists SET labels = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+`
+
+type UpdatePlaylistLabelsParams struct {
+	Labels string
+	ID     int64
+}
+
+func (q *Queries) UpdatePlaylistLabels(ctx context.Context, arg UpdatePlaylistLabelsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updatePlaylistLabels, arg.Labels, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const updatePlaylistPosition = `-- name: UpdatePlaylistPosition :execrows
 UPDATE playlists SET position = ? WHERE id = ?
 `

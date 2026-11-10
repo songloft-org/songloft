@@ -3,7 +3,9 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -34,7 +36,17 @@ func (r *SongTagRepository) GetByID(ctx context.Context, id int64) (*models.Song
 		}
 		return nil, err
 	}
-	return sqlcSongTagToModel(row), nil
+	tag := sqlcSongTagToModel(row)
+	songs, err := r.CountSongs(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	playlists, err := r.queries.CountVisiblePlaylistsByTag(ctx, models.PlaylistTagLabel(id))
+	if err != nil {
+		return nil, err
+	}
+	tag.SongCount, tag.PlaylistCount = int(songs), int(playlists)
+	return tag, nil
 }
 
 func (r *SongTagRepository) GetByName(ctx context.Context, name string) (*models.SongTag, error) {
@@ -60,6 +72,7 @@ func (r *SongTagRepository) List(ctx context.Context, keyword, orderBy, order st
 	sb := sq.Select(
 		"t.id", "t.name", "t.color", "t.created_at",
 		"COUNT(l.song_id) AS song_count",
+		"(SELECT COUNT(*) FROM playlists p WHERE EXISTS (SELECT 1 FROM json_each(p.labels) j WHERE j.value = 'tag:' || t.id) AND NOT EXISTS (SELECT 1 FROM json_each(p.labels) WHERE value = 'hidden')) AS playlist_count",
 		"COALESCE((SELECT s.cover_url FROM songs s JOIN song_tag_links l2 ON s.id = l2.song_id WHERE l2.tag_id = t.id ORDER BY l2.created_at DESC LIMIT 1), '') AS cover_url",
 	).From("song_tags t").
 		LeftJoin("song_tag_links l ON t.id = l.tag_id").
@@ -93,7 +106,7 @@ func (r *SongTagRepository) List(ctx context.Context, keyword, orderBy, order st
 	for rows.Next() {
 		var t models.SongTag
 		var createdAt sql.NullTime
-		if err := rows.Scan(&t.ID, &t.Name, &t.Color, &createdAt, &t.SongCount, &t.CoverURL); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.Color, &createdAt, &t.SongCount, &t.PlaylistCount, &t.CoverURL); err != nil {
 			return nil, err
 		}
 		if createdAt.Valid {
@@ -221,7 +234,63 @@ func sqlcSongTagToModel(row sqlc.SongTag) *models.SongTag {
 }
 
 var songTagOrderWhitelist = map[string]struct{}{
-	"id": {}, "name": {}, "created_at": {}, "song_count": {},
+	"id": {}, "name": {}, "created_at": {}, "song_count": {}, "playlist_count": {},
+}
+
+func (r *SongTagRepository) GetByPlaylistID(ctx context.Context, id int64) ([]models.SongTag, error) {
+	if _, err := NewPlaylistRepository(r.db).GetByID(ctx, id); err != nil {
+		return nil, err
+	}
+	rows, err := r.queries.GetTagsByPlaylistID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	tags := make([]models.SongTag, 0, len(rows))
+	for _, row := range rows {
+		tags = append(tags, *sqlcSongTagToModel(row))
+	}
+	return tags, nil
+}
+
+// SetPlaylistTags runs on the caller's UnitOfWork transaction. System labels survive.
+func (r *SongTagRepository) SetPlaylistTags(ctx context.Context, id int64, tagIDs []int64) error {
+	p, err := NewPlaylistRepository(r.db).GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	labels := make([]string, 0, len(p.Labels)+len(tagIDs))
+	for _, label := range p.Labels {
+		if !strings.HasPrefix(label, "tag:") {
+			labels = append(labels, label)
+		}
+	}
+	seen := make(map[int64]bool)
+	for _, tagID := range tagIDs {
+		if tagID <= 0 {
+			return fmt.Errorf("invalid tag ID: %d", tagID)
+		}
+		if seen[tagID] {
+			continue
+		}
+		if _, err := r.queries.GetSongTagByID(ctx, tagID); err != nil {
+			if err == sql.ErrNoRows {
+				return ErrNotFound
+			}
+			return err
+		}
+		labels = append(labels, models.PlaylistTagLabel(tagID))
+		seen[tagID] = true
+	}
+	encoded, err := json.Marshal(labels)
+	if err != nil {
+		return err
+	}
+	_, err = r.queries.UpdatePlaylistLabels(ctx, sqlc.UpdatePlaylistLabelsParams{ID: id, Labels: string(encoded)})
+	return err
+}
+
+func (r *SongTagRepository) ClearPlaylistReferences(ctx context.Context, id int64) error {
+	return r.queries.ClearPlaylistTagReferences(ctx, models.PlaylistTagLabel(id))
 }
 
 func applySongTagOrder(sb sq.SelectBuilder, orderBy, order string) sq.SelectBuilder {

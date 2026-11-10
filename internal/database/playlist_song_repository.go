@@ -80,6 +80,19 @@ func (r *PlaylistSongRepository) GetSongsPaginated(ctx context.Context, playlist
 	return songs, nil
 }
 
+// GetCoverCandidates 返回至多 20 首有封面线索的成员，按歌单顺序排列。
+func (r *PlaylistSongRepository) GetCoverCandidates(ctx context.Context, id int64) ([]*models.Song, error) {
+	rows, err := r.queries.GetPlaylistCoverCandidates(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	songs := make([]*models.Song, 0, len(rows))
+	for _, row := range rows {
+		songs = append(songs, &models.Song{ID: row.ID, CoverPath: row.CoverPath, CoverURL: row.CoverUrl})
+	}
+	return songs, nil
+}
+
 // CountSongs 返回歌单内的歌曲总数。
 func (r *PlaylistSongRepository) CountSongs(ctx context.Context, playlistID int64) (int, error) {
 	count, err := r.queries.CountPlaylistSongs(ctx, playlistID)

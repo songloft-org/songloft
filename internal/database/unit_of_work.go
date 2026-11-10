@@ -9,4 +9,5 @@ type UnitOfWork struct {
 	PlaylistSongs *PlaylistSongRepository
 	PlayHistory   *PlayHistoryRepository
 	SongArtists   *SongArtistRepository
+	SongTags      *SongTagRepository
 }

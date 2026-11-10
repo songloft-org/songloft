@@ -350,6 +350,18 @@ songloft.tags = {
         var s = await __callBridge('tags.getSongTags', JSON.stringify({songId: songId}));
         return s ? JSON.parse(s) : [];
     },
+    getPlaylistTags: async function(playlistId) {
+        var s = await __callBridge('tags.getPlaylistTags', JSON.stringify({playlistId: playlistId}));
+        return s ? JSON.parse(s) : [];
+    },
+    bindPlaylists: async function(tagId, playlistIds) {
+        var s = await __callBridge('tags.bindPlaylists', JSON.stringify({tagId: tagId, playlistIds: playlistIds || []}));
+        return s ? JSON.parse(s) : {bound: 0};
+    },
+    unbindPlaylists: async function(tagId, playlistIds) {
+        var s = await __callBridge('tags.unbindPlaylists', JSON.stringify({tagId: tagId, playlistIds: playlistIds || []}));
+        return s ? JSON.parse(s) : {unbound: 0};
+    },
     bindSongs: async function(tagId, songIds) {
         var s = await __callBridge('tags.bindSongs', JSON.stringify({tagId: tagId, songIds: songIds || []}));
         return s ? JSON.parse(s) : {bound: 0};
@@ -810,9 +822,9 @@ func extractPermFromAction(action string) string {
 
 	// 标签相关 action 按读写细粒度映射
 	switch action {
-	case "tags.list", "tags.getById", "tags.getSongTags":
+	case "tags.list", "tags.getById", "tags.getSongTags", "tags.getPlaylistTags":
 		return PermTagsRead
-	case "tags.create", "tags.update", "tags.delete", "tags.bindSongs", "tags.unbindSongs":
+	case "tags.create", "tags.update", "tags.delete", "tags.bindSongs", "tags.unbindSongs", "tags.bindPlaylists", "tags.unbindPlaylists":
 		return PermTagsWrite
 	}
 
@@ -1732,6 +1744,40 @@ func (h *BridgeHandler) handleTags(action, data string) (string, error) {
 			return "", fmt.Errorf("handleTags: marshal getSongTags: %w", err)
 		}
 		return string(result), nil
+
+	case "tags.getPlaylistTags":
+		var req struct {
+			PlaylistID int64 `json:"playlistId"`
+		}
+		if err := json.Unmarshal([]byte(data), &req); err != nil {
+			return "", err
+		}
+		tags, err := h.songTagService.GetPlaylistTags(ctx, req.PlaylistID)
+		if err != nil {
+			return "", err
+		}
+		result, err := json.Marshal(tags)
+		return string(result), err
+
+	case "tags.bindPlaylists", "tags.unbindPlaylists":
+		var req struct {
+			TagID       int64   `json:"tagId"`
+			PlaylistIDs []int64 `json:"playlistIds"`
+		}
+		if err := json.Unmarshal([]byte(data), &req); err != nil {
+			return "", err
+		}
+		unbind := action == "tags.unbindPlaylists"
+		count, err := h.songTagService.BindPlaylists(ctx, req.TagID, req.PlaylistIDs, unbind)
+		if err != nil {
+			return "", err
+		}
+		key := "bound"
+		if unbind {
+			key = "unbound"
+		}
+		result, err := json.Marshal(map[string]int{key: count})
+		return string(result), err
 
 	case "tags.bindSongs":
 		var req struct {

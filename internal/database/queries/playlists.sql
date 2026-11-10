@@ -47,6 +47,9 @@ SELECT name FROM playlists;
 INSERT INTO playlists (type, name, description, cover_path, cover_url, labels)
 VALUES (?, ?, ?, ?, ?, ?);
 
+-- name: UpdatePlaylistLabels :execrows
+UPDATE playlists SET labels = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+
 -- name: ListAutoCreatedPlaylists :many
 SELECT id, name, cover_path, cover_url FROM playlists
 WHERE EXISTS (SELECT 1 FROM json_each(labels) WHERE value = 'auto_created');

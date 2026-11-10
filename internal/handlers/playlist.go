@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -23,6 +24,7 @@ type PlaylistHandler struct {
 	playlistService *services.PlaylistService
 	songService     *services.SongService
 	thumbCache      *services.CoverThumbCache // 缩略图磁盘缓存（可选，nil 安全）
+	urlResolver     *services.InternalURLResolver
 }
 
 // NewPlaylistHandler 创建歌单处理器
@@ -38,6 +40,10 @@ func (h *PlaylistHandler) SetThumbCache(tc *services.CoverThumbCache) {
 	h.thumbCache = tc
 }
 
+func (h *PlaylistHandler) SetURLResolver(resolver *services.InternalURLResolver) {
+	h.urlResolver = resolver
+}
+
 // ListPlaylists 获取歌单列表
 // @Summary 获取歌单列表
 // @Description 获取歌单列表，支持按类型过滤、按歌单内歌曲来源过滤、关键词搜索和分页。默认排除隐藏歌单，传 exclude_labels=none 显示全部。
@@ -49,6 +55,7 @@ func (h *PlaylistHandler) SetThumbCache(tc *services.CoverThumbCache) {
 // @Param type query string false "歌单类型" Enums(normal, radio)
 // @Param song_source query string false "按歌单内歌曲来源过滤: remote=含网络歌曲, local=含本地歌曲" Enums(remote, local)
 // @Param keyword query string false "搜索关键词（模糊匹配歌单名称/描述）"
+// @Param tag_id query int false "按共享自定义标签筛选"
 // @Param exclude_labels query string false "要排除的标签(逗号分隔), 默认排除 hidden; 传 none 显示全部" default(hidden)
 // @Param limit query int false "每页数量" default(20)
 // @Param offset query int false "偏移量" default(0)
@@ -71,6 +78,15 @@ func (h *PlaylistHandler) ListPlaylists(w http.ResponseWriter, r *http.Request) 
 	}
 
 	limit, offset := parsePagination(r, models.DefaultPaginationLimit, 0)
+	var labels []string
+	if raw := r.URL.Query().Get("tag_id"); raw != "" {
+		id, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || id <= 0 {
+			respondError(w, 400, "无效的 tag_id", err)
+			return
+		}
+		labels = []string{models.PlaylistTagLabel(id)}
+	}
 
 	var excludeLabels []string
 	excludeLabelsStr := r.URL.Query().Get("exclude_labels")
@@ -81,6 +97,7 @@ func (h *PlaylistHandler) ListPlaylists(w http.ResponseWriter, r *http.Request) 
 	}
 
 	filter := &database.PlaylistFilter{
+		Labels:        labels,
 		Type:          playlistType,
 		SongSource:    songSource,
 		Keyword:       keyword,
@@ -96,6 +113,7 @@ func (h *PlaylistHandler) ListPlaylists(w http.ResponseWriter, r *http.Request) 
 	}
 
 	countFilter := &database.PlaylistFilter{
+		Labels:        labels,
 		Type:          filter.Type,
 		SongSource:    songSource,
 		Keyword:       keyword,
@@ -873,6 +891,7 @@ func (h *PlaylistHandler) UploadPlaylistCover(w http.ResponseWriter, r *http.Req
 
 // GetPlaylistCover 获取歌单封面
 // @Summary 获取歌单封面
+// @Description 无独立封面时回退到前 20 个有封面的成员候选，支持远程与插件相对地址；远程回退共用 5 秒预算，动态成员封面要求缓存重新验证。
 // @Description 返回歌单封面图片文件。可选 query 参数 w：把本地封面等比缩放到该宽度（物理像素，绝不放大、上限 1024）后以 JPEG 返回，用于 Web 端降低 GPU 纹理体积（songloft-org/songloft#309）；缺省或非法时返回原图。缩略仅作用于本地封面，远程代理封面忽略 w。
 // @Tags 歌单管理
 // @Produce image/jpeg
@@ -905,29 +924,51 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// 本地封面不存在时,代理转发外部 URL
-	if playlist.CoverURL != "" {
-		ServeRemoteResourceWithOptions(w, r, playlist.CoverURL, RemoteResourceOptions{
-			Timeout:      songCoverProxyTimeout,
-			ErrorStatus:  http.StatusNotFound,
-			ErrorMessage: "cover fetch failed",
-		})
+	remoteCtx, cancel := context.WithTimeout(r.Context(), songCoverProxyTimeout)
+	defer cancel()
+	remoteRequest := r.WithContext(remoteCtx)
+	if playlist.CoverURL != "" && h.tryRemoteCover(w, remoteRequest, playlist.CoverURL) {
 		return
 	}
 
-	// 回退：取歌单内第一首有本地封面的歌曲
-	const coverFallbackLimit = 20
-	songs, err := h.playlistService.GetSongs(r.Context(), id, database.PlaylistSongFilter{Limit: coverFallbackLimit})
+	// Dynamic member covers must be revalidated even if only a song's artwork changed.
+	// A different candidate may have an older mtime, so date validators from the
+	// previous candidate cannot identify the current representation. Thumb ETags
+	// include the file identity and remain safe to use.
+	r = r.Clone(r.Context())
+	r.Header.Del("If-Modified-Since")
+	w = revalidatingCoverWriter{w}
+	songs, err := h.playlistService.GetCoverCandidates(r.Context(), id)
 	if err == nil {
 		for _, s := range songs {
 			if s.CoverPath != "" && coverFileExists(s.CoverPath) {
 				h.serveLocalCover(w, r, &models.Playlist{CoverPath: s.CoverPath})
 				return
 			}
+			if s.CoverURL != "" && remoteCtx.Err() == nil && h.tryRemoteCover(w, remoteRequest, s.CoverURL) {
+				return
+			}
 		}
 	}
 
 	respondError(w, http.StatusNotFound, "封面不存在", nil)
+}
+
+func (h *PlaylistHandler) tryRemoteCover(w http.ResponseWriter, r *http.Request, rawURL string) bool {
+	return tryServeRemoteResource(w, r, h.urlResolver.Resolve(rawURL), RemoteResourceOptions{
+		Timeout: songCoverProxyTimeout, AllowFallback: true,
+	})
+}
+
+type revalidatingCoverWriter struct{ http.ResponseWriter }
+
+func (w revalidatingCoverWriter) WriteHeader(status int) {
+	w.Header().Set("Cache-Control", "no-cache")
+	w.ResponseWriter.WriteHeader(status)
+}
+func (w revalidatingCoverWriter) Write(b []byte) (int, error) {
+	w.Header().Set("Cache-Control", "no-cache")
+	return w.ResponseWriter.Write(b)
 }
 
 // serveLocalCover 返回本地封面文件（支持 ?w= 服务端缩略，见 serveCoverFile）。

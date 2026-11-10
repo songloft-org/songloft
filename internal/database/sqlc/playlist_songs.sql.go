@@ -80,6 +80,43 @@ func (q *Queries) FindSongPositionInPlaylist(ctx context.Context, arg FindSongPo
 	return position, err
 }
 
+const getPlaylistCoverCandidates = `-- name: GetPlaylistCoverCandidates :many
+SELECT s.id, s.cover_path, s.cover_url
+FROM playlist_songs ps JOIN songs s ON s.id = ps.song_id
+WHERE ps.playlist_id = ? AND (s.cover_path != '' OR s.cover_url != '')
+ORDER BY ps.position, s.id
+LIMIT 20
+`
+
+type GetPlaylistCoverCandidatesRow struct {
+	ID        int64
+	CoverPath string
+	CoverUrl  string
+}
+
+func (q *Queries) GetPlaylistCoverCandidates(ctx context.Context, playlistID int64) ([]GetPlaylistCoverCandidatesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getPlaylistCoverCandidates, playlistID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetPlaylistCoverCandidatesRow{}
+	for rows.Next() {
+		var i GetPlaylistCoverCandidatesRow
+		if err := rows.Scan(&i.ID, &i.CoverPath, &i.CoverUrl); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPlaylistSongs = `-- name: GetPlaylistSongs :many
 SELECT s.id, s.type, s.title, s.artist, s.album, s.duration,
     s.file_path, s.url, s.cover_path, s.cover_url, s.lyric,

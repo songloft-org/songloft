@@ -68,6 +68,13 @@ definitions:
       path:
         type: string
     type: object
+  handlers.PlaylistTagsRequest:
+    properties:
+      tag_ids:
+        items:
+          type: integer
+        type: array
+    type: object
   handlers.ScanRequest:
     properties:
       paths:
@@ -1109,6 +1116,8 @@ definitions:
         type: integer
       name:
         type: string
+      playlist_count:
+        type: integer
       song_count:
         type: integer
     type: object
@@ -3306,6 +3315,10 @@ paths:
         in: query
         name: keyword
         type: string
+      - description: 按共享自定义标签筛选
+        in: query
+        name: tag_id
+        type: integer
       - default: hidden
         description: 要排除的标签(逗号分隔), 默认排除 hidden; 传 none 显示全部
         in: query
@@ -3497,9 +3510,9 @@ paths:
       - 歌单管理
   /playlists/{id}/cover:
     get:
-      description: 返回歌单封面图片文件。可选 query 参数 w：把本地封面等比缩放到该宽度（物理像素，绝不放大、上限 1024）后以 JPEG
-        返回，用于 Web 端降低 GPU 纹理体积（songloft-org/songloft#309）；缺省或非法时返回原图。缩略仅作用于本地封面，远程代理封面忽略
-        w。
+      description: |-
+        无独立封面时回退到前 20 个有封面的成员候选，支持远程与插件相对地址；远程回退共用 5 秒预算，动态成员封面要求缓存重新验证。
+        返回歌单封面图片文件。可选 query 参数 w：把本地封面等比缩放到该宽度（物理像素，绝不放大、上限 1024）后以 JPEG 返回，用于 Web 端降低 GPU 纹理体积（songloft-org/songloft#309）；缺省或非法时返回原图。缩略仅作用于本地封面，远程代理封面忽略 w。
       parameters:
       - description: 歌单ID
         in: path
@@ -4010,6 +4023,83 @@ paths:
       summary: 更新歌单视图排序偏好
       tags:
       - 歌单管理
+  /playlists/{id}/tags:
+    get:
+      description: 返回共享标签定义，不包含 built_in、hidden 等系统标记；歌单不存在返回 404。
+      parameters:
+      - description: 歌单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 自定义标签
+          schema:
+            items:
+              $ref: '#/definitions/models.SongTag'
+            type: array
+        "400":
+          description: 无效的 ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 歌单不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取歌单自定义标签
+      tags:
+      - 标签管理
+    put:
+      consumes:
+      - application/json
+      description: 原子替换自定义标签，保留系统标记。tag_ids 必填，空数组清空；无效标签整体失败。
+      parameters:
+      - description: 歌单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 标签 ID
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.PlaylistTagsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新后的标签
+          schema:
+            items:
+              $ref: '#/definitions/models.SongTag'
+            type: array
+        "400":
+          description: 请求或标签无效
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 歌单或标签不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 设置歌单自定义标签
+      tags:
+      - 标签管理
   /playlists/{id}/touch:
     post:
       consumes:
@@ -4134,7 +4224,8 @@ paths:
       - 歌单管理
   /playlists/export:
     get:
-      description: 导出所有歌单（含曲目关联）为 JSON 文件，响应头携带 Content-Disposition 直接触发浏览器下载
+      description: 导出所有歌单、曲目关联和共享标签为 v2 JSON 文件；标签引用使用备份内 ID。响应头携带 Content-Disposition
+        直接触发浏览器下载。
       produces:
       - application/json
       responses:
@@ -4157,7 +4248,8 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: 从 multipart/form-data 上传的 JSON 备份文件还原歌单。已存在的歌单按名称合并，曲目按内容匹配去重。
+      description: 从 multipart/form-data 上传的 v1/v2 JSON 备份还原歌单。已有歌单按名称合并、曲目按内容匹配去重；v2
+        标签按名称匹配并重映射 ID，保留已有绑定与系统标记。
       parameters:
       - description: 歌单备份 JSON 文件
         in: formData
@@ -6026,7 +6118,7 @@ paths:
       - 设置
   /song-tags:
     get:
-      description: 返回标签列表，含每个标签下的歌曲数量和代表封面。支持关键词搜索、排序和分页。
+      description: 返回标签列表，含每个标签下的歌曲数量、可见歌单数量和歌曲代表封面。支持关键词搜索、排序和分页。
       parameters:
       - description: 搜索关键词（模糊匹配标签名）
         in: query
@@ -6035,7 +6127,9 @@ paths:
       - default: song_count
         description: 排序字段
         enum:
+        - id
         - song_count
+        - playlist_count
         - name
         - created_at
         in: query

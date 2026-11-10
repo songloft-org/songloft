@@ -59,6 +59,7 @@ func (a *App) setupAPIV1Router() {
 	thumbCache := services.NewCoverThumbCache(filepath.Dir(a.config.DBPath))
 	songHandler.SetThumbCache(thumbCache)
 	playlistHandler := handlers.NewPlaylistHandler(a.playlistService, a.songService)
+	playlistHandler.SetURLResolver(a.urlResolver)
 	playlistHandler.SetThumbCache(thumbCache)
 	playHistoryHandler := handlers.NewPlayHistoryHandler(a.playHistoryService)
 	themePackHandler := handlers.NewThemePackHandler(a.themePackService, a.configService)
@@ -202,6 +203,8 @@ func (a *App) setupAPIV1Router() {
 
 			// 自定义标签管理
 			tagHandler := handlers.NewSongTagHandler(a.songTagService, a.songService, a.configService)
+			r.Get("/playlists/{id}/tags", tagHandler.GetPlaylistTags)
+			r.Put("/playlists/{id}/tags", tagHandler.SetPlaylistTags)
 			r.Get("/song-tags", tagHandler.List)
 			r.Post("/song-tags", tagHandler.Create)
 			r.Get("/song-tags/{id}", tagHandler.Get)

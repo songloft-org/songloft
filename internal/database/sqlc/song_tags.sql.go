@@ -9,12 +9,37 @@ import (
 	"context"
 )
 
+const clearPlaylistTagReferences = `-- name: ClearPlaylistTagReferences :exec
+UPDATE playlists
+SET labels = (SELECT json_group_array(j.value) FROM json_each(playlists.labels) j WHERE j.value != CAST(?1 AS TEXT)),
+    updated_at = CURRENT_TIMESTAMP
+WHERE EXISTS (SELECT 1 FROM json_each(playlists.labels) j WHERE j.value = CAST(?1 AS TEXT))
+`
+
+func (q *Queries) ClearPlaylistTagReferences(ctx context.Context, label string) error {
+	_, err := q.db.ExecContext(ctx, clearPlaylistTagReferences, label)
+	return err
+}
+
 const countSongsByTag = `-- name: CountSongsByTag :one
 SELECT COUNT(*) FROM song_tag_links WHERE tag_id = ?
 `
 
 func (q *Queries) CountSongsByTag(ctx context.Context, tagID int64) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countSongsByTag, tagID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countVisiblePlaylistsByTag = `-- name: CountVisiblePlaylistsByTag :one
+SELECT COUNT(*) FROM playlists p
+WHERE EXISTS (SELECT 1 FROM json_each(p.labels) j WHERE j.value = CAST(?1 AS TEXT))
+AND NOT EXISTS (SELECT 1 FROM json_each(p.labels) h WHERE h.value = 'hidden')
+`
+
+func (q *Queries) CountVisiblePlaylistsByTag(ctx context.Context, label string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countVisiblePlaylistsByTag, label)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -76,6 +101,44 @@ func (q *Queries) GetSongTagByName(ctx context.Context, name string) (SongTag, e
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getTagsByPlaylistID = `-- name: GetTagsByPlaylistID :many
+SELECT t.id, t.name, t.color, t.created_at
+FROM song_tags t
+WHERE EXISTS (
+    SELECT 1 FROM playlists p, json_each(p.labels) j
+    WHERE p.id = ? AND j.value = 'tag:' || t.id
+)
+ORDER BY t.name
+`
+
+func (q *Queries) GetTagsByPlaylistID(ctx context.Context, id int64) ([]SongTag, error) {
+	rows, err := q.db.QueryContext(ctx, getTagsByPlaylistID, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SongTag{}
+	for rows.Next() {
+		var i SongTag
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Color,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getTagsBySongID = `-- name: GetTagsBySongID :many

@@ -127,6 +127,7 @@ func (s *SQLiteDB) RunInTx(ctx context.Context, fn func(context.Context, *UnitOf
 		PlaylistSongs: NewPlaylistSongRepository(tx),
 		PlayHistory:   NewPlayHistoryRepository(tx),
 		SongArtists:   NewSongArtistRepository(tx),
+		SongTags:      NewSongTagRepository(tx),
 	}
 	if err := fn(ctx, uow); err != nil {
 		_ = tx.Rollback()

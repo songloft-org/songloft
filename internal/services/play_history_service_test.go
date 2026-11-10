@@ -205,8 +205,7 @@ func TestSongTagDeleteClearsPlayHistory(t *testing.T) {
 	ctx := context.Background()
 
 	histSvc := NewPlayHistoryService(mdb)
-	tagSvc := NewSongTagService(mdb.SongTagRepository())
-	tagSvc.SetPlayHistoryCleaner(mdb.PlayHistoryRepository())
+	tagSvc := NewSongTagService(mdb.SongTagRepository(), mdb)
 
 	songs := seedPlayHistorySongs(t, histSvc, 1)
 	songID := songs[0].ID

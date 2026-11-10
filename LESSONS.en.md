@@ -10,6 +10,22 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### COVER-001: Dynamic artwork candidates must not share expired contexts or modification times
+
+- Scope: playlist remote/local artwork fallback, songloft-org/songloft#562.
+- Rule: the total remote budget only limits network attempts, never subsequent local candidates. After a dynamic endpoint changes its candidate, the previous file's Last-Modified cannot validate the new file. Thumbnail ETags must include file identity.
+- Evidence and Done right: real HTTP timeout regressions added during review returned 404 on both paths before the fix. Switching to a member image with an older modification time incorrectly returned 304. Separating the remote context, continuing local fallback and removing date validation for dynamic candidates makes all cases pass. Logs: `/tmp/songloft-562-review-{before,covers}.log`; see the [verification record](docs/en/issue-562-verification.md).
+- Seen 1× (2026-11-11). Status: found and fixed in local review; uncommitted and unreleased.
+
+### TAG-001: Serialize JSON tag references with definition deletion
+
+- Scope: shared playlist tags, songloft-org/songloft#562.
+- Same-review follow-up: deletion must also invalidate client playlist metadata and binding caches. Flutter's actual delete interaction and a Lynx QueryClient regression both retain stale `tag:1` before the fix and pass after invalidation. This does not add another independent event.
+- Same-review count audit: individual/batch playlist deletion and hiding/restoring must refresh visible-playlist counts in the tag catalog. Cache regressions for all four operations fail before the fix in both clients. Logs: `/tmp/songloft-562-review-counts-*-before.log`.
+- Rule: ordinary INTEGER PRIMARY KEY values can be reused. JSON references have no foreign-key protection: serialize deletion, cleanup and binding validation/writes in UnitOfWork. Metadata writes must not restore references from stale objects.
+- Evidence and correct implementation: removing cleanup through a Go overlay fails the ID-reuse/stale-write regression, retaining `tag:1`. The actual code passes rollback, system-label, hidden-count and cross-instance backup checks. See [verification](docs/en/issue-562-verification.md).
+- Seen 1× (2026-11-11). Local, uncommitted and unreleased; a mechanism regression check, not a new production incident.
+
 ### MOBILE-001: Configure a writable temporary directory before initializing an embedded mobile backend
 
 - Scope: `mobile.Start` and services using Go's default temporary directory; songloft-org/songloft#559, baseline `f1c4936d5a6dda299dd26cc3178beb61d5e71dce`.

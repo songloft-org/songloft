@@ -42,6 +42,21 @@ func (r *PlaylistRepository) Create(ctx context.Context, playlist *models.Playli
 	}
 
 	return r.runInTx(ctx, func(dbtx sqlc.DBTX, q *sqlc.Queries) error {
+		for _, label := range playlist.Labels {
+			if !strings.HasPrefix(label, "tag:") {
+				continue
+			}
+			id, ok := models.ParsePlaylistTagLabel(label)
+			if !ok {
+				return fmt.Errorf("invalid playlist tag label: %s", label)
+			}
+			if _, err := q.GetSongTagByID(ctx, id); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return ErrNotFound
+				}
+				return err
+			}
+		}
 		if _, err := q.FindPlaylistByName(ctx, playlist.Name); err == nil {
 			return models.ErrPlaylistNameConflict
 		} else if !errors.Is(err, sql.ErrNoRows) {
@@ -103,13 +118,32 @@ func (r *PlaylistRepository) FindByName(ctx context.Context, name string) (*mode
 
 // Update 更新歌单。改名冲突返回 models.ErrPlaylistNameConflict，找不到返回 ErrNotFound。
 func (r *PlaylistRepository) Update(ctx context.Context, playlist *models.Playlist) error {
-	labelsJSON, err := json.Marshal(playlist.Labels)
-	if err != nil {
-		return fmt.Errorf("marshal labels: %w", err)
-	}
-
 	now := time.Now()
 	return r.runInTx(ctx, func(dbtx sqlc.DBTX, q *sqlc.Queries) error {
+		// Custom tag relationships are written through the tag API, never through
+		// a stale metadata object that could restore a deleted/reused tag ID.
+		existing, err := q.GetPlaylistByID(ctx, sqlc.GetPlaylistByIDParams{PlaylistID: playlist.ID, ID: playlist.ID})
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		labels := make([]string, 0, len(playlist.Labels))
+		for _, label := range playlist.Labels {
+			if !strings.HasPrefix(label, "tag:") {
+				labels = append(labels, label)
+			}
+		}
+		for _, label := range parseLabelsJSON(sql.NullString{String: existing.Labels, Valid: true}) {
+			if strings.HasPrefix(label, "tag:") {
+				labels = append(labels, label)
+			}
+		}
+		labelsJSON, err := json.Marshal(labels)
+		if err != nil {
+			return err
+		}
 		if _, err := q.FindPlaylistByNameExcludeID(ctx, sqlc.FindPlaylistByNameExcludeIDParams{
 			Name: playlist.Name,
 			ID:   playlist.ID,
@@ -135,6 +169,7 @@ func (r *PlaylistRepository) Update(ctx context.Context, playlist *models.Playli
 			return ErrNotFound
 		}
 		playlist.UpdatedAt = now
+		playlist.Labels = labels
 		return nil
 	})
 }

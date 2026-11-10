@@ -47,6 +47,13 @@ LIMIT ? OFFSET ?;
 -- name: CountPlaylistSongs :one
 SELECT COUNT(*) FROM playlist_songs WHERE playlist_id = ?;
 
+-- name: GetPlaylistCoverCandidates :many
+SELECT s.id, s.cover_path, s.cover_url
+FROM playlist_songs ps JOIN songs s ON s.id = ps.song_id
+WHERE ps.playlist_id = ? AND (s.cover_path != '' OR s.cover_url != '')
+ORDER BY ps.position, s.id
+LIMIT 20;
+
 -- name: ListPlaylistsContainingSong :many
 SELECT ps.playlist_id
 FROM playlist_songs ps

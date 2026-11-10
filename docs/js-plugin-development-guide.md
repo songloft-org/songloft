@@ -638,6 +638,8 @@ async function playlistsExample() {
 
 需要权限：`tags.read`（读取）或 `tags.write`（修改）；或者通配符糖 `tags.*`。
 
+包含 #562 支持的宿主允许歌曲与歌单复用同一标签定义。`song_count` 为歌曲数，`playlist_count` 为可见歌单数；歌单引用存于现有 `labels` 的 `tag:<id>`，保留系统标记。绑定关系走标签接口，普通元数据编辑保留当前绑定；删除标签在同一事务中清理两类关联。
+
 ```javascript
 async function tagsExample() {
     // —— 读取操作（需要 tags.read）——
@@ -663,16 +665,16 @@ async function tagsExample() {
     var newTag = await songloft.tags.create({ name: "我的标签", color: "#ff6600" });
 
     // 更新标签
-    await songloft.tags.update({ id: 1, name: "新名称", color: "#00cc00" });
+    await songloft.tags.update(1, { name: "新名称", color: "#00cc00" });
 
     // 删除标签
     await songloft.tags.delete(1);
 
     // 批量绑定歌曲到标签（返回 { bound: <实际绑定数> }）
-    var result = await songloft.tags.bindSongs({ tagId: 1, songIds: [10, 20, 30] });
+    var result = await songloft.tags.bindSongs(1, [10, 20, 30]);
 
     // 批量解绑歌曲（返回 { unbound: <实际解绑数> }）
-    var result2 = await songloft.tags.unbindSongs({ tagId: 1, songIds: [10, 20] });
+    var result2 = await songloft.tags.unbindSongs(1, [10, 20]);
 }
 ```
 
@@ -683,11 +685,14 @@ async function tagsExample() {
 | `list(options?)` | `tags.read` | `{ keyword?, orderBy?, order?, limit?, offset? }` | Tag[] |
 | `getById(id)` | `tags.read` | `id: number` | Tag |
 | `getSongTags(songId)` | `tags.read` | `songId: number` | Tag[] |
+| `getPlaylistTags(playlistId)` | `tags.read` | `playlistId: number` | Tag[] |
+| `bindPlaylists(tagId, playlistIds)` | `tags.write` | `number, number[]` | `{ bound: number }` |
+| `unbindPlaylists(tagId, playlistIds)` | `tags.write` | `number, number[]` | `{ unbound: number }` |
 | `create(options)` | `tags.write` | `{ name: string, color: string }` | Tag |
-| `update(options)` | `tags.write` | `{ id: number, name: string, color: string }` | void |
+| `update(id, fields)` | `tags.write` | `number, { name?: string, color?: string }` | void |
 | `delete(id)` | `tags.write` | `id: number` | void |
-| `bindSongs(options)` | `tags.write` | `{ tagId: number, songIds: number[] }` | `{ bound: number }` |
-| `unbindSongs(options)` | `tags.write` | `{ tagId: number, songIds: number[] }` | `{ unbound: number }` |
+| `bindSongs(tagId, songIds)` | `tags.write` | `number, number[]` | `{ bound: number }` |
+| `unbindSongs(tagId, songIds)` | `tags.write` | `number, number[]` | `{ unbound: number }` |
 
 ### songloft.comm — 插件间通信
 
