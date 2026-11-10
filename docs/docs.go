@@ -2787,6 +2787,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/playlists/favorites/changes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "首次不传 cursor 或服务端重启后立即返回 changed=true，客户端刷新歌曲和电台收藏缓存。传入上次 cursor 后最多等待 25 秒；成员写入提交后立即唤醒所有等待者，无变更超时返回 changed=false。cursor 不透明，仅用于缓存失效，不是可重放事件日志。需通过正常认证，断开连接取消等待。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "歌单管理"
+                ],
+                "summary": "等待收藏成员变更",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "上次返回的不透明游标",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "收藏缓存失效通知或等待超时",
+                        "schema": {
+                            "$ref": "#/definitions/services.FavoriteChangesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未认证或凭证失效",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "服务端正在关闭",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/playlists/import": {
             "post": {
                 "security": [
@@ -3351,7 +3402,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取指定歌单中的歌曲，支持分页、排序和搜索\ntitle 为歌曲名称；title/artist/album 按不区分大小写的拼音字母序排列，忽略首尾空白；中英文混排，多音字使用字典默认读音。先对全部匹配歌曲排序再分页，排序键相同时按歌单 position 同方向排列。",
+                "description": "获取指定歌单中的歌曲，支持分页、排序和搜索\nplaylist_added_at 是歌曲加入当前歌单的时间；added_at 保持曲库入库时间，二者不互相覆盖。\ntitle 为歌曲名称；title/artist/album 按不区分大小写的拼音字母序排列，忽略首尾空白；中英文混排，多音字使用字典默认读音。先对全部匹配歌曲排序再分页，排序键相同时按歌单 position 同方向排列。",
                 "consumes": [
                     "application/json"
                 ],
@@ -12217,6 +12268,10 @@ const docTemplate = `{
                     "description": "歌词端点 URL(客户端唯一可见字段,指向 /api/v1/songs/{id}/lyric)",
                     "type": "string"
                 },
+                "playlist_added_at": {
+                    "description": "加入当前歌单的时间，仅歌单成员查询返回",
+                    "type": "string"
+                },
                 "plugin_entry_path": {
                     "description": "音源插件 entryPath(网络歌曲)",
                     "type": "string",
@@ -12590,6 +12645,17 @@ const docTemplate = `{
                 "total_size": {
                     "description": "总大小（字节）",
                     "type": "integer"
+                }
+            }
+        },
+        "services.FavoriteChangesResponse": {
+            "type": "object",
+            "properties": {
+                "changed": {
+                    "type": "boolean"
+                },
+                "cursor": {
+                    "type": "string"
                 }
             }
         },

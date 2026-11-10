@@ -81,6 +81,9 @@ func NewApp(cfg *config.AppConfig, webDist embed.FS) *App {
 
 // Close 关闭应用程序资源
 func (a *App) Close() error {
+	if a.playlistService != nil {
+		a.playlistService.CloseFavoriteChanges()
+	}
 	if a.hlsTranscodeService != nil {
 		a.hlsTranscodeService.Close()
 	}
@@ -113,6 +116,9 @@ func (a *App) Close() error {
 
 // Shutdown 优雅关闭 HTTP 服务器并释放所有资源
 func (a *App) Shutdown(ctx context.Context) error {
+	if a.playlistService != nil {
+		a.playlistService.CloseFavoriteChanges()
+	}
 	if a.server != nil {
 		if err := a.server.Shutdown(ctx); err != nil {
 			slog.Warn("HTTP server shutdown error", "error", err)

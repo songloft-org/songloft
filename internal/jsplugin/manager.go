@@ -65,9 +65,13 @@ type Manager struct {
 	mu                sync.RWMutex
 	// loadGroup 对懒加载/恢复加载按 entryPath 去重并发，
 	// 避免同一插件因高并发请求被并行 LoadPlugin 多次（hash 反复校验、scheduler 重复注册等）。
-	loadGroup            singleflight.Group
-	publicPathPrefixes   []string // 无需 JWT 的路径前缀（通过 RefreshPublicPaths 从 DB 加载，运行时可刷新）
-	playEventSubscribers sync.Map // 已订阅播放事件的插件 entryPath 集合
+	loadGroup                singleflight.Group
+	publicPathPrefixes       []string // 无需 JWT 的路径前缀（通过 RefreshPublicPaths 从 DB 加载，运行时可刷新）
+	playEventSubscribers     sync.Map // 已订阅播放事件的插件 entryPath 集合
+	playlistSongsSubscribers sync.Map
+	playlistEvents           chan playlistChangeBatch
+	playlistEventsCancel     context.CancelFunc
+	playlistEventsDone       chan struct{}
 	// lyricProviders 记录声明了歌词提供能力的插件 entryPath 集合。
 	// 语义是"已知歌词提供者"而非"当前已加载"：插件被空闲驱逐(UnloadPlugin)时**不**从此集合移除，
 	// 否则驱逐后 SearchLyrics 遍历到空集合会直接短路，永远无法懒加载唤醒插件(#303)。
@@ -92,6 +96,7 @@ func NewManager(repo Repository, pluginsDir, pluginsDataDir, basePath string, ro
 		router:         router,
 		db:             db,
 	}
+	m.startPlaylistEvents()
 	return m
 }
 
@@ -167,6 +172,9 @@ func (m *Manager) SetServices(songService *services.SongService, playlistService
 	m.songService = songService
 	m.playlistService = playlistService
 	m.songTagService = songTagService
+	if playlistService != nil {
+		playlistService.SetOnSongsChange(m.BroadcastPlaylistSongsChange)
+	}
 }
 
 // SetConfigService 注入配置服务（keep-alive 白名单等）。
@@ -318,6 +326,8 @@ func (m *Manager) LoadPlugin(ctx context.Context, plugin *JSPlugin) error {
 	bridgeHandler := NewBridgeHandler(service, dataDir, m.db, m.songDownloader, m.songService, m.playlistService, m.songTagService, m.metadataRefresher, m.pluginToken, m.getPort())
 	bridgeHandler.onPlayEventRegister = m.RegisterPlayEvent
 	bridgeHandler.onPlayEventUnregister = m.UnregisterPlayEvent
+	bridgeHandler.onPlaylistSongsChangeRegister = m.RegisterPlaylistSongsChange
+	bridgeHandler.onPlaylistSongsChangeUnregister = m.UnregisterPlaylistSongsChange
 	bridgeHandler.onLyricProviderRegister = m.RegisterLyricProvider
 	bridgeHandler.onLyricProviderUnregister = m.UnregisterLyricProvider
 	bridgeHandler.onCoverProviderRegister = m.RegisterCoverProvider
@@ -365,7 +375,10 @@ func (m *Manager) LoadPlugin(ctx context.Context, plugin *JSPlugin) error {
 		return fmt.Errorf("register service %q: %w", plugin.EntryPath, err)
 	}
 
-	// 6. 调用 service.Init()
+	// 6. 新 VM 必须在 onInit 中恢复成员订阅，重新执行当前权限检查。
+	// 旧身份仅用于触发空闲唤醒，不能让热更新后的插件继承已撤销的权限。
+	m.playlistSongsSubscribers.Delete(plugin.EntryPath)
+	// 调用 service.Init()
 	if err := service.Init(); err != nil {
 		slog.Warn("plugin init failed", "entryPath", plugin.EntryPath, "error", err)
 		// Init 失败不算致命错误，插件仍可响应请求
@@ -402,7 +415,7 @@ func (m *Manager) UnloadPlugin(ctx context.Context, entryPath string) error {
 	// 从 map 中移除
 	m.services.Delete(entryPath)
 
-	// 注意：这里**不**清理 playEventSubscribers / lyricProviders / coverProviders。
+	// 注意：这里**不**清理 playEventSubscribers / playlistSongsSubscribers / lyricProviders / coverProviders。
 	// UnloadPlugin 也用于空闲驱逐场景(health.checkIdle)，此时插件在 DB 仍为 active，
 	// 只是临时卸了 VM 省资源。若在这里删掉这些身份，驱逐后：
 	//   - 播放事件广播遍历不到该插件且不会尝试唤醒，播放记录静默断流（统计类插件丢数据）；
@@ -490,6 +503,7 @@ func (m *Manager) DisablePlugin(ctx context.Context, id int64) error {
 	m.lyricProviders.Delete(plugin.EntryPath)
 	m.coverProviders.Delete(plugin.EntryPath)
 	m.playEventSubscribers.Delete(plugin.EntryPath)
+	m.playlistSongsSubscribers.Delete(plugin.EntryPath)
 
 	// 清理自愈/唤醒计划，避免 disable 后被自动恢复或唤醒。
 	if m.healthChecker != nil {
@@ -821,11 +835,19 @@ func (m *Manager) BroadcastPlayEvent(song *PlayEventSong, eventType, source stri
 
 // Close 关闭管理器（停止所有服务）
 func (m *Manager) Close() error {
+	if m.playlistEventsCancel != nil {
+		m.playlistEventsCancel()
+	}
 	// 先广播 JS 关闭信号：让 ExecuteJSAndWaitEvents（批量加载音源时的 polling）
 	// 等阻塞操作尽快退出，释放 env.mu，避免后续 service.Stop → Deinit → ExecuteJS
 	// 死等主 env 锁，导致 Ctrl+C 卡死。
 	if m.jsManager != nil {
 		m.jsManager.SignalShutdown()
+	}
+
+	// 等待事件分发退出，防止关闭期间继续懒加载插件。
+	if m.playlistEventsDone != nil {
+		<-m.playlistEventsDone
 	}
 
 	// 停止健康检查

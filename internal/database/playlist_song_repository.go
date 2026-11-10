@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 
@@ -58,7 +59,9 @@ func (r *PlaylistSongRepository) GetSongs(ctx context.Context, playlistID int64)
 	}
 	songs := make([]*models.Song, 0, len(rows))
 	for _, row := range rows {
-		songs = append(songs, songRowToModel(row))
+		song := songRowToModel(row.Song)
+		song.PlaylistAddedAt = &row.PlaylistAddedAt
+		songs = append(songs, song)
 	}
 	return songs, nil
 }
@@ -75,7 +78,9 @@ func (r *PlaylistSongRepository) GetSongsPaginated(ctx context.Context, playlist
 	}
 	songs := make([]*models.Song, 0, len(rows))
 	for _, row := range rows {
-		songs = append(songs, songRowToModel(row))
+		song := songRowToModel(row.Song)
+		song.PlaylistAddedAt = &row.PlaylistAddedAt
+		songs = append(songs, song)
 	}
 	return songs, nil
 }
@@ -119,6 +124,7 @@ func (r *PlaylistSongRepository) GetSongsFiltered(ctx context.Context, playlistI
 		"s.cue_source_path", "s.cue_track_index", "s.cue_audio_path",
 		"s.file_modified_at", "s.is_video",
 		"s.cue_start_seconds", "s.cue_end_seconds",
+		"ps.added_at",
 	).From("songs s").
 		InnerJoin("playlist_songs ps ON s.id = ps.song_id").
 		Where(sq.Eq{"ps.playlist_id": playlistID})
@@ -147,10 +153,12 @@ func (r *PlaylistSongRepository) GetSongsFiltered(ctx context.Context, playlistI
 
 	songs := []*models.Song{}
 	for rows.Next() {
-		s, err := scanSongRow(rows)
+		var playlistAddedAt time.Time
+		s, err := scanSongRow(rows, &playlistAddedAt)
 		if err != nil {
 			return nil, err
 		}
+		s.PlaylistAddedAt = &playlistAddedAt
 		songs = append(songs, s)
 	}
 	if err := rows.Err(); err != nil {
@@ -211,32 +219,31 @@ func (r *PlaylistSongRepository) MaxPosition(ctx context.Context, playlistID int
 // 内部按 sqlBatchSize 分事务执行，避免单事务持锁过久导致 SQLITE_BUSY。
 // 返回 (added, skipped, err)。
 func (r *PlaylistSongRepository) AddSongsBatch(ctx context.Context, playlistID int64, startPos int, songIDs []int64) (added int, skipped int, err error) {
-	if len(songIDs) == 0 {
-		return 0, 0, nil
-	}
+	ids, skipped, err := r.AddSongsBatchWithChanges(ctx, playlistID, startPos, songIDs)
+	return len(ids), skipped, err
+}
+
+// AddSongsBatchWithChanges returns only IDs from successfully committed chunks.
+// A later chunk failure retains earlier changes; rolled-back rows are never reported.
+func (r *PlaylistSongRepository) AddSongsBatchWithChanges(ctx context.Context, playlistID int64, startPos int, songIDs []int64) (added []int64, skipped int, err error) {
 	pos := startPos
 	for start := 0; start < len(songIDs); start += sqlBatchSize {
-		end := start + sqlBatchSize
-		if end > len(songIDs) {
-			end = len(songIDs)
-		}
-		chunk := songIDs[start:end]
+		end := min(start+sqlBatchSize, len(songIDs))
+		var chunkAdded []int64
+		chunkSkipped := 0
 		err = r.runInTx(ctx, func(q *sqlc.Queries) error {
-			for _, songID := range chunk {
-				pos++
-				rows, ierr := q.AddSongToPlaylistIgnore(ctx, sqlc.AddSongToPlaylistIgnoreParams{
-					PlaylistID: playlistID,
-					SongID:     songID,
-					Position:   int64(pos),
+			for _, songID := range songIDs[start:end] {
+				rows, err := q.AddSongToPlaylistIgnore(ctx, sqlc.AddSongToPlaylistIgnoreParams{
+					PlaylistID: playlistID, SongID: songID, Position: int64(pos + 1),
 				})
-				if ierr != nil {
-					return fmt.Errorf("insert song %d into playlist %d: %w", songID, playlistID, ierr)
+				if err != nil {
+					return fmt.Errorf("insert song %d into playlist %d: %w", songID, playlistID, err)
 				}
 				if rows > 0 {
-					added++
+					pos++
+					chunkAdded = append(chunkAdded, songID)
 				} else {
-					pos--
-					skipped++
+					chunkSkipped++
 				}
 			}
 			return nil
@@ -244,6 +251,8 @@ func (r *PlaylistSongRepository) AddSongsBatch(ctx context.Context, playlistID i
 		if err != nil {
 			return added, skipped, err
 		}
+		added = append(added, chunkAdded...)
+		skipped += chunkSkipped
 	}
 	return added, skipped, nil
 }

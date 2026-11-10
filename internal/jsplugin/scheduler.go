@@ -14,17 +14,18 @@ import (
 type MessageType int
 
 const (
-	MsgHTTPRequest      MessageType = iota // HTTP 路由请求
-	MsgTimerFire                           // 定时器触发
-	MsgInterPlugin                         // 插件间通信
-	MsgLifecycle                           // 生命周期事件（init/deinit）
-	MsgHostCall                            // 宿主函数调用结果
-	MsgHealthCheck                         // 健康检查
-	MsgPlayEvent                           // 播放事件（play/finish/skip）
-	MsgNetData                             // 网络数据事件（UDP 收包推送）
-	MsgWebSocketOpen                       // 入站 WebSocket 已建立
-	MsgWebSocketMessage                    // 入站 WebSocket 收到消息
-	MsgWebSocketClose                      // 入站 WebSocket 已关闭
+	MsgHTTPRequest         MessageType = iota // HTTP 路由请求
+	MsgTimerFire                              // 定时器触发
+	MsgInterPlugin                            // 插件间通信
+	MsgLifecycle                              // 生命周期事件（init/deinit）
+	MsgHostCall                               // 宿主函数调用结果
+	MsgHealthCheck                            // 健康检查
+	MsgPlayEvent                              // 播放事件（play/finish/skip）
+	MsgNetData                                // 网络数据事件（UDP 收包推送）
+	MsgWebSocketOpen                          // 入站 WebSocket 已建立
+	MsgWebSocketMessage                       // 入站 WebSocket 收到消息
+	MsgWebSocketClose                         // 入站 WebSocket 已关闭
+	MsgPlaylistSongsChange                    // 已提交的歌单成员增删
 )
 
 const (

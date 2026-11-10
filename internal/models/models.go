@@ -112,30 +112,33 @@ type Song struct {
 	CueStartSeconds     float64 `json:"-"`                                                 // CUE track 在源音频中的起始秒数
 	CueEndSeconds       float64 `json:"-"`                                                 // CUE track 在源音频中的结束秒数（0 表示到文件末尾）
 
-	AddedAt        time.Time  `json:"added_at" example:"2024-01-01T12:00:00Z"`   // 添加时间
-	UpdatedAt      time.Time  `json:"updated_at" example:"2024-01-01T12:00:00Z"` // 最后更新时间
-	FileModifiedAt *time.Time `json:"file_modified_at,omitempty"`                // 文件修改时间(mtime，本地歌曲扫描时记录；未知为 nil)
+	AddedAt         time.Time  `json:"added_at" example:"2024-01-01T12:00:00Z"`   // 添加时间
+	UpdatedAt       time.Time  `json:"updated_at" example:"2024-01-01T12:00:00Z"` // 最后更新时间
+	FileModifiedAt  *time.Time `json:"file_modified_at,omitempty"`                // 文件修改时间(mtime，本地歌曲扫描时记录；未知为 nil)
+	PlaylistAddedAt *time.Time `json:"playlist_added_at,omitempty"`               // 加入当前歌单的时间，仅歌单成员查询返回
 }
 
 // SongBrief is a lightweight song representation for list display.
 type SongBrief struct {
-	ID       int64   `json:"id"`
-	Title    string  `json:"title"`
-	Artist   string  `json:"artist"`
-	Album    string  `json:"album"`
-	Duration float64 `json:"duration"`
-	CoverURL string  `json:"cover_url"`
+	ID              int64      `json:"id"`
+	Title           string     `json:"title"`
+	Artist          string     `json:"artist"`
+	Album           string     `json:"album"`
+	Duration        float64    `json:"duration"`
+	CoverURL        string     `json:"cover_url"`
+	PlaylistAddedAt *time.Time `json:"playlist_added_at,omitempty"`
 }
 
 // Brief returns a lightweight representation for list display.
 func (s *Song) Brief() SongBrief {
 	return SongBrief{
-		ID:       s.ID,
-		Title:    s.Title,
-		Artist:   s.Artist,
-		Album:    s.Album,
-		Duration: s.Duration,
-		CoverURL: s.CoverURLPath(),
+		ID:              s.ID,
+		Title:           s.Title,
+		Artist:          s.Artist,
+		Album:           s.Album,
+		Duration:        s.Duration,
+		CoverURL:        s.CoverURLPath(),
+		PlaylistAddedAt: s.PlaylistAddedAt,
 	}
 }
 

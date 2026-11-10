@@ -185,6 +185,15 @@ songloft.events = {
     offPlayEvent: function() {
         globalThis.onPlayEvent = undefined;
         __callBridge('plugin.unregisterPlayEvent', '');
+    },
+    onPlaylistSongsChange: async function(fn) {
+        if (typeof fn !== 'function') { throw new TypeError('handler must be a function'); }
+        await __callBridge('plugin.registerPlaylistSongsChange', '');
+        globalThis.onPlaylistSongsChange = fn;
+    },
+    offPlaylistSongsChange: async function() {
+        await __callBridge('plugin.unregisterPlaylistSongsChange', '');
+        globalThis.onPlaylistSongsChange = undefined;
     }
 };
 
@@ -633,6 +642,9 @@ songloft.net = {
 globalThis.__dispatchPlayEvent = async function(s) {
     if (typeof onPlayEvent === 'function') { await onPlayEvent(JSON.parse(s)); }
 };
+globalThis.__dispatchPlaylistSongsChange = async function(s) {
+    if (typeof onPlaylistSongsChange === 'function') { await onPlaylistSongsChange(JSON.parse(s)); }
+};
 globalThis.__dispatchNetData = async function(socketId, s) {
     var h = songloft.net._handlers[socketId];
     if (typeof h === 'function') { await h(JSON.parse(s)); }
@@ -693,32 +705,34 @@ func GetBootstrapCode() string {
 
 // BridgeHandler 处理 JS 通过 __go_bridge 调用的请求
 type BridgeHandler struct {
-	service                   *JSService
-	permissions               []string
-	dataDir                   string                      // data/jsplugins_data/
-	db                        database.DB                 // 数据库访问（用于 songs/playlists 查询）
-	songDownloader            *services.SongDownloader    // 歌曲下载服务（songs.download bridge 调用）
-	songService               *services.SongService       // 歌曲服务（songs.create/update/delete）
-	playlistService           *services.PlaylistService   // 歌单服务（playlists 写操作）
-	songTagService            *services.SongTagService    // 标签服务（tags.* bridge 调用）
-	metadataRefresher         *services.MetadataRefresher // 元数据刷新服务（songs.refreshMetadata bridge 调用）
-	pluginToken               string                      // 插件专用的永久 JWT Token
-	port                      string                      // 服务器监听端口（用于构造宿主 URL）
-	processes                 sync.Map                    // map[name]*managedProcess — 后台进程跟踪
-	udpSockets                sync.Map                    // map[socketID]*managedUDPSocket — UDP socket 跟踪
-	tcpSockets                sync.Map                    // map[socketID]*managedTCPSocket — 出站 TCP 连接跟踪
-	socketIDSeq               atomic.Uint64               // UDP/TCP socket ID 共享的递增序号
-	httpMu                    sync.Mutex
-	httpStreams               map[string]*managedHTTPStream
-	httpClosed                bool
-	inboundWebSockets         sync.Map               // map[connID]*managedInboundWebSocket — 入站 WebSocket 连接
-	inboundWebSocketIDSeq     atomic.Uint64          // 入站 WebSocket 连接 ID 递增序号
-	onPlayEventRegister       func(entryPath string) // 播放事件订阅回调
-	onPlayEventUnregister     func(entryPath string) // 播放事件取消订阅回调
-	onLyricProviderRegister   func(entryPath string) // 歌词提供者注册回调
-	onLyricProviderUnregister func(entryPath string) // 歌词提供者取消注册回调
-	onCoverProviderRegister   func(entryPath string) // 封面提供者注册回调
-	onCoverProviderUnregister func(entryPath string) // 封面提供者取消注册回调
+	service                         *JSService
+	permissions                     []string
+	dataDir                         string                      // data/jsplugins_data/
+	db                              database.DB                 // 数据库访问（用于 songs/playlists 查询）
+	songDownloader                  *services.SongDownloader    // 歌曲下载服务（songs.download bridge 调用）
+	songService                     *services.SongService       // 歌曲服务（songs.create/update/delete）
+	playlistService                 *services.PlaylistService   // 歌单服务（playlists 写操作）
+	songTagService                  *services.SongTagService    // 标签服务（tags.* bridge 调用）
+	metadataRefresher               *services.MetadataRefresher // 元数据刷新服务（songs.refreshMetadata bridge 调用）
+	pluginToken                     string                      // 插件专用的永久 JWT Token
+	port                            string                      // 服务器监听端口（用于构造宿主 URL）
+	processes                       sync.Map                    // map[name]*managedProcess — 后台进程跟踪
+	udpSockets                      sync.Map                    // map[socketID]*managedUDPSocket — UDP socket 跟踪
+	tcpSockets                      sync.Map                    // map[socketID]*managedTCPSocket — 出站 TCP 连接跟踪
+	socketIDSeq                     atomic.Uint64               // UDP/TCP socket ID 共享的递增序号
+	httpMu                          sync.Mutex
+	httpStreams                     map[string]*managedHTTPStream
+	httpClosed                      bool
+	inboundWebSockets               sync.Map      // map[connID]*managedInboundWebSocket — 入站 WebSocket 连接
+	inboundWebSocketIDSeq           atomic.Uint64 // 入站 WebSocket 连接 ID 递增序号
+	onPlaylistSongsChangeRegister   func(entryPath string)
+	onPlaylistSongsChangeUnregister func(entryPath string)
+	onPlayEventRegister             func(entryPath string) // 播放事件订阅回调
+	onPlayEventUnregister           func(entryPath string) // 播放事件取消订阅回调
+	onLyricProviderRegister         func(entryPath string) // 歌词提供者注册回调
+	onLyricProviderUnregister       func(entryPath string) // 歌词提供者取消注册回调
+	onCoverProviderRegister         func(entryPath string) // 封面提供者注册回调
+	onCoverProviderUnregister       func(entryPath string) // 封面提供者取消注册回调
 }
 
 // NewBridgeHandler 创建桥接处理器
@@ -1853,6 +1867,21 @@ func (h *BridgeHandler) handlePlugin(action, data string) (string, error) {
 		url := fmt.Sprintf("/api/v1/jsplugin/%s/files/%s?access_token=%s",
 			h.service.plugin.EntryPath, req.FilePath, h.pluginToken)
 		return fmt.Sprintf(`{"url":%q}`, url), nil
+
+	case "plugin.registerPlaylistSongsChange":
+		if !CheckPermission(h.permissions, PermPlaylistsRead) {
+			return "", fmt.Errorf("permission denied: requires '%s'", PermPlaylistsRead)
+		}
+		if h.onPlaylistSongsChangeRegister != nil {
+			h.onPlaylistSongsChangeRegister(h.service.plugin.EntryPath)
+		}
+		return "", nil
+
+	case "plugin.unregisterPlaylistSongsChange":
+		if h.onPlaylistSongsChangeUnregister != nil {
+			h.onPlaylistSongsChangeUnregister(h.service.plugin.EntryPath)
+		}
+		return "", nil
 
 	case "plugin.registerPlayEvent":
 		if h.onPlayEventRegister != nil {

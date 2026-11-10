@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 )
 
 const addSongToPlaylist = `-- name: AddSongToPlaylist :exec
@@ -118,76 +119,70 @@ func (q *Queries) GetPlaylistCoverCandidates(ctx context.Context, playlistID int
 }
 
 const getPlaylistSongs = `-- name: GetPlaylistSongs :many
-SELECT s.id, s.type, s.title, s.artist, s.album, s.duration,
-    s.file_path, s.url, s.cover_path, s.cover_url, s.lyric,
-    s.lyric_source, s.file_size, s.format, s.bit_rate,
-    s.sample_rate, s.is_live,
-    s.plugin_entry_path, s.source_data, s.dedup_key,
-    s.added_at, s.updated_at, s.lyric_remote_url,
-    s.year, s.genre,
-    s.fingerprint, s.fingerprint_duration,
-    s.isrc, s.cache_path,
-    s.cue_source_path, s.cue_track_index, s.cue_audio_path,
-    s.file_modified_at, s.track, s.language, s.style, s.is_video,
-    s.cue_start_seconds, s.cue_end_seconds, s.fingerprint_attempted_at,
-    s.fingerprint_error
+SELECT s.id, s.type, s.title, s.artist, s.album, s.duration, s.file_path, s.url, s.cover_path, s.cover_url, s.lyric, s.lyric_source, s.file_size, s.format, s.bit_rate, s.sample_rate, s.is_live, s.plugin_entry_path, s.source_data, s.dedup_key, s.added_at, s.updated_at, s.lyric_remote_url, s.year, s.genre, s.fingerprint, s.fingerprint_duration, s.isrc, s.cache_path, s.cue_source_path, s.cue_track_index, s.cue_audio_path, s.file_modified_at, s.track, s.language, s.style, s.is_video, s.cue_start_seconds, s.cue_end_seconds, s.fingerprint_attempted_at, s.fingerprint_error, ps.added_at AS playlist_added_at
 FROM songs s
 INNER JOIN playlist_songs ps ON s.id = ps.song_id
 WHERE ps.playlist_id = ?
 ORDER BY ps.position ASC
 `
 
-func (q *Queries) GetPlaylistSongs(ctx context.Context, playlistID int64) ([]Song, error) {
+type GetPlaylistSongsRow struct {
+	Song            Song
+	PlaylistAddedAt time.Time
+}
+
+func (q *Queries) GetPlaylistSongs(ctx context.Context, playlistID int64) ([]GetPlaylistSongsRow, error) {
 	rows, err := q.db.QueryContext(ctx, getPlaylistSongs, playlistID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Song{}
+	items := []GetPlaylistSongsRow{}
 	for rows.Next() {
-		var i Song
+		var i GetPlaylistSongsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.Type,
-			&i.Title,
-			&i.Artist,
-			&i.Album,
-			&i.Duration,
-			&i.FilePath,
-			&i.Url,
-			&i.CoverPath,
-			&i.CoverUrl,
-			&i.Lyric,
-			&i.LyricSource,
-			&i.FileSize,
-			&i.Format,
-			&i.BitRate,
-			&i.SampleRate,
-			&i.IsLive,
-			&i.PluginEntryPath,
-			&i.SourceData,
-			&i.DedupKey,
-			&i.AddedAt,
-			&i.UpdatedAt,
-			&i.LyricRemoteUrl,
-			&i.Year,
-			&i.Genre,
-			&i.Fingerprint,
-			&i.FingerprintDuration,
-			&i.Isrc,
-			&i.CachePath,
-			&i.CueSourcePath,
-			&i.CueTrackIndex,
-			&i.CueAudioPath,
-			&i.FileModifiedAt,
-			&i.Track,
-			&i.Language,
-			&i.Style,
-			&i.IsVideo,
-			&i.CueStartSeconds,
-			&i.CueEndSeconds,
-			&i.FingerprintAttemptedAt,
-			&i.FingerprintError,
+			&i.Song.ID,
+			&i.Song.Type,
+			&i.Song.Title,
+			&i.Song.Artist,
+			&i.Song.Album,
+			&i.Song.Duration,
+			&i.Song.FilePath,
+			&i.Song.Url,
+			&i.Song.CoverPath,
+			&i.Song.CoverUrl,
+			&i.Song.Lyric,
+			&i.Song.LyricSource,
+			&i.Song.FileSize,
+			&i.Song.Format,
+			&i.Song.BitRate,
+			&i.Song.SampleRate,
+			&i.Song.IsLive,
+			&i.Song.PluginEntryPath,
+			&i.Song.SourceData,
+			&i.Song.DedupKey,
+			&i.Song.AddedAt,
+			&i.Song.UpdatedAt,
+			&i.Song.LyricRemoteUrl,
+			&i.Song.Year,
+			&i.Song.Genre,
+			&i.Song.Fingerprint,
+			&i.Song.FingerprintDuration,
+			&i.Song.Isrc,
+			&i.Song.CachePath,
+			&i.Song.CueSourcePath,
+			&i.Song.CueTrackIndex,
+			&i.Song.CueAudioPath,
+			&i.Song.FileModifiedAt,
+			&i.Song.Track,
+			&i.Song.Language,
+			&i.Song.Style,
+			&i.Song.IsVideo,
+			&i.Song.CueStartSeconds,
+			&i.Song.CueEndSeconds,
+			&i.Song.FingerprintAttemptedAt,
+			&i.Song.FingerprintError,
+			&i.PlaylistAddedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -203,19 +198,7 @@ func (q *Queries) GetPlaylistSongs(ctx context.Context, playlistID int64) ([]Son
 }
 
 const getPlaylistSongsPaginated = `-- name: GetPlaylistSongsPaginated :many
-SELECT s.id, s.type, s.title, s.artist, s.album, s.duration,
-    s.file_path, s.url, s.cover_path, s.cover_url, s.lyric,
-    s.lyric_source, s.file_size, s.format, s.bit_rate,
-    s.sample_rate, s.is_live,
-    s.plugin_entry_path, s.source_data, s.dedup_key,
-    s.added_at, s.updated_at, s.lyric_remote_url,
-    s.year, s.genre,
-    s.fingerprint, s.fingerprint_duration,
-    s.isrc, s.cache_path,
-    s.cue_source_path, s.cue_track_index, s.cue_audio_path,
-    s.file_modified_at, s.track, s.language, s.style, s.is_video,
-    s.cue_start_seconds, s.cue_end_seconds, s.fingerprint_attempted_at,
-    s.fingerprint_error
+SELECT s.id, s.type, s.title, s.artist, s.album, s.duration, s.file_path, s.url, s.cover_path, s.cover_url, s.lyric, s.lyric_source, s.file_size, s.format, s.bit_rate, s.sample_rate, s.is_live, s.plugin_entry_path, s.source_data, s.dedup_key, s.added_at, s.updated_at, s.lyric_remote_url, s.year, s.genre, s.fingerprint, s.fingerprint_duration, s.isrc, s.cache_path, s.cue_source_path, s.cue_track_index, s.cue_audio_path, s.file_modified_at, s.track, s.language, s.style, s.is_video, s.cue_start_seconds, s.cue_end_seconds, s.fingerprint_attempted_at, s.fingerprint_error, ps.added_at AS playlist_added_at
 FROM songs s
 INNER JOIN playlist_songs ps ON s.id = ps.song_id
 WHERE ps.playlist_id = ?
@@ -229,57 +212,63 @@ type GetPlaylistSongsPaginatedParams struct {
 	Offset     int64
 }
 
-func (q *Queries) GetPlaylistSongsPaginated(ctx context.Context, arg GetPlaylistSongsPaginatedParams) ([]Song, error) {
+type GetPlaylistSongsPaginatedRow struct {
+	Song            Song
+	PlaylistAddedAt time.Time
+}
+
+func (q *Queries) GetPlaylistSongsPaginated(ctx context.Context, arg GetPlaylistSongsPaginatedParams) ([]GetPlaylistSongsPaginatedRow, error) {
 	rows, err := q.db.QueryContext(ctx, getPlaylistSongsPaginated, arg.PlaylistID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Song{}
+	items := []GetPlaylistSongsPaginatedRow{}
 	for rows.Next() {
-		var i Song
+		var i GetPlaylistSongsPaginatedRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.Type,
-			&i.Title,
-			&i.Artist,
-			&i.Album,
-			&i.Duration,
-			&i.FilePath,
-			&i.Url,
-			&i.CoverPath,
-			&i.CoverUrl,
-			&i.Lyric,
-			&i.LyricSource,
-			&i.FileSize,
-			&i.Format,
-			&i.BitRate,
-			&i.SampleRate,
-			&i.IsLive,
-			&i.PluginEntryPath,
-			&i.SourceData,
-			&i.DedupKey,
-			&i.AddedAt,
-			&i.UpdatedAt,
-			&i.LyricRemoteUrl,
-			&i.Year,
-			&i.Genre,
-			&i.Fingerprint,
-			&i.FingerprintDuration,
-			&i.Isrc,
-			&i.CachePath,
-			&i.CueSourcePath,
-			&i.CueTrackIndex,
-			&i.CueAudioPath,
-			&i.FileModifiedAt,
-			&i.Track,
-			&i.Language,
-			&i.Style,
-			&i.IsVideo,
-			&i.CueStartSeconds,
-			&i.CueEndSeconds,
-			&i.FingerprintAttemptedAt,
-			&i.FingerprintError,
+			&i.Song.ID,
+			&i.Song.Type,
+			&i.Song.Title,
+			&i.Song.Artist,
+			&i.Song.Album,
+			&i.Song.Duration,
+			&i.Song.FilePath,
+			&i.Song.Url,
+			&i.Song.CoverPath,
+			&i.Song.CoverUrl,
+			&i.Song.Lyric,
+			&i.Song.LyricSource,
+			&i.Song.FileSize,
+			&i.Song.Format,
+			&i.Song.BitRate,
+			&i.Song.SampleRate,
+			&i.Song.IsLive,
+			&i.Song.PluginEntryPath,
+			&i.Song.SourceData,
+			&i.Song.DedupKey,
+			&i.Song.AddedAt,
+			&i.Song.UpdatedAt,
+			&i.Song.LyricRemoteUrl,
+			&i.Song.Year,
+			&i.Song.Genre,
+			&i.Song.Fingerprint,
+			&i.Song.FingerprintDuration,
+			&i.Song.Isrc,
+			&i.Song.CachePath,
+			&i.Song.CueSourcePath,
+			&i.Song.CueTrackIndex,
+			&i.Song.CueAudioPath,
+			&i.Song.FileModifiedAt,
+			&i.Song.Track,
+			&i.Song.Language,
+			&i.Song.Style,
+			&i.Song.IsVideo,
+			&i.Song.CueStartSeconds,
+			&i.Song.CueEndSeconds,
+			&i.Song.FingerprintAttemptedAt,
+			&i.Song.FingerprintError,
+			&i.PlaylistAddedAt,
 		); err != nil {
 			return nil, err
 		}

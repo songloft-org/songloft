@@ -718,11 +718,11 @@ func escapeLikeLiteral(s string) string {
 
 func scanSongRow(scanner interface {
 	Scan(dest ...any) error
-}) (*models.Song, error) {
+}, extra ...any) (*models.Song, error) {
 	s := &models.Song{}
 	var fileModifiedAt sql.NullTime
 	var isVideo int64
-	if err := scanner.Scan(
+	dest := []any{
 		&s.ID, &s.Type, &s.Title, &s.Artist, &s.Album, &s.Duration,
 		&s.FilePath, &s.URL, &s.CoverPath, &s.CoverURL,
 		&s.Lyric, &s.LyricSource, &s.LyricRemoteURL, &s.FileSize,
@@ -735,7 +735,8 @@ func scanSongRow(scanner interface {
 		&s.CueSourcePath, &s.CueTrackIndex, &s.CueAudioPath,
 		&fileModifiedAt, &isVideo,
 		&s.CueStartSeconds, &s.CueEndSeconds,
-	); err != nil {
+	}
+	if err := scanner.Scan(append(dest, extra...)...); err != nil {
 		return nil, fmt.Errorf("scan song: %w", err)
 	}
 	if fileModifiedAt.Valid {

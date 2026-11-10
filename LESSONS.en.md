@@ -10,6 +10,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### EVENT-001: Membership events must derive from committed rows
+
+- Scope: playlist service, QuickJS events and SDK, songloft-org/songloft#563; baseline `c686994c13cb4a6611a29ef410b3f13236516158`.
+- Rule: batch notifications must use actual IDs from committed chunks, never input lists or pre-rollback counts. Whole-playlist replacement emits only the committed membership difference. Enqueue each operation as a batch so member count alone cannot overflow the actor queue. Idle subscription identity only triggers wakeup; a new VM must register again under current permissions.
+- Evidence and Done right: with the old batch method restored through a Go overlay, a real SQLite foreign-key failure reported 501 additions while only 500 committed. Removing notification produced a missing add event; removing reload validation retained a revoked subscription. Fixed service, HTTP, QuickJS lifecycle and larger-than-queue batch delivery checks are documented in the [verification record](docs/en/issue-563-verification.md).
+- Same-event follow-up: membership time stays separate from library time; atomic replacement preserves retained rows. Restoring clear/recreate fails the real SQLite timestamp regression. Post-commit favorite invalidations wake long polls; shutdown releases waiters before HTTP draining. Client lessons live in their repositories.
+- Seen 1× (2026-11-11). Status: new-feature mechanism validation and reproduction of an existing count defect; pre-commit validation is recorded; commits, pushes and SDK publication follow this batch delivery record.
+
 ### COVER-001: Dynamic artwork candidates must not share expired contexts or modification times
 
 - Scope: playlist remote/local artwork fallback, songloft-org/songloft#562.

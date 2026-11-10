@@ -179,6 +179,7 @@ func (a *App) setupAPIV1Router() {
 			r.Get("/playlists/export", backupHandler.ExportPlaylists)
 			r.Post("/playlists/import", backupHandler.ImportPlaylists)
 			r.Get("/playlists", playlistHandler.ListPlaylists)
+			r.Get("/playlists/favorites/changes", playlistHandler.FavoriteChanges)
 			r.Post("/playlists", playlistHandler.CreatePlaylist)
 			r.Put("/playlists/reorder", playlistHandler.ReorderPlaylists)
 			r.Get("/playlists/{id}", playlistHandler.GetPlaylist)

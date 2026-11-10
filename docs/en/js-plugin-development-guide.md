@@ -630,11 +630,39 @@ async function playlistsExample() {
 ```
 
 
+Playlist member results (including `brief: true`) also contain `playlist_added_at`, the RFC 3339 value of `playlist_songs.added_at`. `Song.added_at` remains library ingestion time. The same song may have different join times in different playlists; ordinary song details omit this field. Sorting and retained members in atomic replacement preserve join times; removing and adding again records a new time.
+
 ### Atomic playlist sync and deferred metadata probing
 
 Hosts containing #558 support provide `await songloft.playlists.replaceSongs(playlistId, songIds)` (`playlists.write`). Regular playlists only: membership and order are replaced within one UnitOfWork transaction. An empty array clears membership. Missing, duplicate or incompatible IDs are rejected, and any write failure rolls back. Built-in playlists cannot use this whole-membership replacement API; existing add/remove/reorder methods are unaffected.
 
 Directory sync may call `await songloft.songs.create(inputs, { probeMetadata: false })` (`songs.write`) to import records without background audio probing. Omitting this option preserves automatic metadata completion. It does not download files or change playback resolution. If the atomic method is missing on older hosts, stop sync and request an upgrade instead of falling back to clear-then-add.
+
+### songloft.events — Playlist membership changes
+
+Hosts containing #563 support provide `onPlaylistSongsChange(handler)` / `offPlaylistSongsChange()`, both returning Promises. Subscription requires `playlists.read` (or `playlists.*`). Each plugin has one handler; registering again replaces it. This server-side QuickJS subscription works independently of an open settings WebView.
+
+```javascript
+async function onInit() {
+    if (!songloft.events.onPlaylistSongsChange) {
+        throw new Error('Upgrade the host to subscribe to playlist membership changes');
+    }
+    await songloft.events.onPlaylistSongsChange(async function(event) {
+        if (event.playlistId !== 1) return; // Built-in Favorites
+        // event.type === 'add' means love; 'remove' means unlove.
+        // Use event.song.title / artist with the third-party sync API.
+        console.log(event.type, event.song.title, event.song.artist);
+    });
+}
+```
+
+Event fields: `playlistId`, `songId`, `type: 'add' | 'remove'`, `timestamp` (Unix milliseconds at commit notification time), and a `song: { id, title, artist }` metadata snapshot. The snapshot remains usable if orphan cleanup deletes the song after removal.
+
+Notifications cover membership additions/removals through the playlist service, including client HTTP requests and plugin `playlists.addSongs/removeSongs/replaceSongs`, for Favorites (id=1), Radio Favorites (id=2), and regular playlists. Batch adds notify only actual insertions; duplicates and skipped entries emit nothing. If an earlier chunk commits and a later chunk fails, committed additions are still notified. Whole-playlist replacement notifies only the committed membership difference. Rollbacks, sorting, and reordering identical membership emit nothing. Cascading cleanup when deleting playlists/library songs, backup restoration, and internal membership replacement during local conversion are outside this event's scope.
+
+Handlers may use async/await. Dispatch runs asynchronously through bounded queues, so writes do not wait for plugin network requests. Sequential writes are delivered in notification submission order; concurrent writes have no global transaction ordering guarantee. Events are neither persisted nor replayed. Full queues, plugin failures, or server restarts may lose notifications, so sync plugins should retain periodic reconciliation.
+
+Idle eviction preserves subscription identity and the next change wakes the plugin. Restore the handler in `onInit`, using a stored feature flag if needed. Explicit `await songloft.events.offPlaylistSongsChange()` or disabling the plugin cancels the subscription; do not unsubscribe in `onDeinit` if you need idle wakeup. Reloading rechecks current permissions. QuickJS events do not directly push to WebViews. Updated Flutter/Lynx clients wait on authenticated `GET /api/v1/playlists/favorites/changes?cursor=...` requests. Initial connection, reconnection and server restart reconcile current favorites. Committed song/radio favorite changes immediately wake waiting requests and refresh heart icons and built-in playlist caches. The server holds unchanged requests for up to 25 seconds; clients do not periodically scan the complete favorite set. Backgrounding or session changes stop the subscription; resuming reconciles again. Older hosts returning 404 disable the automatic subscription. Plugin pages may keep using `favorite.refresh` for older-client compatibility; QuickJS does not need the client bridge.
 
 ### songloft.tags — Tag Operations
 

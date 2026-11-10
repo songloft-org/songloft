@@ -43,7 +43,7 @@ type PlaylistSongRepository interface {
 	CountSongsFiltered(ctx context.Context, playlistID int64, keyword string) (int, error)
 	BatchUpdatePositions(ctx context.Context, playlistID int64, songIDs []int64) error
 	MaxPosition(ctx context.Context, playlistID int64) (int, error)
-	AddSongsBatch(ctx context.Context, playlistID int64, startPos int, songIDs []int64) (added int, skipped int, err error)
+	AddSongsBatchWithChanges(ctx context.Context, playlistID int64, startPos int, songIDs []int64) (added []int64, skipped int, err error)
 	ListSongIDsOrdered(ctx context.Context, playlistID int64, sort, order string) ([]int64, error)
 }
 
@@ -66,6 +66,8 @@ type PlaylistService struct {
 	songs             SongRepository
 	metadataExtractor *MetadataExtractor
 	playHistory       PlayHistoryCleaner // 可选，nil 安全
+	onSongsChange     func([]models.PlaylistSongsChangeEvent)
+	favoriteChanges   *favoriteChanges
 }
 
 // SetPlayHistoryCleaner 注入播放历史清理器，删除歌单时顺带清理其播放历史。
@@ -101,6 +103,7 @@ func NewPlaylistService(playlists PlaylistRepository, playlistSongs PlaylistSong
 		playlistSongs:     playlistSongs,
 		songs:             songs,
 		metadataExtractor: metadataExtractor,
+		favoriteChanges:   newFavoriteChanges(),
 	}
 }
 
@@ -322,10 +325,11 @@ func (s *PlaylistService) AddSong(ctx context.Context, playlistID, songID int64)
 	if err := s.playlistSongs.AddSong(ctx, playlistID, songID, position); err != nil {
 		return fmt.Errorf("failed to add song to playlist: %w", err)
 	}
+	s.notifySongsChange([]models.PlaylistSongsChangeEvent{playlistSongChange(playlistID, song, "add")})
 	return nil
 }
 
-// AddSongs 批量添加歌曲到歌单：单事务批量插入，position 一次性算定，
+// AddSongs 批量添加歌曲到歌单：分批事务插入，position 连续递增，
 // 类型不兼容或不存在的歌曲计入 skipped。已存在的歌曲由 INSERT OR IGNORE 自然跳过。
 func (s *PlaylistService) AddSongs(ctx context.Context, playlistID int64, songIDs []int64) (added int, skipped int, err error) {
 	if len(songIDs) == 0 {
@@ -337,15 +341,19 @@ func (s *PlaylistService) AddSongs(ctx context.Context, playlistID int64, songID
 		return 0, 0, fmt.Errorf("failed to get playlist: %w", err)
 	}
 
-	// 一次性查所有候选歌曲的 type，过滤掉不兼容或不存在的（避免 O(N) 单首查询）。
-	types, err := s.songs.ListTypesByIDs(ctx, songIDs)
+	// 同时保留元数据快照，移除孤儿歌曲后插件仍能识别曲目。
+	songs, err := s.songs.ListByIDs(ctx, songIDs)
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to list song types: %w", err)
+		return 0, 0, fmt.Errorf("failed to list songs: %w", err)
+	}
+	byID := make(map[int64]*models.Song, len(songs))
+	for _, song := range songs {
+		byID[song.ID] = song
 	}
 	eligible := make([]int64, 0, len(songIDs))
 	for _, id := range songIDs {
-		typ, ok := types[id]
-		if !ok || !playlist.CanAddSong(typ) {
+		song, ok := byID[id]
+		if !ok || !playlist.CanAddSong(song.Type) {
 			skipped++
 			continue
 		}
@@ -361,7 +369,13 @@ func (s *PlaylistService) AddSongs(ctx context.Context, playlistID int64, songID
 		return 0, skipped, fmt.Errorf("failed to get max position: %w", err)
 	}
 
-	addedN, skippedN, err := s.playlistSongs.AddSongsBatch(ctx, playlistID, startPos, eligible)
+	addedIDs, skippedN, err := s.playlistSongs.AddSongsBatchWithChanges(ctx, playlistID, startPos, eligible)
+	changes := make([]models.PlaylistSongsChangeEvent, 0, len(addedIDs))
+	for _, id := range addedIDs {
+		changes = append(changes, playlistSongChange(playlistID, byID[id], "add"))
+	}
+	s.notifySongsChange(changes)
+	addedN := len(addedIDs)
 	if err != nil {
 		return addedN, skipped + skippedN, fmt.Errorf("failed to add songs to playlist: %w", err)
 	}
@@ -370,9 +384,14 @@ func (s *PlaylistService) AddSongs(ctx context.Context, playlistID int64, songID
 
 // RemoveSong 从歌单移除歌曲
 func (s *PlaylistService) RemoveSong(ctx context.Context, playlistID, songID int64) error {
+	song, err := s.songs.GetByID(ctx, songID)
+	if err != nil {
+		return fmt.Errorf("failed to get song: %w", err)
+	}
 	if err := s.playlistSongs.RemoveSong(ctx, playlistID, songID); err != nil {
 		return fmt.Errorf("failed to remove song from playlist: %w", err)
 	}
+	s.notifySongsChange([]models.PlaylistSongsChangeEvent{playlistSongChange(playlistID, song, "remove")})
 	return nil
 }
 
@@ -671,7 +690,8 @@ func (s *PlaylistService) ReplaceSongs(ctx context.Context, playlistID int64, so
 	if s.tx == nil {
 		return fmt.Errorf("playlist transactor not configured")
 	}
-	return s.tx.RunInTx(ctx, func(ctx context.Context, uow *database.UnitOfWork) error {
+	var changes []models.PlaylistSongsChangeEvent
+	err := s.tx.RunInTx(ctx, func(ctx context.Context, uow *database.UnitOfWork) error {
 		playlist, err := uow.Playlists.GetByID(ctx, playlistID)
 		if err != nil {
 			return err
@@ -679,26 +699,59 @@ func (s *PlaylistService) ReplaceSongs(ctx context.Context, playlistID int64, so
 		if slices.Contains(playlist.Labels, models.PlaylistLabelBuiltIn) {
 			return fmt.Errorf("cannot replace built-in playlist")
 		}
-		types, err := uow.Songs.ListTypesByIDs(ctx, songIDs)
+		songs, err := uow.Songs.ListByIDs(ctx, songIDs)
 		if err != nil {
 			return err
 		}
+		byID := make(map[int64]*models.Song, len(songs))
+		for _, song := range songs {
+			byID[song.ID] = song
+		}
 		seen := make(map[int64]bool, len(songIDs))
 		for _, id := range songIDs {
-			typ, ok := types[id]
-			if id <= 0 || seen[id] || !ok || !playlist.CanAddSong(typ) {
+			song, ok := byID[id]
+			if id <= 0 || seen[id] || !ok || !playlist.CanAddSong(song.Type) {
 				return fmt.Errorf("invalid or duplicate song id: %d", id)
 			}
 			seen[id] = true
 		}
-		if err := uow.PlaylistSongs.Clear(ctx, playlistID); err != nil {
+		previous, err := uow.PlaylistSongs.GetSongs(ctx, playlistID)
+		if err != nil {
 			return err
 		}
-		for i, id := range songIDs {
-			if err := uow.PlaylistSongs.AddSong(ctx, playlistID, id, i+1); err != nil {
-				return err
+		oldIDs := make(map[int64]bool, len(previous))
+		for _, song := range previous {
+			oldIDs[song.ID] = true
+			if !seen[song.ID] {
+				changes = append(changes, playlistSongChange(playlistID, song, "remove"))
 			}
+		}
+		for _, id := range songIDs {
+			if !oldIDs[id] {
+				changes = append(changes, playlistSongChange(playlistID, byID[id], "add"))
+			}
+		}
+		for _, song := range previous {
+			if !seen[song.ID] {
+				if err := uow.PlaylistSongs.RemoveSong(ctx, playlistID, song.ID); err != nil {
+					return err
+				}
+			}
+		}
+		for i, id := range songIDs {
+			if !oldIDs[id] {
+				if err := uow.PlaylistSongs.AddSong(ctx, playlistID, id, i+1); err != nil {
+					return err
+				}
+			}
+		}
+		if err := uow.PlaylistSongs.BatchUpdatePositions(ctx, playlistID, songIDs); err != nil {
+			return err
 		}
 		return uow.Playlists.Touch(ctx, playlistID)
 	})
+	if err == nil {
+		s.notifySongsChange(changes)
+	}
+	return err
 }

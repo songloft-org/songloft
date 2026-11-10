@@ -628,11 +628,39 @@ async function playlistsExample() {
 ```
 
 
+歌单成员结果（包括 `brief: true`）另带 `playlist_added_at`，是 `playlist_songs.added_at` 的 RFC 3339 时间；`Song.added_at` 保持曲库入库时间。相同歌曲在不同歌单中可以有不同加入时间，普通歌曲详情不带这个字段。排序及原子替换中保留的成员保持原加入时间；移除后重新添加会记录新的时间。
+
 ### 歌单原子同步与延迟元数据探测
 
 包含 #558 支持的宿主提供 `await songloft.playlists.replaceSongs(playlistId, songIds)`（`playlists.write`）。仅普通歌单可用；成员及顺序在一个 UnitOfWork 事务中替换，空数组清空，缺失/重复/类型不匹配的 ID 拒绝，任一写入失败均回滚。内置歌单禁止使用此整表替换接口，原有增删及排序接口不受影响。
 
 目录同步可使用 `await songloft.songs.create(inputs, { probeMetadata: false })`（`songs.write`），仅导入歌曲信息，不触发后台音频探测。省略选项时保持原有自动补齐元数据行为。该选项不下载文件，也不改变播放时的地址解析。旧宿主缺少原子接口时，应停止同步并提示升级，不要退回「先清空、后添加」。
+
+### songloft.events — 歌单成员变更
+
+包含 #563 支持的宿主提供 `onPlaylistSongsChange(handler)` / `offPlaylistSongsChange()`，两者均返回 Promise。订阅需要 `playlists.read`（或 `playlists.*`）权限；每个插件只有一个处理器，再次注册会替换处理器。服务端 QuickJS 订阅不依赖设置页 WebView 是否打开。
+
+```javascript
+async function onInit() {
+    if (!songloft.events.onPlaylistSongsChange) {
+        throw new Error('请升级宿主以订阅歌单成员变更');
+    }
+    await songloft.events.onPlaylistSongsChange(async function(event) {
+        if (event.playlistId !== 1) return; // 内置「收藏」
+        // event.type === 'add' 对应 love，'remove' 对应 unlove。
+        // 使用 event.song.title / artist 调用第三方同步 API。
+        console.log(event.type, event.song.title, event.song.artist);
+    });
+}
+```
+
+事件字段：`playlistId`、`songId`、`type: 'add' | 'remove'`、`timestamp`（提交通知时的 Unix 毫秒），以及 `song: { id, title, artist }` 元数据快照。快照可在移除后歌曲被清理时继续使用。
+
+通知覆盖客户端 HTTP 与插件 `playlists.addSongs/removeSongs/replaceSongs` 经歌单服务执行的成员增删，包含收藏（id=1）、电台收藏（id=2）和普通歌单。批量添加只通知实际新增行，重复、跳过项不通知；较早批次已提交、后续批次失败时仍通知已提交部分。整表替换提交后通知真实增删差集；事务回滚、纯排序、相同成员的重排均不通知。删除歌单／曲库歌曲的级联清理、备份恢复和本地转换的内部关联替换不在本事件范围内。
+
+处理器可使用 async/await；分发经有界队列异步执行，单个写入调用不会等待插件网络请求。顺序写入按通知入队顺序投递；并发写入没有全局事务顺序保证。事件不持久化或重放，队列满、插件异常或服务重启可能丢失通知；同步插件仍应保留定期对账。
+
+空闲驱逐保留订阅身份，下次变更会唤醒插件；必须在 `onInit` 中恢复处理器（按存储的功能开关决定是否订阅）。主动 `await songloft.events.offPlaylistSongsChange()` 或禁用插件会取消订阅；需要休眠唤醒时不要在 `onDeinit` 中主动取消。重载会重新检查当前权限。QuickJS 事件不直接向 WebView 推送。新版 Flutter / Lynx 客户端认证后通过 `GET /api/v1/playlists/favorites/changes?cursor=...` 等待收藏失效通知；首次连接、断线重连和服务端重启后会重新读取收藏，歌曲／电台收藏提交后会立即唤醒等待请求并刷新红心与内置歌单缓存。无变更时服务端最多挂起 25 秒，客户端不周期性全量扫描；后台或会话切换停止当前订阅，恢复后重新对账。旧宿主返回 404 时停用这项自动订阅。插件页面仍可调用 `favorite.refresh` 保持旧客户端兼容，QuickJS 无需调用客户端桥。
 
 ### songloft.tags — 自定义标签
 

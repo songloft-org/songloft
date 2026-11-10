@@ -571,6 +571,8 @@ func (s *JSService) HandleMessage(msg *Message) *Message {
 		return s.handleLifecycle(msg)
 	case MsgHealthCheck:
 		return s.handleHealthCheck(msg)
+	case MsgPlaylistSongsChange:
+		return s.handlePlaylistSongsChange(msg)
 	case MsgPlayEvent:
 		return s.handlePlayEvent(msg)
 	case MsgNetData:

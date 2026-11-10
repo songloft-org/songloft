@@ -499,6 +499,7 @@ func (h *PlaylistHandler) BatchDeletePlaylists(w http.ResponseWriter, r *http.Re
 // GetPlaylistSongs 获取歌单中的歌曲
 // @Summary 获取歌单中的歌曲
 // @Description 获取指定歌单中的歌曲，支持分页、排序和搜索
+// @Description playlist_added_at 是歌曲加入当前歌单的时间；added_at 保持曲库入库时间，二者不互相覆盖。
 // @Description title 为歌曲名称；title/artist/album 按不区分大小写的拼音字母序排列，忽略首尾空白；中英文混排，多音字使用字典默认读音。先对全部匹配歌曲排序再分页，排序键相同时按歌单 position 同方向排列。
 // @Tags 歌单管理
 // @Accept json
