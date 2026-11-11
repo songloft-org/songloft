@@ -233,6 +233,7 @@ Android 提供 release 签名 APK，iOS 提供需自行重签的 IPA，HarmonyOS
 | [音流](https://music.aqzscn.cn/) | Android / iOS / macOS / Windows | 跨平台 NAS 音乐播放器，支持多种自托管音乐服务 |
 | [流云音盒](https://xgplayer.com/) | HarmonyOS | HarmonyOS 无损音乐播放器，聚合本地、云盘、WebDAV 与 NAS 私有曲库 |
 | [流云音乐](http://music.lyzo.top/) | iOS | 网盘音乐播放器，支持 WebDAV、Navidrome 等多种云盘与自托管音乐服务 |
+| [棉花音乐](https://music.caij.xyz/) | Android / iOS / Windows / macOS | 音乐播放器，支持主流网盘、 WebDAV、NAS、Navidrome等多种自托管音乐服务 |
 
 > 💡 第三方客户端由各自开发者维护，与 Songloft 项目无直接关联。如遇问题请联系对应客户端的开发者。
 ## 🚀 快速开始
