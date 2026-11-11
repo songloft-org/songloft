@@ -233,6 +233,7 @@ The following third-party clients are independently maintained by community deve
 | [Stream Music (音流)](https://music.aqzscn.cn/) | Android / iOS / macOS / Windows | Cross-platform NAS music player supporting multiple self-hosted music services |
 | [XGPlayer (流云音盒)](https://xgplayer.com/) | HarmonyOS | Lossless music player for HarmonyOS aggregating local, cloud, WebDAV and NAS libraries |
 | [Cloudflow Music (流云音乐)](http://music.lyzo.top/) | iOS | Cloud music player supporting WebDAV, Navidrome and various cloud storage services |
+| [CottonMusic(棉花音乐)](https://music.caij.xyz/en/) | Android / iOS / Windows / macOS | Music Player for Local file, Drive, Navidrome, Subsonic, Emby, Jellyfin, Plex |
 
 > 💡 Third-party clients are maintained by their respective developers and are not directly affiliated with the Songloft project. If you encounter issues, please contact the corresponding client's developer.
 ## 🚀 Quick Start
