@@ -49,3 +49,15 @@
 - 内网 ysp-live 地址仍被 HLS 拒绝，即使写入通用私网白名单；这是保留的业务边界。公网跨域代理修复不能等同于支持任意内网 IPTV 源。
 
 建议提交信息：`fix(hls): 为跨域播放资源生成签名代理链接 (#567)`。
+
+## 2026-11-14 补充：真实 ysp-live / CCTV-1 验证
+
+- Songloft：已提交的 `3ad14b4a8aed4b82eb912366ff80212a2947c4b8`，生产代码未修改。ysp-live：[上游固定版本](https://github.com/tmxk2020/ysp-live/blob/311d7bb5222f16ce7f5ee20709c6c5b73aea2af0/ysp-live-v9.5.py)，v9.5.1，源码 SHA-256 `5354ba6aaecb8d5e514cc8df12656722e30652ba0372b20ea761e5bff6b81b9e`。
+- 临时部署命令：`python -u ysp-live.py 18767 --bind 127.0.0.1 --no-4k --no-engine --data-dir <临时目录>`。使用其真实 1080p JCE 回退分支，不模拟播放列表和 CDN；订阅返回 64 个频道，CCTV-1 返回 14 片、目标为 `tlivecloud-playback-cdn.ysp.cctv.cn`。
+- 测试方法：真实 SQLite + 当前 HLS handler，Go overlay 只添加测试驱动。为保留生产私网策略，将测试源 URL 的 `8.8.8.8:18767` 连接单独映射到本地 ysp-live；CDN 连接使用正常网络，未替换主机校验。此方法验证真实源与代理，不代表产品已允许私网来源，也不等于完整客户端导入验收。
+- 同一份真实列表的旧代码 overlay 失败：0/14 个跨域分片被改写；当前代码通过：14/14。日志 `ysp-real/captured-{before,after}.log`。
+- ffprobe 经 Songloft 识别出 H.264 1920×1080 和 AAC 44.1 kHz；FFmpeg 连续解码 12 秒、299 帧，退出 0。日志有 MPEG-TS 边界的 corrupt packet 警告，未把其描述为零警告；完整日志在 `ysp-real/ffmpeg.log`，进度见 `ffmpeg-progress.txt`。
+- 真实分片直连 / 代理均为 3,285,488 字节，SHA-256 同为 `3d06f08bf9383501ea70f0c1f3d598b831f13c467a42ab01c6740c089baebe8d`，字节完全相同；见 `segment-integrity.json`。
+- Docker Chrome / hls.js 实播：进度从 56.883789 到 58.927471 秒，视频帧从 30 到 81；1920×1080、`readyState=4`、`paused=false`，无媒体或 HLS 错误，丢 1 帧。已提取并目视核对 CCTV-1 视频帧。日志 `browser-final.json`，图像 `browser-frame.png`。初轮浏览器截图调用超时；后续改用连续进度、解码帧数和 canvas 视频帧采集，通过后才认定浏览器播放成功。
+- 首轮真实上游记录共 19 次请求：8 次 ysp-live 播放列表 200、11 次 CCTV CDN 分片（6 次 200、5 次 206）；见 `upstream-requests-first.json`。两轮测试驱动均通过，证据在 `/tmp/songloft-567/ysp-real/`；临时服务验证后停止。
+- Not run：报告人私有部署、完整 Songloft 客户端交互、原生设备、4K/设备协议/Web WASM 引擎和其余频道。此结果只确认自行部署的 v9.5.1 CCTV-1 1080p 真实流，经本次修复的 HLS 路径能够代理和播放。
