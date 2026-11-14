@@ -10,6 +10,8 @@ Every normal playlist has independent resume state. Playback history remains a l
 - Search selects a starting point within the entire playlist, using its persisted sort. Locate last listened clears the search.
 - Removed members invalidate the position. Deleting the playlist cascades its state. A natural terminal end shows Finished.
 
+Queues load in batches: fetch up to 100 tracks around the current episode, extend toward later episodes first, then prepend earlier ones. Publish every batch immediately. Loaded next episodes remain playable while the rest loads, without reloading the current audio. Failures retain loaded songs; Continue repairs an incomplete queue even when the current song already matches.
+
 ## Server contract
 
 Authenticated `GET/PUT/DELETE /api/v1/playlists/{id}/playback-progress` supports normal playlists and follows the existing instance-shared data model.
