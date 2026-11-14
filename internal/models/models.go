@@ -677,6 +677,7 @@ type BatchDeletePlaylistsResponse struct {
 
 // UpdatePlaylistRequest 更新歌单请求
 type UpdatePlaylistRequest struct {
+	Audiobook   *bool   `json:"audiobook,omitempty"`
 	Name        string  `json:"name" example:"我的最爱"`                  // 歌单名称
 	Description string  `json:"description" example:"收藏的经典歌曲"`        // 歌单描述
 	CoverPath   *string `json:"cover_path,omitempty" example:""`      // 封面图片本地路径（传空字符串清除）

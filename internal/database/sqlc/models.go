@@ -97,6 +97,16 @@ type Playlist struct {
 	PinnedAt    sql.NullTime
 }
 
+type PlaylistProgress struct {
+	PlaylistID int64
+	SongID     sql.NullInt64
+	PositionMs int64
+	PlayMode   string
+	Completed  int64
+	Version    int64
+	UpdatedAt  string
+}
+
 type PlaylistSong struct {
 	ID         int64
 	PlaylistID int64

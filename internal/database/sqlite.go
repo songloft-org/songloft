@@ -122,12 +122,13 @@ func (s *SQLiteDB) RunInTx(ctx context.Context, fn func(context.Context, *UnitOf
 		}
 	}()
 	uow := &UnitOfWork{
-		Songs:         NewSongRepository(tx),
-		Playlists:     NewPlaylistRepository(tx),
-		PlaylistSongs: NewPlaylistSongRepository(tx),
-		PlayHistory:   NewPlayHistoryRepository(tx),
-		SongArtists:   NewSongArtistRepository(tx),
-		SongTags:      NewSongTagRepository(tx),
+		PlaylistProgress: NewPlaylistProgressRepository(tx),
+		Songs:            NewSongRepository(tx),
+		Playlists:        NewPlaylistRepository(tx),
+		PlaylistSongs:    NewPlaylistSongRepository(tx),
+		PlayHistory:      NewPlayHistoryRepository(tx),
+		SongArtists:      NewSongArtistRepository(tx),
+		SongTags:         NewSongTagRepository(tx),
 	}
 	if err := fn(ctx, uow); err != nil {
 		_ = tx.Rollback()
@@ -167,6 +168,10 @@ func (s *SQLiteDB) PlaylistSongRepository() *PlaylistSongRepository {
 }
 
 // PlayHistoryRepository 返回播放历史仓储
+func (s *SQLiteDB) PlaylistProgressRepository() *PlaylistProgressRepository {
+	return NewPlaylistProgressRepository(s.db)
+}
+
 func (s *SQLiteDB) PlayHistoryRepository() *PlayHistoryRepository {
 	return NewPlayHistoryRepository(s.db)
 }

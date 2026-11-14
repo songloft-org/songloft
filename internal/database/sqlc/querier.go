@@ -19,6 +19,7 @@ type Querier interface {
 	ClearPlayHistory(ctx context.Context, arg ClearPlayHistoryParams) (int64, error)
 	ClearPlayHistoryByPlaylist(ctx context.Context, contextKey string) (int64, error)
 	ClearPlayHistoryByTag(ctx context.Context, contextKey string) (int64, error)
+	ClearPlaylistProgress(ctx context.Context, playlistID int64) error
 	ClearPlaylistTagReferences(ctx context.Context, label string) error
 	CountArtistSongs(ctx context.Context, artistID int64) (int64, error)
 	CountLocalFingerprints(ctx context.Context) (CountLocalFingerprintsRow, error)
@@ -34,6 +35,7 @@ type Querier interface {
 	CreateJSPlugin(ctx context.Context, arg CreateJSPluginParams) (int64, error)
 	CreatePersonalToken(ctx context.Context, arg CreatePersonalTokenParams) error
 	CreatePlaylist(ctx context.Context, arg CreatePlaylistParams) (int64, error)
+	CreatePlaylistProgress(ctx context.Context, arg CreatePlaylistProgressParams) (int64, error)
 	CreateSong(ctx context.Context, arg CreateSongParams) (int64, error)
 	CreateSongTag(ctx context.Context, arg CreateSongTagParams) (int64, error)
 	CreateThemePack(ctx context.Context, arg CreateThemePackParams) error
@@ -64,6 +66,7 @@ type Querier interface {
 	GetPersonalTokenByHash(ctx context.Context, tokenHash string) (GetPersonalTokenByHashRow, error)
 	GetPlaylistByID(ctx context.Context, arg GetPlaylistByIDParams) (GetPlaylistByIDRow, error)
 	GetPlaylistCoverCandidates(ctx context.Context, playlistID int64) ([]GetPlaylistCoverCandidatesRow, error)
+	GetPlaylistProgress(ctx context.Context, playlistID int64) (PlaylistProgress, error)
 	GetPlaylistSongs(ctx context.Context, playlistID int64) ([]GetPlaylistSongsRow, error)
 	GetPlaylistSongsPaginated(ctx context.Context, arg GetPlaylistSongsPaginatedParams) ([]GetPlaylistSongsPaginatedRow, error)
 	GetPluginStorage(ctx context.Context, arg GetPluginStorageParams) (string, error)
@@ -123,6 +126,7 @@ type Querier interface {
 	UpdatePlaylist(ctx context.Context, arg UpdatePlaylistParams) (int64, error)
 	UpdatePlaylistLabels(ctx context.Context, arg UpdatePlaylistLabelsParams) (int64, error)
 	UpdatePlaylistPosition(ctx context.Context, arg UpdatePlaylistPositionParams) (int64, error)
+	UpdatePlaylistProgress(ctx context.Context, arg UpdatePlaylistProgressParams) (int64, error)
 	UpdatePlaylistSort(ctx context.Context, arg UpdatePlaylistSortParams) (int64, error)
 	UpdateRemoteSongMutable(ctx context.Context, arg UpdateRemoteSongMutableParams) error
 	UpdateSong(ctx context.Context, arg UpdateSongParams) (int64, error)

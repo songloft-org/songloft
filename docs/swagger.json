@@ -3324,6 +3324,218 @@
                 }
             }
         },
+        "/playlists/{id}/playback-progress": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "普通歌单共享歌曲、毫秒位置及模式；GET 无记录返回 version=0；PUT 使用 version 乐观锁，冲突返回 409。省略字段保留原值。DELETE 清除位置并保留模式、递增版本。歌曲移出歌单后 GET 返回 invalid=true。无需依赖播放历史。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "歌单管理"
+                ],
+                "summary": "读取、更新或清除歌单收听进度",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "歌单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "PUT 的状态及版本",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdatePlaylistProgress"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PlaylistProgress"
+                        }
+                    },
+                    "204": {
+                        "description": "已清除位置"
+                    },
+                    "400": {
+                        "description": "非法位置、模式或非普通歌单",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "歌单不存在",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "其他设备已更新进度",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "保存失败",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "普通歌单共享歌曲、毫秒位置及模式；GET 无记录返回 version=0；PUT 使用 version 乐观锁，冲突返回 409。省略字段保留原值。DELETE 清除位置并保留模式、递增版本。歌曲移出歌单后 GET 返回 invalid=true。无需依赖播放历史。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "歌单管理"
+                ],
+                "summary": "读取、更新或清除歌单收听进度",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "歌单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "PUT 的状态及版本",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdatePlaylistProgress"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PlaylistProgress"
+                        }
+                    },
+                    "204": {
+                        "description": "已清除位置"
+                    },
+                    "400": {
+                        "description": "非法位置、模式或非普通歌单",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "歌单不存在",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "其他设备已更新进度",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "保存失败",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "普通歌单共享歌曲、毫秒位置及模式；GET 无记录返回 version=0；PUT 使用 version 乐观锁，冲突返回 409。省略字段保留原值。DELETE 清除位置并保留模式、递增版本。歌曲移出歌单后 GET 返回 invalid=true。无需依赖播放历史。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "歌单管理"
+                ],
+                "summary": "读取、更新或清除歌单收听进度",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "歌单 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "PUT 的状态及版本",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdatePlaylistProgress"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PlaylistProgress"
+                        }
+                    },
+                    "204": {
+                        "description": "已清除位置"
+                    },
+                    "400": {
+                        "description": "非法位置、模式或非普通歌单",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "歌单不存在",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "其他设备已更新进度",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "保存失败",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/playlists/{id}/song-ids": {
             "get": {
                 "security": [
@@ -12110,6 +12322,32 @@
                 }
             }
         },
+        "models.PlaylistProgress": {
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "boolean"
+                },
+                "invalid": {
+                    "type": "boolean"
+                },
+                "play_mode": {
+                    "type": "string"
+                },
+                "position_ms": {
+                    "type": "integer"
+                },
+                "song": {
+                    "$ref": "#/definitions/models.Song"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.RefreshTokenRequest": {
             "type": "object",
             "required": [
@@ -12460,9 +12698,32 @@
                 }
             }
         },
+        "models.UpdatePlaylistProgress": {
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "boolean"
+                },
+                "play_mode": {
+                    "type": "string"
+                },
+                "position_ms": {
+                    "type": "integer"
+                },
+                "song_id": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.UpdatePlaylistRequest": {
             "type": "object",
             "properties": {
+                "audiobook": {
+                    "type": "boolean"
+                },
                 "cover_path": {
                     "description": "封面图片本地路径（传空字符串清除）",
                     "type": "string",

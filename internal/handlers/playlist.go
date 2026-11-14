@@ -233,6 +233,18 @@ func (h *PlaylistHandler) UpdatePlaylist(w http.ResponseWriter, r *http.Request)
 	}
 
 	existing.Name = req.Name
+	if req.Audiobook != nil && existing.Type == models.PlaylistTypeNormal {
+		labels := make([]string, 0, len(existing.Labels)+1)
+		for _, label := range existing.Labels {
+			if label != "audiobook" {
+				labels = append(labels, label)
+			}
+		}
+		if *req.Audiobook {
+			labels = append(labels, "audiobook")
+		}
+		existing.Labels = labels
+	}
 	existing.Description = req.Description
 
 	if req.CoverSongID != nil {

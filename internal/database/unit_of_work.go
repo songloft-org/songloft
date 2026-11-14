@@ -4,10 +4,11 @@ package database
 // 通过 Transactor.RunInTx 获得，用于跨表原子写入
 // （如 convert_service 的 CreateSong + ReplaceSongInPlaylist）。
 type UnitOfWork struct {
-	Songs         *SongRepository
-	Playlists     *PlaylistRepository
-	PlaylistSongs *PlaylistSongRepository
-	PlayHistory   *PlayHistoryRepository
-	SongArtists   *SongArtistRepository
-	SongTags      *SongTagRepository
+	PlaylistProgress *PlaylistProgressRepository
+	Songs            *SongRepository
+	Playlists        *PlaylistRepository
+	PlaylistSongs    *PlaylistSongRepository
+	PlayHistory      *PlayHistoryRepository
+	SongArtists      *SongArtistRepository
+	SongTags         *SongTagRepository
 }

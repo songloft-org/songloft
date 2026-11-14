@@ -927,6 +927,23 @@ definitions:
         example: "2024-01-01T12:00:00Z"
         type: string
     type: object
+  models.PlaylistProgress:
+    properties:
+      completed:
+        type: boolean
+      invalid:
+        type: boolean
+      play_mode:
+        type: string
+      position_ms:
+        type: integer
+      song:
+        $ref: '#/definitions/models.Song'
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
   models.RefreshTokenRequest:
     properties:
       refresh_token:
@@ -1189,8 +1206,23 @@ definitions:
     required:
     - value
     type: object
+  models.UpdatePlaylistProgress:
+    properties:
+      completed:
+        type: boolean
+      play_mode:
+        type: string
+      position_ms:
+        type: integer
+      song_id:
+        type: integer
+      version:
+        type: integer
+    type: object
   models.UpdatePlaylistRequest:
     properties:
+      audiobook:
+        type: boolean
       cover_path:
         description: 封面图片本地路径（传空字符串清除）
         example: ""
@@ -3641,6 +3673,145 @@ paths:
       security:
       - BearerAuth: []
       summary: 设置歌单置顶状态
+      tags:
+      - 歌单管理
+  /playlists/{id}/playback-progress:
+    delete:
+      consumes:
+      - application/json
+      description: 普通歌单共享歌曲、毫秒位置及模式；GET 无记录返回 version=0；PUT 使用 version 乐观锁，冲突返回 409。省略字段保留原值。DELETE
+        清除位置并保留模式、递增版本。歌曲移出歌单后 GET 返回 invalid=true。无需依赖播放历史。
+      parameters:
+      - description: 歌单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: PUT 的状态及版本
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/models.UpdatePlaylistProgress'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PlaylistProgress'
+        "204":
+          description: 已清除位置
+        "400":
+          description: 非法位置、模式或非普通歌单
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: 歌单不存在
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "409":
+          description: 其他设备已更新进度
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 保存失败
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 读取、更新或清除歌单收听进度
+      tags:
+      - 歌单管理
+    get:
+      consumes:
+      - application/json
+      description: 普通歌单共享歌曲、毫秒位置及模式；GET 无记录返回 version=0；PUT 使用 version 乐观锁，冲突返回 409。省略字段保留原值。DELETE
+        清除位置并保留模式、递增版本。歌曲移出歌单后 GET 返回 invalid=true。无需依赖播放历史。
+      parameters:
+      - description: 歌单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: PUT 的状态及版本
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/models.UpdatePlaylistProgress'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PlaylistProgress'
+        "204":
+          description: 已清除位置
+        "400":
+          description: 非法位置、模式或非普通歌单
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: 歌单不存在
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "409":
+          description: 其他设备已更新进度
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 保存失败
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 读取、更新或清除歌单收听进度
+      tags:
+      - 歌单管理
+    put:
+      consumes:
+      - application/json
+      description: 普通歌单共享歌曲、毫秒位置及模式；GET 无记录返回 version=0；PUT 使用 version 乐观锁，冲突返回 409。省略字段保留原值。DELETE
+        清除位置并保留模式、递增版本。歌曲移出歌单后 GET 返回 invalid=true。无需依赖播放历史。
+      parameters:
+      - description: 歌单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: PUT 的状态及版本
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/models.UpdatePlaylistProgress'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PlaylistProgress'
+        "204":
+          description: 已清除位置
+        "400":
+          description: 非法位置、模式或非普通歌单
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: 歌单不存在
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "409":
+          description: 其他设备已更新进度
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: 保存失败
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 读取、更新或清除歌单收听进度
       tags:
       - 歌单管理
   /playlists/{id}/song-ids:

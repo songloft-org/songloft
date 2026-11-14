@@ -6,6 +6,7 @@ import (
 
 // DB 数据库接口，按职责分为仓储入口 + UnitOfWork 事务入口。
 type DB interface {
+	PlaylistProgressRepository() *PlaylistProgressRepository
 	Close() error
 
 	// RunInTx 在事务中执行 fn，fn 返回非 nil 时回滚。

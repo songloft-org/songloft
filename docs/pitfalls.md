@@ -215,10 +215,10 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
   planner 恰好一致（实测 350 / 30000 首均一致）。真要收紧就得给 `applyOrder` 默认排序补 `, id DESC`
   ——那会动所有 `/songs` 分页调用方，属独立 issue。同理 `ListSongIDsOrdered` 与 `GetPlaylistSongsPaginated`
   都只按 `position ASC` 无次级键，仅在同歌单出现重复 position（并发 reorder 中断）时才会错位
-- **客户端起播 = 首曲直起 + 后台环形补齐**：历史条目自带完整 `Song`，先用它当队列**零请求**出声，
+- **分面历史起播 = 首曲直起 + 后台环形补齐**：历史条目自带完整 `Song`，先用它当队列**零请求**出声，
   再后台拉有序 ID 列表（歌单 `GET /playlists/{id}/song-ids`、分面 `GET /songs/ids`）`indexOf` 定位，
   依次补「目标之后」与回卷的「开头…目标之前」。`currentIndex` 全程为 0 不动，
-  不牵连随机模式的 `_playedIndices` / `_preSelectedNextIndex`；歌单与 7 个分面走同一条代码路径
+  不牵连随机模式的 `_playedIndices` / `_preSelectedNextIndex`。歌单使用完整原顺序并映射当前索引，续播独立保存秒数与模式，见[歌单续播](playlist-resume.md)。
 - **只有 `type=play` 落库**：写入挂在既有打点端点 `POST /songs/{id}/played` 的 `context_type`/`context_key`
   参数上（不新开第二条打点通道，客户端零额外请求）。`finish` 是同一首歌的重复写；**`skip` 尤其危险**——
   它上报的是**上一首**歌，此时客户端上下文可能已切到新歌单，会把上一首错记到新上下文名下。

@@ -264,12 +264,12 @@ Read all of the following before touching this area.
   pagination caller and is a separate issue. Likewise `ListSongIDsOrdered` and `GetPlaylistSongsPaginated` both order
   by `position ASC` with no secondary key; they only diverge if a playlist ends up with duplicate positions
   (e.g. an interrupted concurrent reorder)
-- **Client playback = play the first song immediately, fill circularly in the background**: the history entry carries
+- **Facet history playback = play the first song immediately, fill circularly in the background**: the history entry carries
   the full `Song`, so it becomes the queue and starts playing with **zero requests**; the background then fetches the
   ordered ID list (`GET /playlists/{id}/song-ids` for playlists, `GET /songs/ids` for facets), locates it via
   `indexOf`, and appends "everything after the target" followed by the wrapped "beginning…up to the target".
   `currentIndex` stays 0 throughout, so random mode's `_playedIndices` / `_preSelectedNextIndex` are untouched;
-  playlists and all 7 facets share one code path
+  playlists instead preserve the full original order and remap the current index, with independent position/mode persistence; see [Playlist resume](playlist-resume.md).
 - **Only `type=play` is persisted**: writing hooks into the `context_type`/`context_key` parameters of the existing
   reporting endpoint `POST /songs/{id}/played` (no second reporting channel, zero extra client requests). `finish`
   is a duplicate write for the same song; **`skip` is especially dangerous** -- it reports the **previous** song, and

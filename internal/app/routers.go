@@ -62,6 +62,7 @@ func (a *App) setupAPIV1Router() {
 	playlistHandler.SetURLResolver(a.urlResolver)
 	playlistHandler.SetThumbCache(thumbCache)
 	playHistoryHandler := handlers.NewPlayHistoryHandler(a.playHistoryService)
+	progressHandler := handlers.NewPlaylistProgressHandler(services.NewPlaylistProgressService(a.db))
 	themePackHandler := handlers.NewThemePackHandler(a.themePackService, a.configService)
 	configHandler := handlers.NewConfigHandler(a.configService, a.db.JSPluginRepository())
 	scanHandler := handlers.NewScanHandler(a.songService, a.scanner, a.configService)
@@ -199,6 +200,9 @@ func (a *App) setupAPIV1Router() {
 			r.Put("/playlists/{id}/pin", playlistHandler.SetPlaylistPinned)
 			r.Post("/playlists/{id}/touch", playlistHandler.TouchPlaylist)
 			r.Put("/playlists/{id}/sort", playlistHandler.UpdatePlaylistSort)
+			r.Get("/playlists/{id}/playback-progress", progressHandler.Handle)
+			r.Put("/playlists/{id}/playback-progress", progressHandler.Handle)
+			r.Delete("/playlists/{id}/playback-progress", progressHandler.Handle)
 			r.Post("/playlists/{id}/cover", playlistHandler.UploadPlaylistCover)
 			r.Get("/playlists/{id}/cover", playlistHandler.GetPlaylistCover)
 
