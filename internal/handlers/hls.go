@@ -3,6 +3,9 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -210,8 +213,8 @@ func refLooksLikePlaylist(ref string, base *url.URL) bool {
 	return looksLikePlaylist(base.ResolveReference(refURL).String())
 }
 
-// rewriteRef 解析 ref（可能是相对 URL）为绝对 URL，同源时调 rewrite 回调；
-// 非同源 / 解析失败时原样返回 ref。
+// rewriteRef 解析 HTTP(S) ref（可能是相对 URL）为绝对 URL，再调签名改写回调。
+// 非 HTTP(S)（如 data: / skd:）或解析失败时原样返回 ref。
 func rewriteRef(ref string, base *url.URL, rewrite func(absURL string, isPlaylist bool) string, isPlaylist bool) string {
 	if ref == "" {
 		return ref
@@ -221,7 +224,7 @@ func rewriteRef(ref string, base *url.URL, rewrite func(absURL string, isPlaylis
 		return ref
 	}
 	abs := base.ResolveReference(refURL)
-	if !isSameOrigin(abs, base) {
+	if (abs.Scheme != "http" && abs.Scheme != "https") || abs.Hostname() == "" {
 		return ref
 	}
 	return rewrite(abs.String(), isPlaylist)
@@ -275,10 +278,10 @@ func rewriteAttrTagURI(line string, base *url.URL, rewrite func(string, bool) st
 
 // rewriteM3U8 改写 m3u8 内容中所有 URI 指向本机代理。
 //
-// base: 上游 m3u8 的最终 URL（解析相对 URL + 判定同源用，注意若上游 redirect 需用 resp.Request.URL）
+// base: 上游 m3u8 的最终 URL（解析相对 URL 用，注意若上游 redirect 需用 resp.Request.URL）
 // rewrite: URI 改写回调；absURL 是绝对 URL，isPlaylist=true 表示该 URI 指向 m3u8
 //
-// 非同源 URL 保持原样（避免开放代理 + 兼容合法跨域 CMAF）。
+// 跨源 HTTP(S) URL 一并改写；生产回调签名，端点校验签名并独立拦截私网。
 // 未识别标签原样透传（HLS 草案每 6 个月迭代，未来标签不应导致播放失败）。
 func rewriteM3U8(content []byte, base *url.URL, rewrite func(absURL string, isPlaylist bool) string) ([]byte, error) {
 	// 跳过 UTF-8 BOM
@@ -362,6 +365,7 @@ type HLSHandler struct {
 	configService *services.ConfigService
 	client        *http.Client
 	allowHost     func(host string) bool // 默认 services.IsHostnameAllowed；测试可替换
+	signingKey    string                 // 进程内随机密钥；重启后重新获取播放列表
 }
 
 // NewHLSHandler 构造 HLSHandler。
@@ -370,13 +374,15 @@ type HLSHandler struct {
 // configService 可为 nil（测试场景下不走 IsEnabled 判定时），此时 IsEnabled 返回 false。
 func NewHLSHandler(songService *services.SongService, configService *services.ConfigService) *HLSHandler {
 	client := httputil.NewStreamingClient()
-	client.CheckRedirect = limitStreamRedirects
-	return &HLSHandler{
+	h := &HLSHandler{
 		songService:   songService,
 		configService: configService,
 		client:        client,
 		allowHost:     services.IsHostnameAllowed,
+		signingKey:    rand.Text(),
 	}
+	client.CheckRedirect = h.checkRedirect
+	return h
 }
 
 // IsEnabled 返回 HLS 反代开关当前状态。默认 false（关闭）：
@@ -458,14 +464,15 @@ func (h *HLSHandler) ServeProxy(w http.ResponseWriter, r *http.Request, song *mo
 // 子层入口的当前请求 URL 已位于 /api/v1/songs/{id}/hls/playlist，相对路径无需前缀，
 // 解析后自动落到同目录 /api/v1/songs/{id}/hls/{playlist,segment}。
 // @Summary 反代 HLS 子层 m3u8
-// @Description HLS 反代开启时，由 ServeProxy 改写后的 m3u8 内回链触发。拉取上游 m3u8 → 同源校验 → 改写 URI → 回写给 player。
+// @Description HLS 反代开启时拉取并改写子 m3u8。同源 URL 可直接请求；跨源 URL 必须使用服务端从上游播放列表生成的签名链接。入口及每次重定向均禁止私网地址。
 // @Tags 电台与 HLS
 // @Produce application/vnd.apple.mpegurl
 // @Param id path int true "歌曲 ID"
 // @Param u query string true "上游 m3u8 URL（base64url 编码）"
+// @Param sig query string false "服务端生成的资源签名（跨源必填，绑定歌曲及 playlist 端点）"
 // @Success 200 {string} string "改写后的 m3u8 文本"
 // @Failure 400 {object} map[string]string "song_id 或 u 参数无效"
-// @Failure 403 {object} map[string]string "非同源 URL 拒绝代理（SSRF 防护）"
+// @Failure 403 {object} map[string]string "跨源 URL 缺少有效签名、签名无效或目标主机不允许"
 // @Failure 404 {string} string "歌曲不存在"
 // @Failure 502 {object} map[string]string "上游不可用"
 // @Security BearerAuth
@@ -480,15 +487,16 @@ func (h *HLSHandler) HandlePlaylist(w http.ResponseWriter, r *http.Request) {
 
 // HandleSegment 处理 GET/HEAD /api/v1/songs/{id}/hls/segment?u=<base64url>
 // @Summary 反代 HLS 切片 / key / init 段
-// @Description 由 HandlePlaylist 改写后的相对路径触发，反代音频切片、加密 key、init 段等二进制资源。透传 Range 请求。
+// @Description 反代播放列表中引用的切片、key、init 段，透传 Range 请求。跨源 URL 必须使用服务端生成且绑定歌曲及 segment 端点的签名链接；入口及每次重定向均禁止私网地址。
 // @Tags 电台与 HLS
 // @Produce application/octet-stream
 // @Param id path int true "歌曲 ID"
 // @Param u query string true "上游切片 URL（base64url 编码）"
+// @Param sig query string false "服务端生成的资源签名（跨源必填）"
 // @Success 200 {file} binary "切片二进制内容"
 // @Success 206 {file} binary "Range 请求的部分内容"
 // @Failure 400 {object} map[string]string "song_id 或 u 参数无效"
-// @Failure 403 {object} map[string]string "非同源 URL 拒绝代理"
+// @Failure 403 {object} map[string]string "跨源 URL 缺少有效签名、签名无效或目标主机不允许"
 // @Failure 404 {string} string "歌曲不存在"
 // @Failure 502 {object} map[string]string "上游不可用"
 // @Security BearerAuth
@@ -529,11 +537,11 @@ func (h *HLSHandler) resolveEndpoint(w http.ResponseWriter, r *http.Request) (*m
 	return song, string(decoded), true
 }
 
-// servePlaylist 拉上游 m3u8 → 同源校验 → 改写 URI → 回写。
+// servePlaylist 拉上游 m3u8 → 同源/签名及主机校验 → 改写 URI → 回写。
 // upstreamURL 来自 ServeProxy(=song.URL) 或 HandlePlaylist 的 ?u=...
 // pathPrefix 由调用方按当前请求 URL 决定（详见 ServeProxy / HandlePlaylist 的注释）。
 func (h *HLSHandler) servePlaylist(w http.ResponseWriter, r *http.Request, song *models.Song, upstreamURL, pathPrefix string) {
-	songOrigin, upURL, err := h.checkOrigin(song, upstreamURL)
+	songOrigin, _, err := h.checkOrigin(song, upstreamURL, r.URL.Query().Get("sig"), true)
 	if err != nil {
 		respondError(w, http.StatusForbidden, err.Error(), nil)
 		return
@@ -581,14 +589,13 @@ func (h *HLSHandler) servePlaylist(w http.ResponseWriter, r *http.Request, song 
 	}
 
 	// base = resp.Request.URL 处理上游 redirect 后的最终位置；Go 内置 redirect 会更新 Request.URL
-	_ = upURL
 	base := resp.Request.URL
 
 	// access_token 透传：player（just_audio / libmpv）跟随 m3u8 内部 URL 时不会
 	// 复用原请求的 Authorization header，相对 URL 解析也会丢失 base 的 query。
 	// 必须把当前请求里的 access_token 注入到每条改写出的子 URL，否则鉴权中间件直接 401。
 	accessToken := r.URL.Query().Get("access_token")
-	rewritten, err := rewriteM3U8(body, base, h.makeRewriter(song.ID, pathPrefix, accessToken))
+	rewritten, err := rewriteM3U8(body, base, h.makeRewriter(song, pathPrefix, accessToken))
 	if err != nil {
 		slog.Warn("hls playlist rewrite failed", "url", upstreamURL, "error", err)
 		respondError(w, http.StatusBadGateway, "playlist rewrite failed", nil)
@@ -604,7 +611,7 @@ func (h *HLSHandler) servePlaylist(w http.ResponseWriter, r *http.Request, song 
 
 // serveSegment 透传上游切片字节。无整请求 Timeout，client 断连由 r.Context() 取消上游。
 func (h *HLSHandler) serveSegment(w http.ResponseWriter, r *http.Request, song *models.Song, upstreamURL string) {
-	songOrigin, _, err := h.checkOrigin(song, upstreamURL)
+	songOrigin, _, err := h.checkOrigin(song, upstreamURL, r.URL.Query().Get("sig"), false)
 	if err != nil {
 		respondError(w, http.StatusForbidden, err.Error(), nil)
 		return
@@ -645,9 +652,10 @@ func (h *HLSHandler) serveSegment(w http.ResponseWriter, r *http.Request, song *
 	} // HEAD 时 stdlib 自动 discard
 }
 
-// checkOrigin 同源校验 + IsHostnameAllowed 兜底。
+// checkOrigin 保留无签名请求的同源校验；签名仅授权指定歌曲和端点的完整 URL。
+// 签名不能绕过 IsHostnameAllowed，也不能在修改 song.URL 后继续复用。
 // 返回 song origin 和 upstream 解析结果，便于复用。
-func (h *HLSHandler) checkOrigin(song *models.Song, upstreamURL string) (songOrigin, up *url.URL, err error) {
+func (h *HLSHandler) checkOrigin(song *models.Song, upstreamURL, signature string, isPlaylist bool) (songOrigin, up *url.URL, err error) {
 	if song.URL == "" {
 		return nil, nil, fmt.Errorf("song.URL 为空")
 	}
@@ -666,13 +674,35 @@ func (h *HLSHandler) checkOrigin(song *models.Song, upstreamURL string) (songOri
 	if up.Scheme != "http" && up.Scheme != "https" {
 		return nil, nil, fmt.Errorf("不支持的 upstream scheme")
 	}
-	if !isSameOrigin(up, songOrigin) {
-		return nil, nil, fmt.Errorf("跨源 URL 不允许代理")
+	if signature != "" || !isSameOrigin(up, songOrigin) {
+		if h.signingKey == "" || !hmac.Equal([]byte(signature), []byte(h.resourceSignature(song, upstreamURL, isPlaylist))) {
+			return nil, nil, fmt.Errorf("资源签名无效或跨源 URL 缺少签名")
+		}
 	}
 	if h.allowHost != nil && !h.allowHost(up.Hostname()) {
 		return nil, nil, fmt.Errorf("目标主机不允许")
 	}
 	return songOrigin, up, nil
+}
+
+func (h *HLSHandler) resourceSignature(song *models.Song, upstreamURL string, isPlaylist bool) string {
+	mac := hmac.New(sha256.New, []byte(h.signingKey))
+	fmt.Fprintf(mac, "%d\x00%s\x00%t\x00%s", song.ID, song.URL, isPlaylist, upstreamURL)
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+// checkRedirect 校验每次跳转，避免公开源或 CDN 重定向到私网。
+func (h *HLSHandler) checkRedirect(req *http.Request, via []*http.Request) error {
+	if err := limitStreamRedirects(req, via); err != nil {
+		return err
+	}
+	if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
+		return fmt.Errorf("不支持的 redirect scheme")
+	}
+	if h.allowHost != nil && !h.allowHost(req.URL.Hostname()) {
+		return fmt.Errorf("重定向目标主机不允许")
+	}
+	return nil
 }
 
 // makeRewriter 返回闭包：把绝对上游 URL 改写为本机相对路径。
@@ -685,15 +715,14 @@ func (h *HLSHandler) checkOrigin(song *models.Song, upstreamURL string) (songOri
 //
 // accessToken 透传：相对 URL 解析不继承 base 的 query，必须显式追加到每条改写后的 URL，
 // 否则鉴权中间件拒绝 player 跟随回来的子 playlist / segment 请求。
-func (h *HLSHandler) makeRewriter(songID int64, pathPrefix, accessToken string) func(absURL string, isPlaylist bool) string {
-	_ = songID // songID 通过 URL 路径已经携带；保留参数以备日后切绝对路径
+func (h *HLSHandler) makeRewriter(song *models.Song, pathPrefix, accessToken string) func(absURL string, isPlaylist bool) string {
 	return func(absURL string, isPlaylist bool) string {
 		encoded := base64.RawURLEncoding.EncodeToString([]byte(absURL))
 		target := pathPrefix + "segment"
 		if isPlaylist {
 			target = pathPrefix + "playlist"
 		}
-		out := target + "?u=" + encoded
+		out := target + "?u=" + encoded + "&sig=" + h.resourceSignature(song, absURL, isPlaylist)
 		if accessToken != "" {
 			out += "&access_token=" + url.QueryEscape(accessToken)
 		}

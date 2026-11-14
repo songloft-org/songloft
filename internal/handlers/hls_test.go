@@ -308,8 +308,7 @@ http://up.example/abs.ts
 	}
 }
 
-func TestRewriteM3U8_CrossOriginPreserved(t *testing.T) {
-	// 非同源 URL 应原样保留（避免开放代理 + 兼容跨域 CMAF）
+func TestRewriteM3U8_CrossOriginRewritten(t *testing.T) {
 	in := `#EXTM3U
 #EXTINF:5.0,
 http://other.example/seg.ts
@@ -321,19 +320,16 @@ http://other.example/seg.ts
 		t.Fatal(err)
 	}
 	got := string(out)
-	if !strings.Contains(got, "http://other.example/seg.ts") {
-		t.Errorf("cross-origin seg should pass through:\n%s", got)
+	if !strings.Contains(got, "SEG[http://other.example/seg.ts]") {
+		t.Errorf("cross-origin seg should be proxied:\n%s", got)
 	}
-	if strings.Contains(got, "SEG[http://other.example") {
-		t.Errorf("cross-origin seg should NOT be rewritten:\n%s", got)
-	}
-	if !strings.Contains(got, `URI="http://other.example/key.bin"`) {
-		t.Errorf("cross-origin key should pass through:\n%s", got)
+	if !strings.Contains(got, `URI="SEG[http://other.example/key.bin]"`) {
+		t.Errorf("cross-origin key should be proxied:\n%s", got)
 	}
 }
 
 func TestRewriteM3U8_DifferentPort(t *testing.T) {
-	// 同 host 不同 port 视为非同源
+	// 同 host 不同 port 的 CDN 资源也需要代理。
 	in := `#EXTM3U
 #EXTINF:5.0,
 http://up.example:8443/seg.ts
@@ -343,8 +339,8 @@ http://up.example:8443/seg.ts
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(out), "SEG[") {
-		t.Errorf("different port should be cross-origin:\n%s", out)
+	if !strings.Contains(string(out), "SEG[http://up.example:8443/seg.ts]") {
+		t.Errorf("different port should be proxied:\n%s", out)
 	}
 }
 

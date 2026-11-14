@@ -680,19 +680,19 @@ dry-run 预览目录整理变更，**不移动任何文件、不改数据库**�
 
 **章节来源**: `internal/handlers/hls.go`
 
-HLS 反代在 `hls_proxy` 开关开启（`PUT /settings/hls-proxy`）后生效。流程：`serveRadio` -> `ServeProxy` 拉取上游 m3u8 并改写 URI 为本机相对路径 -> 播放器回访 `playlist`/`segment` 拉取子层资源。每次入口做同源校验 + `IsHostnameAllowed` SSRF 防护，非同源 URL 保持原样不改写。
+HLS 反代在 `hls_proxy` 开关开启（`PUT /settings/hls-proxy`）后生效。流程：`serveRadio` -> `ServeProxy` 拉取上游 m3u8 并改写 URI 为本机相对路径 -> 播放器回访 `playlist`/`segment` 拉取子层资源。无签名请求保留同源校验（scheme+host+port 与 `song.URL` 严格相等）；跨源 HTTP(S) 资源从实际播放列表中改写为带 `sig` 的代理链接。HMAC-SHA256 签名绑定歌曲 ID、当前源 URL、端点类型及完整资源 URL，不能篡改或跨歌曲/端点复用。入口及每次重定向均用 `services.IsHostnameAllowed` 拦截私网；私网白名单仍不作用于 HLS。密钥仅在当前进程有效，重启后须重新获取播放列表。
 
 ### 7.1 GET /songs/{id}/hls/playlist -- 代理播放列表
 
 **路径:** `/api/v1/songs/{id}/hls/playlist` | **方法:** `GET` / `HEAD` | **认证:** BearerAuth
 
-反代 HLS 子层 m3u8。拉取上游 -> 同源校验 -> 改写 URI -> 回写。上游错误透传，播放列表上限 1 MB。
+反代 HLS 子层 m3u8。拉取上游 -> 同源/签名及主机校验 -> 改写 URI -> 回写。上游错误透传，播放列表上限 1 MB。
 
-**参数:** `id` (path, int) | `u` (query, string, 必填, base64url 编码的上游 URL) | `access_token` (query, string, 可选)
+**参数:** `id` (path, int) | `u` (query, string, 必填, base64url 编码的上游 URL) | `sig` (query, string, 跨源必填，由服务端生成) | `access_token` (query, string, 可选)
 
 **成功 (200):** 改写后 m3u8 文本，`Content-Type: application/vnd.apple.mpegurl`，`Cache-Control: no-store`
 
-**错误:** `400` 无效 ID / 缺少 u | `403` 非同源 / 主机不允许 | `404` 歌曲不存在 | `502` 上游不可用
+**错误:** `400` 无效 ID / 缺少 u | `403` 跨源缺少签名 / 签名无效 / 主机不允许 | `404` 歌曲不存在 | `502` 上游不可用
 
 ---
 
@@ -702,11 +702,11 @@ HLS 反代在 `hls_proxy` 开关开启（`PUT /settings/hls-proxy`）后生效�
 
 反代音频切片/key/init 段。透传 Range 和上游响应头。
 
-**参数:** `id` (path, int) | `u` (query, string, 必填, base64url 编码的上游 URL) | `access_token` (query, string, 可选)
+**参数:** `id` (path, int) | `u` (query, string, 必填, base64url 编码的上游 URL) | `sig` (query, string, 跨源必填，由服务端生成) | `access_token` (query, string, 可选)
 
 **成功:** `200` 切片内容 | `206` Range 部分内容。`Cache-Control: no-store`
 
-**错误:** `400` 无效 ID / 缺少 u | `403` 非同源 / 主机不允许 | `404` 歌曲不存在 | `502` 上游不可用
+**错误:** `400` 无效 ID / 缺少 u | `403` 跨源缺少签名 / 签名无效 / 主机不允许 | `404` 歌曲不存在 | `502` 上游不可用
 
 ---
 

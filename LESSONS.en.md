@@ -10,6 +10,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### HLS-001: Cross-origin CDN resources need verifiable proxy authorization
+
+- Scope: HLS radio playlists, child playlists, segments/keys/init resources, and redirects; songloft-org/songloft#567, baseline `6115afb969ff1f4b7ced0fbe39d223350adb9e5c`.
+- Evidence: an isolated overlay of the old implementation fails regressions for cross-origin child playlists, segments/keys, and different ports. Proxying only same-origin resources leaves the player connecting directly to CDNs. The reporter did not provide the live source URL; local fixture verification is not acceptance of that deployment.
+- Rule and Done right: generate HMAC signatures for cross-origin HTTP(S) references found in actual playlists, binding the song ID, current source URL, endpoint type, and complete target URL. Unsigned requests retain origin checks; signatures never bypass private-host checks. Check hosts on entry and every redirect; resolve relative references against the final redirected URL. Three isolated overlays removing signature, entry private-host, or redirect checks are each caught by HTTP regressions. See the [verification record](docs/en/issue-567-verification.md).
+- Seen 1× (2026-11-14). Status: implementation and local verification complete; see the subsequent #567 delivery record for commit, push, CI, and version availability.
+
 ### EVENT-001: Membership events must derive from committed rows
 
 - Scope: playlist service, QuickJS events and SDK, songloft-org/songloft#563; baseline `c686994c13cb4a6611a29ef410b3f13236516158`.

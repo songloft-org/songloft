@@ -9359,7 +9359,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "HLS 反代开启时，由 ServeProxy 改写后的 m3u8 内回链触发。拉取上游 m3u8 → 同源校验 → 改写 URI → 回写给 player。",
+                "description": "HLS 反代开启时拉取并改写子 m3u8。同源 URL 可直接请求；跨源 URL 必须使用服务端从上游播放列表生成的签名链接。入口及每次重定向均禁止私网地址。",
                 "produces": [
                     "application/vnd.apple.mpegurl"
                 ],
@@ -9381,6 +9381,12 @@ const docTemplate = `{
                         "name": "u",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "服务端生成的资源签名（跨源必填，绑定歌曲及 playlist 端点）",
+                        "name": "sig",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9400,7 +9406,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "非同源 URL 拒绝代理（SSRF 防护）",
+                        "description": "跨源 URL 缺少有效签名、签名无效或目标主机不允许",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -9433,7 +9439,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "由 HandlePlaylist 改写后的相对路径触发，反代音频切片、加密 key、init 段等二进制资源。透传 Range 请求。",
+                "description": "反代播放列表中引用的切片、key、init 段，透传 Range 请求。跨源 URL 必须使用服务端生成且绑定歌曲及 segment 端点的签名链接；入口及每次重定向均禁止私网地址。",
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -9455,6 +9461,12 @@ const docTemplate = `{
                         "name": "u",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "服务端生成的资源签名（跨源必填）",
+                        "name": "sig",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9480,7 +9492,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "非同源 URL 拒绝代理",
+                        "description": "跨源 URL 缺少有效签名、签名无效或目标主机不允许",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {

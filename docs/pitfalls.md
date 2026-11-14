@@ -244,7 +244,7 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 - 反代端点：`/api/v1/songs/{id}/hls/playlist?u=<base64url>` 和 `/api/v1/songs/{id}/hls/segment?u=<base64url>`
 - HLS 电台 song.url 强制带 `.m3u8` 后缀（`/api/v1/songs/{id}/play.m3u8`）：ExoPlayer/AVPlayer 按 URL 后缀选 MediaSource，无后缀会落到 ProgressiveMediaSource 导致直播无法播
 - 改写规则：经典 HLS + LL-HLS 全集（PART/PRELOAD-HINT/RENDITION-REPORT）+ `EXT-X-DATERANGE:X-ASSET-URI`（HLS Interstitials 单 URI）。`X-ASSET-LIST`（JSON 子代理）暂未实现，遇到时原样透传
-- 安全：每次端点入口做"同源校验（scheme+host+port 与 song.URL 严格相等）"作第一道防线，`services.IsHostnameAllowed` 作 SSRF 兜底。**非同源 URL 保持原样不改写**，避免成为开放代理
+- 安全：无签名请求保留同源校验（scheme+host+port 与 `song.URL` 严格相等）；跨源 HTTP(S) 资源从实际播放列表中改写为带 `sig` 的代理链接。HMAC-SHA256 签名绑定歌曲 ID、当前源 URL、端点类型及完整资源 URL，不能篡改或跨歌曲/端点复用。入口及每次重定向均用 `services.IsHostnameAllowed` 拦截私网；私网白名单仍不作用于 HLS。密钥仅在当前进程有效，重启后须重新获取播放列表。
 - player 跨域：改写后的 URL 全部是相对路径（`playlist?u=...` / `segment?u=...`），规避 BASE_PATH 子路径部署问题
 - 上游 4xx/5xx 透传给 player；playlist 体上限 1 MB；首行必须 `#EXTM3U`
 
