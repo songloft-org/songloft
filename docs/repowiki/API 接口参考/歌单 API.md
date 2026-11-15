@@ -225,7 +225,7 @@
 
 ### GET /api/v1/playlists/{id}/cover
 
-返回歌单封面图片。回退策略：本地封面文件 > 远程封面 URL 代理 > 歌单内前 20 首歌曲的封面。
+返回歌单封面图片。回退策略：本地封面文件 > 远程封面 URL 代理 > 按成员顺序选取的最多 20 个有封面元数据的候选（支持本地、远程及插件相对地址）。
 
 - **认证**: Bearer Token
 - **路径参数**: `id`（int）
@@ -247,7 +247,7 @@
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "exported_at": "2024-06-01T12:00:00Z",
   "playlists": [{
     "name": "我的最爱", "type": "normal", "description": "收藏", "labels": [],
@@ -260,6 +260,10 @@
 ```
 
 - **500**: 导出失败
+
+v2 包含顶层 `tags` 定义与歌曲 / 歌单的 `tag_ids`，导入时按名称重映射引用。导入兼容 v1 / v2；此备份不导出续播位置。
+
+当前 Lynx Web 的导入文件和导出响应均支持 v1 / v2，v2 标签定义与引用原样传输，由服务端按名称映射 ID。旧 Web 部署需更新客户端产物；不要手改备份版本号。详见 [Web 指南](../../player-lynx/web-deployment.md)。
 
 ### POST /api/v1/playlists/import
 
@@ -353,3 +357,20 @@
 | 400 | `object` |
 | 404 | `object` |
 | 500 | `object` |
+
+## 共享标签与续播状态
+
+以下端点均需认证。共享定义见[标签与主题 API](标签与主题%20API.md)，客户端行为见[歌单续播](../../playlist-resume.md)。
+
+| 端点 | 行为 |
+| --- | --- |
+| `GET /api/v1/playlists/{id}/tags` | 返回共享自定义标签定义，不含系统标记 |
+| `PUT /api/v1/playlists/{id}/tags` | 必填 `{"tag_ids":[1,2]}`，原子替换自定义标签，`[]` 清空，保留系统 labels |
+| `GET /api/v1/playlists/{id}/playback-progress` | 返回 `song`、`position_ms`、`play_mode`、`completed`、`invalid`、`version`、`updated_at`；无记录时 version=0 |
+| `PUT /api/v1/playlists/{id}/playback-progress` | `version` 加可选 `song_id`、`position_ms`、`play_mode`、`completed`；省略字段保留，旧版本返回 409 |
+| `DELETE /api/v1/playlists/{id}/playback-progress` | 返回 204；清除位置、保留模式并递增版本 |
+| `GET /api/v1/playlists/favorites/changes?cursor=…` | 收藏失效通知长轮询；首次或重启后返回 `changed=true`，否则最多等待 25 秒 |
+
+进度仅支持普通歌单（电台返回 400），歌曲必须是当前成员；模式为 `order`、`loop`、`single`、`random`、`singlePlay`。歌单不存在返回 404，成员被移除时读取返回 `invalid=true`。更新歌单的 PUT 支持可选 `audiobook` 布尔值，内置歌单的元数据保护继续生效。
+
+收藏 cursor 不透明，仅用于缓存失效，不是可重放事件日志。`changed=true` 时客户端刷新歌曲和电台收藏。

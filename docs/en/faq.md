@@ -299,8 +299,13 @@ A: Check the following:
 
 A: Some radio source sites use Referer / User-Agent hotlink protection, or are blocked by CORS in Web embedded mode, causing the client's direct stream pull to fail. Turn on the switch under **Settings → HLS Proxy** in the client:
 
-- When enabled, the server fetches and rewrites the `.m3u8` and proxies all segments / keys / init segments, bypassing source-site hotlink protection and browser cross-origin restrictions.
+- When enabled, the server fetches and rewrites `.m3u8` and proxies segments / keys / init segments, including cross-origin CDN resources actually referenced by the playlist. This helps with hotlink protection and browser CORS; unreachable sources or additional source authentication can still cause failures.
+- Private addresses remain blocked, and the resource proxy private allowlist does not apply to HLS. Reopen the stream after a server restart to obtain fresh proxy links.
 - Trade-off: **all segments go through the server's bandwidth**, so mind the traffic cost. Turn it off when not needed (it's off by default, in which case the radio `.m3u8` is pulled directly from the source by the client).
+
+### Q: How do I resume an audiobook?
+
+A: Enable **Audiobook** while editing a normal playlist, then use **Continue listening** to restore its track, position and playback mode. Tapping a track directly starts it from zero. Other normal playlists also keep independent resume state; radio playlists do not. State is shared within the server instance, and basic playback still works with older servers. See [Playlist resume and audiobooks](playlist-resume.md).
 
 ### Q: How do I scan the music library?
 

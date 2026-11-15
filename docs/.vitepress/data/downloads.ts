@@ -323,8 +323,8 @@ export const INSTALL: InstallMethod[] = [
     icon: 'smartphone',
     kind: 'external',
     note: {
-      zh: '需连接服务器，无 Bundle 或桌面版。iOS IPA 需自行重签；HarmonyOS 为实验性支持。dev 仅在五包全部成功后更新，首次发版前可能没有正式包。Web 部署需 HTTPS 与 COOP/COEP 响应头，详见安装指南。',
-      en: 'Requires a server; no Bundle or desktop edition. iOS IPA needs re-signing; HarmonyOS is experimental. Dev updates only after all five packages succeed; stable packages may not exist yet. Web hosting needs HTTPS and COOP/COEP headers; see the installation guide.',
+      zh: '需连接服务器，无 Bundle 或桌面版。iOS IPA 需自行重签；HarmonyOS 为实验性支持。dev 仅在五包全部成功后更新，首次发版前可能没有正式包。Web 核心流程支持普通 HTTP，不强制 COOP/COEP；剪贴板和常亮等能力需安全上下文，详见安装指南。',
+      en: 'Requires a server; no Bundle or desktop edition. iOS IPA needs re-signing; HarmonyOS is experimental. Dev updates only after all five packages succeed; stable packages may not exist yet. Core Web flows support ordinary HTTP without mandatory COOP/COEP; clipboard and wake-lock features need a secure context. See the installation guide.',
     },
     external: [
       {

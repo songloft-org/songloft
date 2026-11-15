@@ -153,11 +153,6 @@ An intuitive design would have the endpoint return the song's index within the c
 
 Facet song lists go through `GET /songs?artist=X`, whose default ordering is `added_at DESC`. But `added_at` is a second-precision `DATETIME`, and a bulk scan import inserts sequentially inside a single transaction, so hundreds or thousands of songs end up with **identical** `added_at` values. `applyOrder` emits a single-column `ORDER BY` with **no `id` tie-breaker**, so the index is mathematically indeterminate -- starting playback from it would play the wrong song.
 
-The client instead uses "play the first song immediately, then fill the queue circularly in the background":
+Facet history playback uses the full `Song` carried by the entry to start immediately, then locates the ID in the ordered facet list and fills a rotated queue `[target, after…, beginning…before]` in the background.
 
-1. Use the full `Song` carried by the history entry as the queue and start playing immediately (**zero extra requests**)
-2. In the background, fetch the ordered ID list for that context (`GET /playlists/{id}/song-ids` for playlists, `GET /songs/ids` for facets) and locate it via `indexOf`
-3. Append "everything after the target song", then wrap around and append "from the start of the context up to the target song", producing the rotated queue `[target, after…, beginning…before]`
-4. If `indexOf` fails, the song is no longer in this context: notify the user and fill the whole context from the beginning
-
-This way playlists and every facet dimension share **exactly the same code path**, the first note plays with zero delay, and nothing depends on an unstable index.
+Normal playlists retain the full persisted playlist order and map the selected track to its current index. Their queues load in batches around that track, extending toward later tracks before earlier ones. Explicit selection from history starts the track at zero; Continue restores the separate millisecond position and playlist mode from `/playlists/{id}/playback-progress`. Playback history does not store positions. See [Playlist resume](../../playlist-resume.md).

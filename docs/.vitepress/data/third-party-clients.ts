@@ -35,4 +35,11 @@ export const THIRD_PARTY_CLIENTS = [
     href: { zh: 'http://music.lyzo.top/', en: 'https://ly.pyzo.top/' },
     img: 'cloudflow-music.png',
   },
+  {
+    name: { zh: '棉花音乐', en: 'CottonMusic' },
+    desc: { zh: '支持本地、网盘、WebDAV 与 NAS 等多种音乐来源', en: 'Music player for local files, cloud drives, WebDAV and NAS libraries' },
+    platforms: ['Android', 'iOS', 'Windows', 'macOS'],
+    href: { zh: 'https://music.caij.xyz/', en: 'https://music.caij.xyz/en/' },
+    img: 'cottonmusic.svg',
+  },
 ]

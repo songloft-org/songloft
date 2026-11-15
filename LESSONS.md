@@ -238,6 +238,13 @@
 - Not run：完整后端测试、平台打包及远端工作流运行，本次仅修改发布脚本与文档，工作树尚未提交/推送。
 - Seen 1× (2026-10-15)。状态：经验。
 
+### BACKUP-001：备份版本升级须核对客户端双向校验
+
+- 范围：歌单备份公共契约、Lynx Web 数据管理；主仓库基线 `2326b38`，Lynx `1de4735`。
+- 证据：服务端 `BackupVersion = 2` 且接受 v1 / v2；Lynx `data-transfer.ts` 的 `validateBackup` 只接受 v1，同时用于导入文件与导出响应。Node 22.17.1 转译执行实际 `jsonMultipart` / `PlaylistBackupApi.exportBackup`，传输使用夹具：v1 两路通过，v2 两路均报 `invalid_json`。证据 `/tmp/songloft-doc-sync-backup-probe.{cjs,json}`，不是浏览器或真实服务端端到端验证。
+- 规则与 Done right：更新备份格式须核对服务端导出 / 导入、客户端上传前及下载后校验；跨实例标签按名称映射，不能手改版本号。后续按用户要求允许 v1 / v2，旧代码的三项 v2 回归失败，修复后 28 项定向验证通过。实际 Web 下载的 v2 文件跨两个临时后端导入，标签 ID 从 1 映射为 2，歌曲与歌单引用正确；v1 成功，v3 上传前拒绝。证据 `/tmp/songloft-backup-v2/roundtrip.json`，完整检查见子仓库[验证记录](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/project/backup-v2.md)。
+- Seen 1× (2026-11-15)。状态：兼容修复和真实浏览器验证完成，未提交或发布；同次后续验收不增加 Seen。
+
 ## 条目格式
 
 ```text

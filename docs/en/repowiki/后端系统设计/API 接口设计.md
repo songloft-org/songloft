@@ -178,7 +178,7 @@ Three config interface styles exist in the project, each with a clear division o
 
 ### 6.1 Business Endpoints `/settings/<name>`
 
-Currently 17 GET/PUT endpoint pairs, distributed across SongHandler (remote-title-source), HLSHandler (hls-proxy), ScanHandler (music-path, scan-playlist-mode, scan-auto-create-playlists, scan-title-source, auto-scan -- 5 scan-related), LogHandler (log-level), JSPluginHandler (plugin-registries, http-proxy, plugin-keep-alive, plugin-auto-update), UpgradeHandler (github-proxy), and ConfigHandler (tab-config, library-browse, user-preferences, equalizer). The data is all strongly typed JSON, such as `{enabled: bool}`, `{proxy: string}`, etc., with the handler handling defaults and side effects internally.
+Business settings cover scanning, playback, plugins, logging and client preferences. See `internal/app/routers.go` and [the backend endpoint overview](../../architecture_backend.md) for current paths. Responses are typed JSON such as `{enabled: bool}` or `{proxy: string}`; handlers own defaults and side effects.
 
 ### 6.2 Module Aggregate Endpoints
 

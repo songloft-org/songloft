@@ -225,7 +225,7 @@ Uploads a local image as the playlist cover (multipart/form-data).
 
 ### GET /api/v1/playlists/{id}/cover
 
-Returns the playlist cover image. Fallback strategy: local cover file > remote cover URL proxy > covers of the first 20 songs in the playlist.
+Returns the playlist cover image. Fallback strategy: local cover file > remote cover URL proxy > up to 20 members with cover metadata, in playlist order (local, remote and plugin-relative covers).
 
 - **Authentication**: Bearer Token
 - **Path parameter**: `id` (int)
@@ -247,7 +247,7 @@ Exports all playlists (including track associations) as a JSON file. The `Conten
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "exported_at": "2024-06-01T12:00:00Z",
   "playlists": [{
     "name": "我的最爱", "type": "normal", "description": "收藏", "labels": [],
@@ -260,6 +260,10 @@ Exports all playlists (including track associations) as a JSON file. The `Conten
 ```
 
 - **500**: Export failed
+
+Version 2 includes top-level `tags` definitions and song/playlist `tag_ids`. Custom references are remapped by tag name on import. Import accepts both v1 and v2; resume positions are not exported.
+
+Current Lynx Web accepts v1/v2 for both import files and export responses, preserving v2 tag definitions and references for server-side ID mapping by name. Older Web deployments need updated client artifacts; do not change backup version numbers manually. See the [Web guide](../../player-lynx/web-deployment.md).
 
 ### POST /api/v1/playlists/import
 
@@ -353,3 +357,20 @@ Set playlist visibility.
 | 400 | `object` |
 | 404 | `object` |
 | 500 | `object` |
+
+## Shared Tags and Resume State
+
+All endpoints below require authentication. See [Tags and themes API](标签与主题%20API.md) for shared tag definitions and [Playlist resume](../../playlist-resume.md) for client behavior.
+
+| Endpoint | Behavior |
+| --- | --- |
+| `GET /api/v1/playlists/{id}/tags` | Returns shared custom tag definitions, excluding system markers |
+| `PUT /api/v1/playlists/{id}/tags` | Required `{"tag_ids":[1,2]}` atomically replaces custom tags; `[]` clears them, system labels remain |
+| `GET /api/v1/playlists/{id}/playback-progress` | Returns `song`, `position_ms`, `play_mode`, `completed`, `invalid`, `version`, `updated_at`; absent state has version 0 |
+| `PUT /api/v1/playlists/{id}/playback-progress` | `version` plus optional `song_id`, `position_ms`, `play_mode`, `completed`; omitted fields are retained; stale versions return 409 |
+| `DELETE /api/v1/playlists/{id}/playback-progress` | Returns 204; clears position, retains mode and increments version |
+| `GET /api/v1/playlists/favorites/changes?cursor=…` | Favorites invalidation long poll; first call/restart returns `changed=true`, otherwise waits up to 25 seconds |
+
+Resume state supports normal playlists only (radio returns 400); songs must be current members. Modes are `order`, `loop`, `single`, `random`, `singlePlay`. A missing playlist returns 404. A removed member returns `invalid=true` on read. Playlist PUT accepts an optional `audiobook` boolean; existing built-in metadata protection remains in effect.
+
+The favorites cursor is opaque and only invalidates caches; it is not a replayable event log. Clients refresh both music and radio favorites when `changed=true`.

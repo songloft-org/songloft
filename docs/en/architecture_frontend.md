@@ -532,6 +532,12 @@ flutter build windows --dart-define=HAS_BACKEND=true  # Windows
 - **Desktop subprocess**: `DesktopBackendService` looks for `songloft-server` in the same directory as the Flutter executable (on macOS, `Contents/Resources/`) and parses the actual listening port from stdout
 - **CI artifacts**: all start with `songloft-bundled-`; Android/Linux/Windows include the architecture, while Apple uses `songloft-bundled-macos.zip` and `songloft-bundled-ios-nosign.ipa`. The 4 parallel jobs (Android/Linux/Apple/Windows) do not block the main release on failure
 
+## Playlist Tags and Resume
+
+Flutter and Lynx use shared `/song-tags` definitions for song and playlist tags, and invalidate tag counts when playlists are deleted or hidden. The independent `/playlists/{id}/playback-progress` endpoint stores normal-playlist track, millisecond position and mode, shared by the server instance. Explicit track selection starts from zero; Continue restores saved progress.
+
+Large playlist queues load up to 100 tracks around the selected track, then extend toward later tracks before earlier ones, publishing each batch without reloading current audio. See [Playlist resume and audiobooks](playlist-resume.md) for persistence, conflict and older-server behavior. Native background persistence still requires device acceptance.
+
 ## Audio Playback Architecture
 
 ```

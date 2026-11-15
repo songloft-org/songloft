@@ -51,7 +51,8 @@
 - 📦 **Bundle 本地模式** — 客户端内嵌 Go 后端，无需部署服务器，手机/电脑直接播放本地音乐
 - 📺 **Kodi 插件客户端** — 支持 Xbox、Apple TV、树莓派、Android TV 等大屏设备，专为遥控器操作优化，带来流畅的客厅影音体验
 - 🌐 **Web 界面** — 完整版内置 Lynx Web 前端，支持根路径与子路径部署，开箱即用
-- 🔑 **JWT 认证** — 双 Token 机制（Access Token + Refresh Token），支持多设备管理
+- 🗂️ **歌单组织与续播** — 歌曲与歌单共用自定义标签，普通歌单记住歌曲、毫秒位置和播放模式，支持[有声书继续收听](docs/playlist-resume.md)
+- 🔑 **认证与设备接入** — JWT 双 Token 登录，支持多设备管理；永久访问 Token 用于设备集成，可单独撤销
 - 📡 **网络歌曲 & 电台** — 支持添加网络音频 URL 与电台流，播放时透明缓存到服务端
 - 🔌 **完整 REST API** — 内置 Swagger 文档，方便集成和二次开发
 - ⚡ **轻量高效** — Go 编写，CGO-free，无外部依赖，适合 NAS / 树莓派等低功耗设备
@@ -585,7 +586,7 @@ Songloft 内置 JS 插件引擎，插件运行在 QuickJS 沙箱中，支持权�
 
 - **Swagger API 文档**: [swagger.json](https://github.com/songloft-org/songloft/blob/main/docs/swagger.json)
 - **Swagger UI 在线查看**: [petstore.swagger.io](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/songloft-org/songloft/refs/heads/main/docs/swagger.json)
-- **本地查看**: 启动服务后访问 `http://localhost:58091/swagger/index.html`
+- **本地查看**: 使用 `make run` 或带 `-tags dev` 的构建启动后，访问 `http://localhost:58091/swagger/index.html`；生产构建不提供 Swagger UI
 
 ### 主要接口概览
 
@@ -593,13 +594,14 @@ Songloft 内置 JS 插件引擎，插件运行在 QuickJS 沙箱中，支持权�
 |--------|------|------|
 | 认证 | `/api/v1/auth/*` | 登录、刷新 Token、登出、Token 管理 |
 | 歌曲 | `/api/v1/songs/*` | 歌曲 CRUD、封面、播放、歌词 |
-| 歌单 | `/api/v1/playlists/*` | 歌单 CRUD、歌单歌曲管理、导入导出 |
+| 歌单 | `/api/v1/playlists/*` | 歌单 CRUD、成员管理、共享标签、续播进度、导入导出 |
+| 标签 | `/api/v1/song-tags/*` | 共享标签定义、歌曲绑定与解绑 |
 | JS 插件 | `/api/v1/jsplugins/*` | 插件上传、启用、禁用、删除、检查更新 |
 | 扫描 | `/api/v1/scan/*` | 音乐库扫描 |
 | 配置 | `/api/v1/configs/*` | 系统配置管理（通用 KV） |
 | 设置 | `/api/v1/settings/*` | 业务功能设置（音乐目录、HLS 代理、HTTP 代理、自动扫描等） |
 | 缓存管理 | `/api/v1/cache-manage/*` | 缓存统计、清理、配置 |
-| 升级 | `/api/v1/upgrade/*` | 版本检查、升级（仅 Docker） |
+| 升级 | `/api/v1/upgrade/*` | 版本检查（所有部署）、执行升级 / 回退（仅 Docker） |
 | 版本 | `/api/v1/version` | 版本信息 |
 | 健康检查 | `/api/v1/health` | 服务健康状态 |
 | 资源代理 | `/api/v1/proxy` | 资源代理（解决 CORS 问题） |

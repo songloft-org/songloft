@@ -51,7 +51,8 @@
 - 📦 **Bundle local mode** — The client embeds the Go backend, so no server deployment is needed — play your local music directly on your phone or computer
 - 📺 **Kodi plugin client** — Supports big-screen devices like Xbox, Apple TV, Raspberry Pi, and Android TV, optimized for remote control operation for a smooth living-room media experience
 - 🌐 **Web interface** — The full edition embeds Lynx Web with root and subpath deployment support out of the box
-- 🔑 **JWT authentication** — Dual-token mechanism (Access Token + Refresh Token) with multi-device management
+- 🗂️ **Playlist organization and resume** — Shared custom tags for songs and playlists; normal playlists remember the track, millisecond position and playback mode, with [audiobook resume](docs/en/playlist-resume.md)
+- 🔑 **Authentication and device access** — JWT dual-token login with multi-device management; individually revocable permanent access tokens for integrations
 - 📡 **Network songs & radio** — Add network audio URLs and radio streams, transparently cached to the server during playback
 - 🔌 **Full REST API** — Built-in Swagger documentation for easy integration and further development
 - ⚡ **Lightweight and efficient** — Written in Go, CGO-free, with no external dependencies — ideal for low-power devices like NAS and Raspberry Pi
@@ -585,7 +586,7 @@ The full API documentation (Swagger/OpenAPI format) is available at:
 
 - **Swagger API doc**: [swagger.json](https://github.com/songloft-org/songloft/blob/main/docs/swagger.json)
 - **View Swagger UI online**: [petstore.swagger.io](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/songloft-org/songloft/refs/heads/main/docs/swagger.json)
-- **View locally**: After starting the service, visit `http://localhost:58091/swagger/index.html`
+- **View locally**: Run `make run` or a build with `-tags dev`, then visit `http://localhost:58091/swagger/index.html`; production builds do not serve Swagger UI
 
 ### Main API Overview
 
@@ -593,13 +594,14 @@ The full API documentation (Swagger/OpenAPI format) is available at:
 |--------|------|------|
 | Auth | `/api/v1/auth/*` | Login, refresh token, logout, token management |
 | Songs | `/api/v1/songs/*` | Song CRUD, covers, playback, lyrics |
-| Playlists | `/api/v1/playlists/*` | Playlist CRUD, playlist song management, import/export |
+| Playlists | `/api/v1/playlists/*` | Playlist CRUD, members, shared tags, resume progress, import/export |
+| Tags | `/api/v1/song-tags/*` | Shared tag definitions, song binding and unbinding |
 | JS plugins | `/api/v1/jsplugins/*` | Plugin upload, enable, disable, delete, check for updates |
 | Scan | `/api/v1/scan/*` | Music library scanning |
 | Config | `/api/v1/configs/*` | System configuration management (generic KV) |
 | Settings | `/api/v1/settings/*` | Business feature settings (music directory, HLS proxy, HTTP proxy, auto scan, etc.) |
 | Cache management | `/api/v1/cache-manage/*` | Cache stats, cleanup, configuration |
-| Upgrade | `/api/v1/upgrade/*` | Version check, upgrade (Docker only) |
+| Upgrade | `/api/v1/upgrade/*` | Version check (all deployments), upgrade / rollback (Docker only) |
 | Version | `/api/v1/version` | Version info |
 | Health | `/api/v1/health` | Service health status |
 | Proxy | `/api/v1/proxy` | Resource proxy (for CORS issues) |

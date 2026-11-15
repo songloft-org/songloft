@@ -227,3 +227,9 @@
 | --- | --- |
 | 200 | `SuccessResponse` |
 | 404 | `ErrorResponse` |
+
+## 歌单共享标签
+
+歌曲与歌单共用 `/song-tags` 标签定义。歌曲绑定使用 `song_tag_links`，歌单引用保存在 `labels` 的 `tag:<id>` 中。`GET/PUT /api/v1/playlists/{id}/tags` 返回共享定义或以必填 `{"tag_ids":[1,2]}` 替换引用；空数组清空自定义标签并保留系统标记，无效 ID 导致整次更新失败。
+
+`SongTag` 分别返回 `song_count` 与 `playlist_count`，后者不含隐藏歌单。`/song-tags?sort=playlist_count` 可按可见歌单数排序。删除定义在同一事务内清理歌曲与歌单引用。

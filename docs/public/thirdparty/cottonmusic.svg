@@ -1,0 +1,5 @@
+<!-- Initial avatar for the client card, not an official brand logo. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="16" fill="#e9eef5"/>
+  <text x="32" y="44" text-anchor="middle" font-family="sans-serif" font-size="36" font-weight="600" fill="#465b72">C</text>
+</svg>

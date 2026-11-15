@@ -4,7 +4,7 @@
 
 - **Go 版本**: 1.26+
 - **Web 框架**: Chi v5.2.4
-- **认证方式**: JWT 双 Token 认证（Access Token + Refresh Token）
+- **认证方式**: JWT 双 Token 登录 + 可撤销的永久访问 Token（设备集成）
 - **数据库**: SQLite 3 (modernc.org/sqlite v1.49.1，纯 Go CGO-free 实现)
 - **数据库访问栈**:
   - `pressly/goose v3` — schema 迁移（启动时自动 `Up`，文件在 `migrations/000N_xxx.sql`）
@@ -101,7 +101,7 @@ HTTP Server (main.go)
 
 #### middleware/ - 中间件
 
-- `auth.go`: JWT 认证中间件，验证 Access Token
+- `auth.go`: 验证登录、插件及永久凭证；`RequireLoginSession` 将 Token 管理和登出限制为正常登录会话
 - `auth_test.go`: 认证中间件测试
 
 #### models/ - 数据模型
@@ -124,6 +124,7 @@ HTTP Server (main.go)
 - `token_repository.go`: 认证令牌仓储
 - `jsplugin_repository.go`: JS 插件仓储
 - `plugin_storage_repository.go`: JS 插件 KV 存储仓储（`songloft.persistentStorage` 桥接的后端存储）
+- `playlist_progress_repository.go`: 带版本号的歌单续播状态（迁移 `0041_playlist_progress.sql`）
 - `play_history_repository.go`: 播放历史仓储
 - `song_tag_repository.go`: 自定义标签仓储
 - `song_artist_repository.go`: 歌曲-艺术家关联仓储
@@ -148,6 +149,7 @@ HTTP Server (main.go)
 - `song_service.go`: 歌曲服务（CRUD、批量操作、时长回填）
 - `song_tag_service.go`: 自定义标签服务（标签 CRUD、歌曲绑定/解绑、标签同步写入文件）
 - `play_history_service.go`: 播放历史服务（记录播放上下文、聚合查询、清除）
+- `playlist_progress_service.go`: 使用乐观锁保存歌曲、毫秒位置及模式，与播放历史独立
 - `playlist_service.go`: 歌单服务（CRUD、歌曲管理、自动创建）
 - `theme_pack_service.go`: 主题包服务（导入/删除/激活主题包、目录刷新与安装）
 - `upgrade_service.go`: 版本升级服务（获取版本信息、执行升级、重置）
@@ -291,7 +293,7 @@ App 负责从 `database.DB` 获取仓储并装配服务；Service 注入其所�
 - `/api/v1/jsplugins/*` - JS 插件管理接口（上传 `.jsplugin.zip`、启用/禁用、删除、更新检查）
 - `/api/v1/jsplugin/{entry_path}/*` - JS 插件运行时路由（由插件 main.js 通过 SDK Router 注册）
 - `/api/v1/scan/*` - 扫描管理接口（异步扫描、进度查询、取消）
-- `/api/v1/upgrade/*` - 版本升级接口（仅 Docker 环境可用，含重置功能）
+- `/api/v1/upgrade/*` - 所有部署均可检查版本并返回 `is_docker`；执行升级 / 回退仅限 Docker
 - `/api/v1/proxy` - 资源代理接口（解决 CORS，含 SSRF 防护）
 - `/api/v1/cache-manage/*` - 音乐缓存管理（统计/清理/配置/目录验证）
 - `/api/v1/settings/hls-proxy` - HLS 电台代理开关（GET/PUT）
@@ -313,8 +315,12 @@ App 负责从 `database.DB` 获取仓储并装配服务；Service 注入其所�
 - `/api/v1/settings/scan-title-source` - 扫描标题来源配置（GET/PUT）
 - `/api/v1/settings/scan-auto-fingerprint` - 扫描后自动计算指纹开关（GET/PUT）
 - `/api/v1/settings/auto-scan` - 定时自动扫描配置（GET/PUT）
+- `/api/v1/auth/personal-tokens` - 创建 / 列出永久 Token，`/{id}` 撤销；均仅限正常登录会话
+- `/api/v1/playlists/{id}/tags` - 读取 / 替换共享自定义标签（GET/PUT）
+- `/api/v1/playlists/{id}/playback-progress` - 普通歌单续播状态（GET/PUT/DELETE），见[歌单续播](playlist-resume.md)
+- `/api/v1/playlists/favorites/changes` - 收藏失效通知长轮询（GET，最多等待 25 秒）
 - `/api/v1/play-history` - 播放历史（GET/DELETE）
-- `/api/v1/song-tags/*` - 自定义标签管理（CRUD、歌曲绑定/解绑）
+- `/api/v1/song-tags/*` - 共享标签定义（CRUD、歌曲绑定/解绑、歌曲与歌单分别计数）
 - `/api/v1/theme-packs/*` - 主题包管理（列表/导入/删除/激活/目录刷新）
 
 > 以上列表为主要端点，非穷举；完整 API 请参考 Swagger 文档。
@@ -356,6 +362,6 @@ App 负责从 `database.DB` 获取仓储并装配服务；Service 注入其所�
 
 歌曲封面端点 `/api/v1/songs/{id}/cover` 的优先级：本地 `CoverPath` → 代理远程 `CoverURL` → 封面搜索插件兜底。
 
-歌单封面端点 `/api/v1/playlists/{id}/cover` 的优先级：本地 `cover_path` → 远程 `cover_url` → 歌单内前 20 首歌中第一首有封面的。
+歌单封面端点 `/api/v1/playlists/{id}/cover` 的优先级：存在的本地 `cover_path` → 远程 `cover_url` → 按成员顺序选取最多 20 个有封面元数据的候选。候选支持本地、远程及插件相对地址。远程尝试共用 5 秒预算，耗尽后仍可读取本地候选；动态成员封面要求缓存重新验证。
 
 封面支持 `?w=N` 服务端缩略图（CatmullRom 缩放，JPEG 85 质量，不上采样），缩略图通过 `cover_thumb_cache` 磁盘 LRU 缓存（上限 200MB）。

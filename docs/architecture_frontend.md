@@ -532,6 +532,12 @@ flutter build windows --dart-define=HAS_BACKEND=true  # Windows
 - **桌面子进程**：`DesktopBackendService` 在 Flutter 可执行文件同目录查找 `songloft-server`（macOS 为 `Contents/Resources/`），并从 stdout 解析实际监听端口
 - **CI 产物**：统一以 `songloft-bundled-` 开头；Android/Linux/Windows 带架构，Apple 为 `songloft-bundled-macos.zip`、`songloft-bundled-ios-nosign.ipa`。4 个并行 Job（Android/Linux/Apple/Windows）失败不阻塞主 Release
 
+## 歌单标签与续播
+
+Flutter 与 Lynx 使用 `/song-tags` 共享歌曲和歌单的标签定义，歌单删除或隐藏后同步失效标签计数。独立的 `/playlists/{id}/playback-progress` 保存普通歌单的歌曲、毫秒位置和模式，由服务实例共享。明确点选歌曲从零开始，「继续播放」恢复已存进度。
+
+大歌单先加载所选曲目附近最多 100 首，再优先向后、随后向前补齐；每批即时更新队列，不重载当前音频。持久化、冲突及旧服务端行为见[歌单续播与有声书](playlist-resume.md)，原生后台保存仍需设备验收。
+
 ## 音频播放架构
 
 ```

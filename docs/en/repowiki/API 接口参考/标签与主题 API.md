@@ -227,3 +227,9 @@ DELETE /theme-packs/{themeID}.
 | --- | --- |
 | 200 | `SuccessResponse` |
 | 404 | `ErrorResponse` |
+
+## Shared Playlist Tags
+
+Songs and playlists share the `/song-tags` definitions. Song bindings use `song_tag_links`; playlist references use `tag:<id>` in `labels`. `GET/PUT /api/v1/playlists/{id}/tags` returns shared definitions or replaces references with required `{"tag_ids":[1,2]}`; an empty array clears custom tags and preserves system labels. Invalid IDs fail the entire update.
+
+`SongTag` includes separate `song_count` and `playlist_count`; the latter excludes hidden playlists. `/song-tags?sort=playlist_count` sorts by visible playlist count. Deleting a definition cleans up both song and playlist references transactionally.

@@ -4,7 +4,7 @@
 
 - **Go version**: 1.26+
 - **Web framework**: Chi v5.2.4
-- **Authentication**: JWT dual-token authentication (Access Token + Refresh Token)
+- **Authentication**: JWT dual-token login plus revocable permanent access tokens for integrations
 - **Database**: SQLite 3 (modernc.org/sqlite v1.49.1, pure-Go CGO-free implementation)
 - **Database access stack**:
   - `pressly/goose v3` — schema migrations (auto `Up` on startup, files in `migrations/000N_xxx.sql`)
@@ -101,7 +101,7 @@ Holds the project's core business logic, organized by functional module:
 
 #### middleware/ - Middleware
 
-- `auth.go`: JWT authentication middleware, validates the Access Token
+- `auth.go`: Authenticates login, plugin and permanent credentials; `RequireLoginSession` restricts token management and logout to normal login sessions
 - `auth_test.go`: Authentication middleware tests
 
 #### models/ - Data models
@@ -124,6 +124,7 @@ Holds the project's core business logic, organized by functional module:
 - `token_repository.go`: Authentication token repository
 - `jsplugin_repository.go`: JS plugin repository
 - `plugin_storage_repository.go`: JS plugin KV storage repository (backend store behind the `songloft.persistentStorage` bridge)
+- `playlist_progress_repository.go`: Versioned per-playlist resume state (migration `0041_playlist_progress.sql`)
 - `play_history_repository.go`: Play history repository
 - `song_tag_repository.go`: Custom tag repository
 - `song_artist_repository.go`: Song-artist association repository
@@ -148,6 +149,7 @@ Holds the project's core business logic, organized by functional module:
 - `song_service.go`: Song service (CRUD, bulk operations, duration backfill)
 - `song_tag_service.go`: Custom tag service (tag CRUD, song binding/unbinding, tag sync-to-file)
 - `play_history_service.go`: Play history service (record play context, aggregated queries, clearing)
+- `playlist_progress_service.go`: Saves track, millisecond position and mode with optimistic concurrency; separate from playback history
 - `playlist_service.go`: Playlist service (CRUD, song management, auto-creation)
 - `theme_pack_service.go`: Theme pack service (import/delete/activate theme packs, catalog refresh and install)
 - `upgrade_service.go`: Version upgrade service (fetch version info, perform upgrade, reset)
@@ -291,7 +293,7 @@ The backend provides a RESTful API, mainly including:
 - `/api/v1/jsplugins/*` - JS plugin management endpoints (upload `.jsplugin.zip`, enable/disable, delete, check for updates)
 - `/api/v1/jsplugin/{entry_path}/*` - JS plugin runtime routes (registered by the plugin's main.js via the SDK Router)
 - `/api/v1/scan/*` - Scan management endpoints (async scanning, progress query, cancellation)
-- `/api/v1/upgrade/*` - Version upgrade endpoints (available only in Docker environments, includes reset)
+- `/api/v1/upgrade/*` - Version checks work in all deployments and return `is_docker`; upgrade / rollback execution requires Docker
 - `/api/v1/proxy` - Resource proxy endpoint (works around CORS, includes SSRF protection)
 - `/api/v1/cache-manage/*` - Music cache management (statistics/cleanup/configuration/directory validation)
 - `/api/v1/settings/hls-proxy` - HLS radio proxy toggle (GET/PUT)
@@ -313,8 +315,12 @@ The backend provides a RESTful API, mainly including:
 - `/api/v1/settings/scan-title-source` - Scan title source configuration (GET/PUT)
 - `/api/v1/settings/scan-auto-fingerprint` - Auto-fingerprint after scan toggle (GET/PUT)
 - `/api/v1/settings/auto-scan` - Scheduled auto-scan configuration (GET/PUT)
+- `/api/v1/auth/personal-tokens` - Create/list permanent tokens; `/{id}` revokes one. All require a normal login session
+- `/api/v1/playlists/{id}/tags` - Read/replace shared custom tags (GET/PUT)
+- `/api/v1/playlists/{id}/playback-progress` - Normal-playlist resume state (GET/PUT/DELETE), see [playlist resume](playlist-resume.md)
+- `/api/v1/playlists/favorites/changes` - Long-poll favorites invalidation (GET, waits up to 25 seconds)
 - `/api/v1/play-history` - Play history (GET/DELETE)
-- `/api/v1/song-tags/*` - Custom tag management (CRUD, song binding/unbinding)
+- `/api/v1/song-tags/*` - Shared tag definitions (CRUD, song binding/unbinding, separate song/playlist counts)
 - `/api/v1/theme-packs/*` - Theme pack management (list/import/delete/activate/catalog refresh)
 
 > The above lists the main endpoints and is not exhaustive; see the Swagger docs for the full API.
@@ -356,6 +362,6 @@ This rule applies to both regular directory playlists and CUE album playlists (C
 
 Song cover endpoint `/api/v1/songs/{id}/cover` priority: local `CoverPath` → proxy remote `CoverURL` → cover search plugin fallback.
 
-Playlist cover endpoint `/api/v1/playlists/{id}/cover` priority: local `cover_path` → remote `cover_url` → first song with a cover among the first 20 songs in the playlist.
+Playlist cover endpoint `/api/v1/playlists/{id}/cover` priority: existing local `cover_path` → remote `cover_url` → up to 20 members that have cover metadata in playlist order. Candidates support local, remote and plugin-relative covers. Remote attempts share a five-second budget; local fallbacks remain readable after it expires. Dynamic member covers require cache revalidation.
 
 Covers support `?w=N` server-side thumbnailing (CatmullRom scaling, JPEG quality 85, no upscaling), with thumbnails cached via `cover_thumb_cache` disk LRU (200 MB cap).

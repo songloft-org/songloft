@@ -238,6 +238,13 @@ Both clients pass Chinese/English 390px browser checks for name order in both di
 - Not run: full backend tests, platform builds, and remote workflow execution; this task changes only release scripts and documentation, and the worktree remains uncommitted/unpushed.
 - Seen 1× (2026-10-15). Status: lesson.
 
+### BACKUP-001: Check both client validation directions when upgrading backup versions
+
+- Scope: shared playlist backup contract and Lynx Web data management; parent baseline `2326b38`, Lynx `1de4735`.
+- Evidence: the server exports `BackupVersion = 2` and accepts v1/v2; Lynx `data-transfer.ts` accepts only v1 in `validateBackup`, used for import files and export responses. Node 22.17.1 transpiled and ran the actual `jsonMultipart` and `PlaylistBackupApi.exportBackup` with fixture transport: both v1 paths pass, both v2 paths throw `invalid_json`. Evidence: `/tmp/songloft-doc-sync-backup-probe.{cjs,json}`; this is not browser or live-server end-to-end validation.
+- Rule and Done right: check server export/import, client pre-upload validation and post-download validation when upgrading a format. Map cross-instance tags by name; do not manually change version numbers. At the user's request, validation now accepts v1/v2. Three v2 regressions fail on old code; all 28 focused checks pass after the fix. A real Web download was imported across two temporary backends: tag ID 1 remapped to 2 with correct song/playlist references. v1 succeeds; v3 is rejected before upload. Evidence: `/tmp/songloft-backup-v2/roundtrip.json`; full checks: [client verification](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/en/project/backup-v2.md).
+- Seen 1× (2026-11-15). Status: compatibility repair and actual browser acceptance complete, uncommitted/unreleased; this follow-up does not increment Seen.
+
 ## Entry Format
 
 ```text

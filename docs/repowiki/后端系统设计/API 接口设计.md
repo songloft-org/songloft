@@ -178,7 +178,7 @@ query parameter 回退主要服务于无法自定义 Header 的场景：`<img>` 
 
 ### 6.1 业务端点 `/settings/<name>`
 
-当前 17 对 GET/PUT 端点，分布在 SongHandler（remote-title-source）、HLSHandler（hls-proxy）、ScanHandler（music-path、scan-playlist-mode、scan-auto-create-playlists、scan-title-source、auto-scan 共 5 个扫描相关）、LogHandler（log-level）、JSPluginHandler（plugin-registries、http-proxy、plugin-keep-alive、plugin-auto-update）、UpgradeHandler（github-proxy）、ConfigHandler（tab-config、library-browse、user-preferences、equalizer）。数据均为强类型 JSON，如 `{enabled: bool}`、`{proxy: string}` 等，handler 内部承担默认值和副作用。
+业务设置覆盖扫描、播放、插件、日志与客户端偏好。当前路径以 `internal/app/routers.go` 和[后端接口概览](../../architecture_backend.md)为准。数据均为强类型 JSON，如 `{enabled: bool}`、`{proxy: string}`；handler 承担默认值与副作用。
 
 ### 6.2 模块聚合端点
 

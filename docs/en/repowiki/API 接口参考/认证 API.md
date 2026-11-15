@@ -1,6 +1,6 @@
 # Authentication API
 
-This page covers the five registered authentication operations: login, refresh, logout, list tokens, and revoke a token. Startup configuration determines default credentials independently of dev / release build tags; running instances use their startup flags or environment variables.
+This page covers login, refresh, logout, session-token management and permanent access-token management. Startup configuration determines default credentials independently of dev / release build tags; running instances use their startup flags or environment variables.
 
 This document is based on the following source files:
 
@@ -14,6 +14,7 @@ This document is based on the following source files:
 1. [Authentication Mechanism Overview](#1-authentication-mechanism-overview)
 2. [Public Endpoints](#2-public-endpoints)
 3. [Authorized Endpoints](#3-authorized-endpoints)
+4. [Permanent Access Tokens](#4-permanent-access-tokens)
 
 ---
 
@@ -25,10 +26,10 @@ Songloft uses a JWT dual-token authentication mechanism:
 
 - **Access Token**: A short-lived token used for API authorization. The client passes it via the `Authorization: Bearer <token>` request header or the `?access_token=<token>` query parameter
 - **Refresh Token**: A long-lived token used to obtain a new token after the Access Token expires, without re-logging in
-- **Default account**: `admin` / `admin` (when credentials are not configured)
+- **Default account**: `admin` / `admin` when credentials are not configured, independently of build tags
 - **Token types**: `access` (access token) and `refresh` (refresh token)
-- **Public endpoints**: Login and refresh require no authentication and are registered outside the authentication middleware
-- **Authorized endpoints**: All other `/api/v1/*` endpoints require a valid Access Token
+- **Public endpoints**: Login and refresh are outside authentication middleware; `/version` and `/health` are also public
+- **Protected business endpoints**: Accept valid login or permanent credentials via Bearer or `access_token`; declared public plugin paths have their own rules. Refresh tokens renew sessions through `/auth/refresh`; they are not normal login management credentials
 
 ---
 
@@ -94,7 +95,7 @@ Uses a refresh token to obtain a new access token without re-logging in. Also ex
 
 **Section source**: `internal/handlers/auth.go`, `internal/app/routers.go`
 
-The following endpoints are registered inside the route group protected by the authentication middleware and must carry a valid Access Token.
+All logout and token-management endpoints below also use `RequireLoginSession`: only a normal login Access Token may call them. Plugin, permanent and refresh credentials cannot manage tokens or log out (403 for recognized non-login credentials; malformed/revoked credentials return 401).
 
 ### POST /api/v1/auth/logout
 
@@ -157,3 +158,19 @@ Revokes a specified token, invalidating it immediately. Can be used to remotely 
 - **400**: Bad request data
 - **401**: Unauthorized
 - **500**: Revocation failed
+
+## 4. Permanent Access Tokens
+
+Sources: `internal/handlers/personal_token.go`, `internal/models/personal_token.go`, `internal/services/auth_service.go`, `internal/middleware/auth.go`.
+
+Permanent tokens provide administrator business API access for integrations, are valid until revoked, and survive logout and restart. They cannot manage tokens or log out. The database stores a hash; the full credential is returned only once when created. Subsequent requests check persistent state, so revocation affects the next authentication without interrupting requests already in progress.
+
+All three management endpoints require a normal login session:
+
+| Method and path | Request | Success |
+| --- | --- | --- |
+| `POST /api/v1/auth/personal-tokens` | `{"name":"Home Assistant"}`, name 1–80 characters after trimming, no control characters | 201, metadata plus one-time `token` |
+| `GET /api/v1/auth/personal-tokens` | Optional `limit` (default 20) and `offset` (default 0) | 200, `tokens`, `total`, `limit`, `offset`; includes revoked records, no credentials/hashes |
+| `DELETE /api/v1/auth/personal-tokens/{id}` | Management ID, no body | 204; repeated revocation succeeds, missing ID returns 404 |
+
+Metadata includes `id`, `name`, `prefix`, `created_at`, `last_used_at` and `revoked_at`. `last_used_at` updates at most once per minute and is null before first use. Management reads/creation send `Cache-Control: no-store`. Missing login authorization returns 401/403; invalid creation requests return 400.
