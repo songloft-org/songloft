@@ -128,7 +128,16 @@ func sanitizeCacheKey(s string) string {
 
 // FindCachedFileBySong 查找歌曲的缓存文件。
 // 优先从 song.CachePath（DB 存储的路径）查找；fallback 到旧格式哈希分桶目录。
+// 命中须通过 source_validation；无效文件连同转码衍生文件淘汰并清理 cache_path。
 func (c *CacheService) FindCachedFileBySong(song *models.Song) (string, bool) {
+	ctx := c.shutdownCtx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return c.findValidatedCache(ctx, song)
+}
+
+func (c *CacheService) findCachedFileBySong(song *models.Song) (string, bool) {
 	if song == nil {
 		return "", false
 	}
@@ -212,7 +221,7 @@ func (c *CacheService) EvictSong(songID int64, cachePath string) error {
 }
 
 // Get 是 cache handler 的统一入口:
-//   - 命中本地缓存 → 直接返回路径
+//   - 命中本地缓存 → 校验通过后返回路径；无效缓存淘汰后重新拉取
 //   - 未命中且 song 为插件来源 → 调 Orchestrator(Strict) 拉到临时文件 → 移入缓存目录 → 返回
 //   - 未命中且 song 为纯外链 → 简化下载路径(httpClient.Get)
 //   - 同 song.ID 的并发请求通过 inflight 去重
@@ -225,7 +234,7 @@ func (c *CacheService) Get(ctx context.Context, song *models.Song) (string, erro
 	}
 
 	// 1. 命中本地缓存
-	if p, ok := c.FindCachedFileBySong(song); ok {
+	if p, ok := c.findValidatedCache(ctx, song); ok {
 		return p, nil
 	}
 
@@ -263,7 +272,7 @@ func (c *CacheService) Get(ctx context.Context, song *models.Song) (string, erro
 			return "", dl.err
 		}
 		// 首请求成功，去 cache 取
-		if p, ok := c.FindCachedFileBySong(song); ok {
+		if p, ok := c.findValidatedCache(ctx, song); ok {
 			return p, nil
 		}
 		return "", fmt.Errorf("cache file not found after wait")
@@ -312,7 +321,7 @@ func (c *CacheService) Get(ctx context.Context, song *models.Song) (string, erro
 	}
 
 	// 4. 移入 cache 目录
-	finalPath, err := c.moveToCache(song, tmpPath, ext)
+	finalPath, err := c.moveToCache(ctx, song, tmpPath, ext)
 	if err != nil {
 		_ = os.Remove(tmpPath)
 		dl.err = err
@@ -323,10 +332,11 @@ func (c *CacheService) Get(ctx context.Context, song *models.Song) (string, erro
 	return finalPath, nil
 }
 
-// moveToCache 把临时文件移入 song 对应的缓存路径,返回最终路径。
-func (c *CacheService) moveToCache(song *models.Song, tmpPath, ext string) (string, error) {
-	if song == nil {
-		return "", errors.New("song is nil")
+// moveToCache 统一执行 source_validation，再把临时文件移入缓存，返回最终路径。
+func (c *CacheService) moveToCache(ctx context.Context, song *models.Song, tmpPath, ext string) (string, error) {
+	if err := c.validateAudioFile(ctx, song, tmpPath, false); err != nil {
+		c.reportInvalidAudio(song, err)
+		return "", err
 	}
 	key := cacheKeyOf(song)
 	dir, base := c.getCachePath(song.ID, key)
@@ -391,7 +401,7 @@ func (c *CacheService) EnsureCachedFormat(ctx context.Context, song *models.Song
 		return cachedPath
 	}
 
-	newPath, err := c.moveToCache(song, tmpPath, "."+fmtName)
+	newPath, err := c.moveToCache(ctx, song, tmpPath, "."+fmtName)
 	if err != nil {
 		slog.Warn("cache transcode: move failed, keeping original format", "songId", song.ID, "error", err)
 		os.Remove(tmpPath)
@@ -407,19 +417,22 @@ func (c *CacheService) EnsureCachedFormat(ctx context.Context, song *models.Song
 	return newPath
 }
 
-// FinalizeCache 将临时文件移入结构化缓存目录并写入元数据。
-// 由流式代理完成回调在 goroutine 中调用。
-func (c *CacheService) FinalizeCache(ctx context.Context, song *models.Song, tmpPath, ext string) {
+// FinalizeCache 校验临时文件后移入结构化缓存目录并写入元数据。
+// 由流式代理完成回调在 goroutine 中调用；失败返回分类错误并清理临时文件。
+func (c *CacheService) FinalizeCache(ctx context.Context, song *models.Song, tmpPath, ext string) error {
 	defer func() {
 		if _, err := os.Stat(tmpPath); err == nil {
 			os.Remove(tmpPath)
 		}
 	}()
 
-	finalPath, err := c.moveToCache(song, tmpPath, ext)
+	if song == nil {
+		return errors.New("song is nil")
+	}
+	finalPath, err := c.moveToCache(ctx, song, tmpPath, ext)
 	if err != nil {
 		slog.Warn("finalize cache: move failed", "songId", song.ID, "error", err)
-		return
+		return err
 	}
 
 	// 按配置的缓存转码格式统一落盘格式（如 mp3），失败时保留原码。
@@ -441,6 +454,7 @@ func (c *CacheService) FinalizeCache(ctx context.Context, song *models.Song, tmp
 	}
 
 	c.EvictLRU()
+	return nil
 }
 
 // AsyncDownloadAndCache 在后台全量下载远程歌曲并缓存。
@@ -491,7 +505,7 @@ const externalDownloadStallTimeout = 120 * time.Second
 // 因缓存转码常在后台处理较大的完整文件。
 const cacheTranscodeTimeout = 15 * time.Minute
 
-// downloadExternalToTemp 纯外链歌曲的简化下载:分块 HTTP Range GET,无 fallback、无元数据校验。
+// downloadExternalToTemp 分块下载到临时文件；完整性校验统一在 moveToCache 执行。
 // 因为纯外链没有"插件源"概念,Orchestrator 也无能为力。
 // 分块下载绕过 YouTube googlevideo 等 CDN 对单连接顺序读的限速(issue #305);此路径也用于
 // 播放时 206 触发的后台全量缓存(AsyncDownloadAndCache),否则慢网下缓存一首歌要数分钟。

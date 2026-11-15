@@ -1005,6 +1005,10 @@ func TestGetSongPlaySeekRemote(t *testing.T) {
 	t.Run("已缓存走 seek 流", func(t *testing.T) {
 		handler, repo, _ := newSeekTestHandler(t, "/bin/echo")
 		cached := writeSeekTestFile(t, "cached.mp3")
+		// Remote cache hits now require real audio; this test isolates seek arguments.
+		if err := os.WriteFile(cached, cacheTestWAV(200), 0644); err != nil {
+			t.Fatal(err)
+		}
 		id := seedSong(t, repo, &models.Song{
 			Type: models.TypeRemote, Title: "网络歌", URL: "https://example.com/a.mp3",
 			Format: "mp3", Duration: 200,

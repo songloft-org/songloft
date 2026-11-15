@@ -411,6 +411,10 @@ func (a *App) Init() error {
 	})
 	a.sourceOrchestrator = sourceOrchestrator
 	a.cacheService.SetOrchestrator(sourceOrchestrator)
+	reassigner := &reassignAdapter{orch: sourceOrchestrator, s: a.songService}
+	a.cacheService.SetSourceValidation(a.metadataExtractor, a.sourceMetrics, func(song *models.Song) {
+		reassigner.AsyncReassign(song.ID, playactivity.SessionKey{})
+	})
 
 	// 注入缓存路径回调和歌曲查询
 	songRepo := a.db.SongRepository()

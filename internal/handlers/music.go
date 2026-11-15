@@ -11,7 +11,6 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -885,11 +884,6 @@ func (h *SongHandler) GetSongTracks(w http.ResponseWriter, r *http.Request) {
 func (h *SongHandler) audioTrackProbePath(song *models.Song) string {
 	if song.Type == models.TypeLocal {
 		return song.FilePath
-	}
-	if song.CachePath != "" {
-		if _, err := os.Stat(song.CachePath); err == nil {
-			return song.CachePath
-		}
 	}
 	if p, ok := h.cacheService.FindCachedFileBySong(song); ok {
 		return p
@@ -2474,21 +2468,12 @@ func isHLSURL(rawURL string) bool {
 }
 
 // serveRemote 网络歌曲:根据音源类型分发到缓存或代理。
-// - 插件来源歌曲:走 CacheService.Get(下载缓存)
-// - 纯外链歌曲:走 ServeRemoteResource(直接代理)
+// - 已缓存歌曲:校验后提供本地文件，无效缓存淘汰后重新解析 URL。
+// - 未缓存歌曲:解析 URL 后流式代理，完整文件异步校验落盘。
 // 失败时:返回 502,后台异步切源(若注入了 reassigner),客户端下次播放该 song 会用新源。
 // targetFormat 非空且与原格式不同时,对已缓存文件走 ffmpeg 转码。
 func (h *SongHandler) serveRemote(w http.ResponseWriter, r *http.Request, song *models.Song, opts servePlayOptions) {
 	// 1. 缓存命中 → 直接 ServeFile
-	if song.CachePath != "" {
-		if _, err := os.Stat(song.CachePath); err == nil {
-			h.serveCachedFile(w, r, song, song.CachePath, opts)
-			return
-		}
-		h.cacheService.ClearStaleCachePath(song.ID)
-	}
-
-	// fallback: 旧格式缓存（兼容升级过渡）
 	if cachedPath, ok := h.cacheService.FindCachedFileBySong(song); ok {
 		h.serveCachedFile(w, r, song, cachedPath, opts)
 		return

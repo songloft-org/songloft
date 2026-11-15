@@ -10,6 +10,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### CACHE-001: remote cache admission and hits must share source validation
+
+- Scope: external downloads, streamed proxy finalization, remote cache hits and plugin fallback; songloft-org/songloft#570, baseline `6b3f38c923cf15358a1e7156c6290cac9d43b8c2`.
+- Evidence: HTTP 200 plus valid audio does not prove a full song was returned. Real 10-second MP3 files persist through both HTTP 200 and 206 under the old-behavior overlay, while playback also bypasses validation through `song.CachePath`. Restoring the old bypasses fails 13 subcases; healthy-audio controls pass.
+- Rule and Done right: call the existing `source.Validate` at the shared move boundary and validate hits; evict invalid originals and derivatives and clear the database path. Bind memoized technical metadata to file identity, size and mtime; evaluate current thresholds and expected duration on every hit. Cancellation must not invalidate files. Report plugin validation failures to health metrics and start the existing deduplicated fallback. Real SQLite, HTTP, alternate-source persistence and three race-test repetitions pass; see the [verification record](docs/en/issue-570-verification.md).
+- Boundary: background whole-file validation cannot retract an already-streamed initial prompt. Plain URLs have no cross-plugin alternatives; player retries after all sources fail remain separate. macOS/OrbStack arm64, live NetEase sources and Xiaomi speaker: Not run.
+- Seen 1× (2026-11-15). Status: local implementation and validation complete; commit, CI and version availability follow the delivery reply on #570.
+
 ### HLS-001: Cross-origin CDN resources need verifiable proxy authorization
 
 - Scope: HLS radio playlists, child playlists, segments/keys/init resources, and redirects; songloft-org/songloft#567, baseline `6115afb969ff1f4b7ced0fbe39d223350adb9e5c`.

@@ -16,6 +16,7 @@ import (
 
 	"songloft/internal/httputil"
 	"songloft/internal/models"
+	"songloft/internal/services/source"
 )
 
 const (
@@ -71,6 +72,13 @@ type CacheService struct {
 	orchestrator    CacheSongFetcher // 下载编排器(按 song.ID),由 app.go 注入
 	ffmpegPath      atomic.Value     // string；ffmpeg 可执行文件路径,由 app.go 注入（SetFFmpegPath 并发写）
 	transcodeSem    chan struct{}    // 转码串行信号量（默认 size=1），防止并发 ffmpeg 争抢 CPU
+
+	// 入库与命中校验共用元数据探测；仅记忆未变化文件的技术参数。
+	validationExtractor *MetadataExtractor
+	validationMetrics   *source.SourceMetrics
+	onInvalidAudio      func(*models.Song)
+	validationMu        sync.Mutex
+	validatedFiles      map[string]cachedAudioInfo
 	// 缓存落盘转码设置（原子字段）：从 CacheConfig 读取，
 	// NewCacheService/UpdateCacheConfig 时同步。cacheTranscodeFormat 为空表示不转码。
 	cacheTranscodeFormat  atomic.Value // string
