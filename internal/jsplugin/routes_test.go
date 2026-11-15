@@ -1,6 +1,7 @@
 package jsplugin
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,6 +10,32 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestLynxFallbackRealmHeaders(t *testing.T) {
+	pluginsDir, dataDir, repo, _ := setupTestEnv(t)
+	plugin := &JSPlugin{Name: "Lynx", Version: "1.0.0", EntryPath: "lynx", Main: "main.js", RenderEngine: RenderEngineLynx, Status: JSPluginStatusActive, FilePath: "lynx.zip"}
+	if err := repo.Create(context.Background(), plugin); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "index.html"), []byte("<head></head><lynx-view></lynx-view>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manager := NewManager(repo, pluginsDir, dataDir, "", nil, nil)
+	t.Cleanup(func() { manager.Close() })
+	rec := httptest.NewRecorder()
+	if !manager.tryServeStaticFile(rec, httptest.NewRequest(http.MethodGet, "/api/v1/jsplugin/lynx/", nil), root, "index.html", "lynx") {
+		t.Fatal("fallback not served")
+	}
+	if got := rec.Header().Get("Cross-Origin-Embedder-Policy"); got != "" {
+		t.Fatalf("Lynx fallback must allow web-core srcdoc bootstrap, got %q", got)
+	}
+	for _, asset := range []string{"lynx-plugin-bridge-shim.js", "lynx-plugin-bridge-module.js"} {
+		if assetVersions[asset] == "" {
+			t.Fatalf("missing asset version: %s", asset)
+		}
+	}
+}
 
 // TestInjectHTMLHeadAssetVersioning 验证注入的每个公共资源 URL 都带内容哈希版本号（#278）。
 // 若丢失版本号，jsplugin-assets 的 immutable 长缓存会让老浏览器永远拿不到资源更新。

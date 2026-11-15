@@ -256,3 +256,11 @@ Done right: successful example and evidence; pending if unavailable
 Seen N× (YYYY-MM-DD, YYYY-MM-DD)
 Status: lesson / promotion candidate / promoted (authoritative destination)
 ```
+
+
+### LYNX-001: Verify the complete native-plugin Web fallback chain
+
+- Scope: Lynx SDK, generated fallback entry and server assets; parent baseline `4df1e97b3a7874d08d1d74ce799baa9295b512b4`.
+- Evidence (2026-11-15): bili native/Web builds passed while the real Chromium 121 fallback remained blank due to the injected plugin base, relative Worker URLs, a missing bridge module and srcdoc initialization under COEP. An isolated comparison without fallback COEP loaded the bundle and real plugin APIs. See the plugin's `VERIFICATION.md` and `/tmp/songloft-bili-verification/`.
+- Rule / Done right: install the bridge before loading an absolute bundle URL; serve its module through shared assets, retain deployment prefixes and revalidate unversioned bridge files. Verify native frames and HTML fallback separately through rendering, GET/POST and persistence. Ordinary WebView plugins retain COEP; document the Lynx fallback exception and isolated cross-origin embedding limitation.
+- Seen 1× (2026-11-15). Status: working-tree fixes, not committed or published. Flutter devices and authenticated Bilibili import/download remain unverified.

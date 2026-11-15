@@ -1645,3 +1645,10 @@ Async chains detached from `ExecuteJS` (background loops started in `onInit`, wo
 ## Appendix: Complete Example
 
 See the [plugin-toolchain/examples/basic](https://github.com/songloft-org/plugin-toolchain/tree/main/examples/basic) directory for complete example plugin code based on the official toolchain.
+
+
+### Lynx plugin API requests and fallback compatibility
+
+Use `apiGet<T>('/api/...')` and `apiPost<T>(path, body)` from `@songloft/lynx-plugin-sdk`. The `plugin.apiRequest` bridge binds requests to the current frame's plugin. The host handles authentication and server base paths without exposing tokens. GET/POST JSON requests have a 60-second host deadline and a 65-second bridge deadline; failures throw. Absolute URLs, encoded route paths and traversal are rejected. Update the Lynx host or the server-provided Web fallback shim before using these APIs.
+
+Web fallback requires server-side `web-core/` static assets. Its generated entry configures the bridge before loading an absolute bundle URL. Lynx HTML fallback omits COEP to support web-core srcdoc initialization in Chromium 121; ordinary WebView plugins retain `credentialless`. Cross-origin embedding of this HTML fallback from an isolated host is outside this change's supported configurations. Lynx hosts load native/Web bundles directly and do not use this HTML entry.

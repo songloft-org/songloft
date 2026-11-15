@@ -49,8 +49,8 @@ func init() {
 var assetVersions = computeAssetVersions()
 
 func computeAssetVersions() map[string]string {
-	versions := make(map[string]string, 3)
-	for _, name := range []string{"theme.css", "components.css", "common.js"} {
+	versions := make(map[string]string, 5)
+	for _, name := range []string{"theme.css", "components.css", "common.js", "lynx-plugin-bridge-shim.js", "lynx-plugin-bridge-module.js"} {
 		data, err := pluginAssets.ReadFile("assets/" + name)
 		if err != nil {
 			continue
@@ -132,6 +132,9 @@ func handlePluginAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	if (subPath == "lynx-plugin-bridge-shim.js" || subPath == "lynx-plugin-bridge-module.js") && r.URL.Query().Get("v") == "" {
+		w.Header().Set("Cache-Control", "no-cache")
+	}
 
 	seeker, ok := f.(io.ReadSeeker)
 	if !ok {
@@ -525,6 +528,12 @@ func (m *Manager) tryServeStaticFile(w http.ResponseWriter, r *http.Request, sta
 		// Firefox 119+ 支持此响应头；Safari 不支持，启用隔离的 standalone
 		// 宿主在 Safari 下跨源嵌入仍受限（embedded 部署同源，无此问题）。
 		w.Header().Set("Cross-Origin-Embedder-Policy", "credentialless")
+		// Web-core's srcdoc MTS realm does not finish its bootstrap under COEP
+		// in Chromium 121 (the WebView fallback baseline). Native Lynx frames
+		// load bundles directly; only their HTML fallback needs this exception.
+		if plugin, err := m.repo.GetByEntryPath(r.Context(), entryPath); err == nil && plugin.RenderEngine == RenderEngineLynx {
+			w.Header().Del("Cross-Origin-Embedder-Policy")
+		}
 		_, _ = w.Write(content)
 		return true
 	}

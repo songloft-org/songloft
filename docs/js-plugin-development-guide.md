@@ -313,6 +313,11 @@ static/
 
 **回退机制**：不支持 Lynx 的客户端（如 Flutter 版本）会打开 `index.html`，由 web-core 加载 `.web.bundle` 在 WebView 中渲染——功能等价，只是失去原生性能优势。
 
+Lynx 业务请求使用 `@songloft/lynx-plugin-sdk` 的 `apiGet<T>('/api/...')` / `apiPost<T>(path, body)`。SDK 通过 `plugin.apiRequest` 调用当前 frame 的宿主；插件身份、认证和服务器子路径由宿主处理，插件不读取 Token。支持 GET/POST JSON，请求最长 60 秒，桥接等待 65 秒；错误抛出异常。路径仅限当前插件 `/api` 下，禁止绝对 URL、编码路径及路径穿越。需要更新后的 Lynx 宿主，或服务端提供的 Web 回退 shim。
+
+Web 回退需要服务端配置 `web-core/` 静态资源。工具链生成的入口先配置桥接，再以绝对地址加载 bundle。Lynx HTML 回退不发送 COEP 响应头，以兼容 Chromium 121 的 web-core srcdoc 初始化；普通 WebView 插件仍发送 `credentialless`。因此从启用隔离的宿主页跨源嵌入该 HTML 回退不在本次支持范围；Lynx 宿主直接加载原生/Web bundle，不经过该入口。
+
+
 ---
 
 ## 4. 生命周期

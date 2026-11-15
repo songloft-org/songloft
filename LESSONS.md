@@ -245,6 +245,13 @@
 - 规则与 Done right：更新备份格式须核对服务端导出 / 导入、客户端上传前及下载后校验；跨实例标签按名称映射，不能手改版本号。后续按用户要求允许 v1 / v2，旧代码的三项 v2 回归失败，修复后 28 项定向验证通过。实际 Web 下载的 v2 文件跨两个临时后端导入，标签 ID 从 1 映射为 2，歌曲与歌单引用正确；v1 成功，v3 上传前拒绝。证据 `/tmp/songloft-backup-v2/roundtrip.json`，完整检查见子仓库[验证记录](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/project/backup-v2.md)。
 - Seen 1× (2026-11-15)。状态：兼容修复和真实浏览器验证完成，未提交或发布；同次后续验收不增加 Seen。
 
+### LYNX-001：原生插件迁移必须验证完整 Web 回退链路
+
+- 范围：Lynx SDK、工具链生成入口、服务端公共资源；主仓库基线 `4df1e97b3a7874d08d1d74ce799baa9295b512b4`。
+- 证据：2026-11-15 bili 迁移中，原生/Web bundle 构建通过，但真实 Chromium 121 回退页因插件 `<base>`、相对 Worker 地址、缺失桥接模块及 COEP 下 srcdoc 初始化停滞而空白。去除回退页 COEP 的隔离对比能加载 bundle 并执行真实插件 API；记录见插件 `VERIFICATION.md` 与 `/tmp/songloft-bili-verification/`。
+- 规则与 Done right：先安装桥接再加载绝对 bundle 地址；模块由公共资源端点提供，资源路径包含部署子路径，无版本桥接资源不得 immutable 缓存。原生 frame 和 HTML 回退分别验证渲染、真实 GET/POST 与持久化，不能仅依据编译通过。普通 WebView 保留 COEP；Lynx HTML 回退例外及隔离宿主跨源嵌入限制明确写入插件指南。
+- Seen 1× (2026-11-15)。状态：本次工作树修复，未提交/发布；Flutter 真机及真实 B 站账号导入/下载未验。
+
 ## 条目格式
 
 ```text
