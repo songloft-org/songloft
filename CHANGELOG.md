@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [v2.13.11] - 2026-11-16
+### :sparkles: New Features
+- [`b98eb00`](https://github.com/songloft-org/songloft/commit/b98eb00361b3cfcc79353413468c5c72e4773c78) - **jsplugin**: 完善 Lynx 插件回退资源及客户端接入 *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :bug: Bug Fixes
+- [`81849b2`](https://github.com/songloft-org/songloft/commit/81849b28c6649d28c87ebfd7b31a7acb8b253f2a) - **cache**: 统一校验远程音频缓存并淘汰无效文件 *(PR [#570](https://github.com/songloft-org/songloft/pull/570) by [@hanxi](https://github.com/hanxi))*
+- [`e2bfea9`](https://github.com/songloft-org/songloft/commit/e2bfea9b1b2ccce65176f27e9fa0968dbc14acd9) - **library**: 按碟号和音轨号排序专辑歌曲 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`8917470`](https://github.com/songloft-org/songloft/commit/8917470b20028976cb4c5559e3c1d8053bcdca11) - **jsplugin**: 更新 Lynx 宿主并支持直接加载歌曲封面 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`b25b31a`](https://github.com/songloft-org/songloft/commit/b25b31a7b7341ded21041fe086469975bc44b4ba) - **ci**: 固定 Linux Bundle 构建系统基线 *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :memo: Documentation Changes
+- [`06db562`](https://github.com/songloft-org/songloft/commit/06db5629795979014b9f4110d70359a3fff0b4bb) - **release**: 安装说明改为中英文指南链接 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`2326b38`](https://github.com/songloft-org/songloft/commit/2326b38a6ab97b194cc7b7cb1595f49d75bcd32b) - update CHANGELOG for v2.13.10 *(commit by [@github-actions[bot]](https://github.com/apps/github-actions))*
+- [`ebdbdde`](https://github.com/songloft-org/songloft/commit/ebdbddedde6c47dc3ec8919b9be2f4e88815faab) - 同步中英文文档站并更新 Lynx 修复指针 *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :wrench: Chores
+- [`4df1e97`](https://github.com/songloft-org/songloft/commit/4df1e97b3a7874d08d1d74ce799baa9295b512b4) - **deps**: 更新 MIoT 插件 HD 问答修复 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`d5935c4`](https://github.com/songloft-org/songloft/commit/d5935c42d57dce17add89762e5a455a891d39bf0) - **toolchain**: 同步 v2.20.0 及 npm 发布恢复支持 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`6b3f38c`](https://github.com/songloft-org/songloft/commit/6b3f38c923cf15358a1e7156c6290cac9d43b8c2) - **miot**: 同步语音匹配阈值插件 v2026.11.15.1 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`7180df3`](https://github.com/songloft-org/songloft/commit/7180df38176ca7b44c1a7d8cf2b3ec269d35ac7d) - **lynx**: 同步插件状态保留与输入事件修复 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`5e42210`](https://github.com/songloft-org/songloft/commit/5e422105250ee58b0b09ef095076206f32de46d9) - **plugins**: 更新智能音箱 Lynx 版本和 SDK 引用 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`00dbe3c`](https://github.com/songloft-org/songloft/commit/00dbe3c708a3bf194625c554446532fa9e3112ed) - **plugins**: 同步智能音箱节假日数据版本 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`3db91f6`](https://github.com/songloft-org/songloft/commit/3db91f69c1c00eecf04f630ba425df91c6fb5544) - **plugins**: 更新智能音箱交互优化版本 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`2a8c1f8`](https://github.com/songloft-org/songloft/commit/2a8c1f8fdb87803e2fd2322886db82d1c8ce1b10) - **clients**: 同步 Flutter 与 Lynx 客户端发布版本 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`da5d0da`](https://github.com/songloft-org/songloft/commit/da5d0dacac5ed33e15b67094007a5d50f9565712) - release version 2.13.11 *(commit by [@hanxi](https://github.com/hanxi))*
+
+
 ## [v2.13.10] - 2026-11-15
 ### :sparkles: New Features
 - [`f1c4936`](https://github.com/songloft-org/songloft/commit/f1c4936d5a6dda299dd26cc3178beb61d5e71dce) - **navidrome**: 接入独立同步插件并规范自动发布 *(commit by [@hanxi](https://github.com/hanxi))*
@@ -2390,3 +2417,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [v2.13.8]: https://github.com/songloft-org/songloft/compare/v2.13.7...v2.13.8
 [v2.13.9]: https://github.com/songloft-org/songloft/compare/v2.13.8...v2.13.9
 [v2.13.10]: https://github.com/songloft-org/songloft/compare/v2.13.9...v2.13.10
+[v2.13.11]: https://github.com/songloft-org/songloft/compare/v2.13.10...v2.13.11
