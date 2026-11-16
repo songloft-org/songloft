@@ -16,7 +16,8 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 - Evidence: `ubuntu-latest` in the [failed Linux job](https://github.com/songloft-org/songloft/actions/runs/43882625312/job/133353770838) had moved to Ubuntu 26.04. With `libayatana-appindicator3-dev 0.5.94-1build1`, `app_indicator_new` in `tray_manager_plugin.cc:118` failed under `-Werror,-Wdeprecated-declarations`. The previous successful release used Ubuntu 24.04.
 - Rule and Done right: pin both Linux release jobs to `ubuntu-24.04`, preserving the compiler warning policy and distribution compatibility baseline. Fixing only the standalone job leaves Bundle builds exposed to latest-image drift. Only runner selection changes.
 - Validation: actionlint v1.7.12 passed for both workflows; original log `/tmp/songloft-release-2.13.11-20261116/linux-baseline.log`. Actual Linux release builds are checked separately. Not run: desktop installation and tray interaction; runtime code was unchanged.
-- Seen 1× (2026-11-16). Environment drift confirmed; pinned-baseline release acceptance pending.
+- Remote acceptance: the `v2.13.11` [Flutter Linux job](https://github.com/songloft-org/songloft-player/actions/runs/43887627188/job/133369948089) (source `7fc5a04`) and [Linux Bundle job](https://github.com/songloft-org/songloft/actions/runs/43892661200/job/133389054723) (source `da5d0da`) both actually used Ubuntu 24.04 and built successfully. All four standalone tar.gz/DEB/RPM/AppImage packages are present. Both complete stable-release workflows passed; published versions, commit identifiers, and asset inventories were read back successfully. Logs: `/tmp/songloft-release-2.13.11-20261116/{flutter,backend}-linux-fixed.log`.
+- Seen 1× (2026-11-16). Actual pinned-baseline builds and stable publication accepted; desktop installation and tray interaction remain Not run.
 
 ### LYNX-FOCUS-001: scroll-view focus delegation can retarget long-form clicks
 

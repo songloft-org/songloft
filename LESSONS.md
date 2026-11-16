@@ -16,7 +16,8 @@
 - 证据：[失败 Linux job](https://github.com/songloft-org/songloft/actions/runs/43882625312/job/133353770838) 的 `ubuntu-latest` 已切换到 Ubuntu 26.04，安装 `libayatana-appindicator3-dev 0.5.94-1build1` 后，`tray_manager_plugin.cc:118` 的 `app_indicator_new` 因 `-Werror,-Wdeprecated-declarations` 编译失败。此前成功发布使用 Ubuntu 24.04。
 - 规则与 Done right：两个 Linux 发布 job 同时固定 `ubuntu-24.04`，保留现有编译告警策略和发行版兼容基线；不能只修标准版而让 Bundle 继续跟随 latest 漂移。本次仅修改 runner 选择。
 - 验证：actionlint v1.7.12 检查两个工作流通过；原始日志 `/tmp/songloft-release-2.13.11-20261116/linux-baseline.log`。正式版本的实际 Linux 构建另行验收；Not run：桌面安装和托盘交互，运行时代码未修改。
-- Seen 1× (2026-11-16)。状态：环境漂移已确认，固定基线的发布验证待完成。
+- 远端验收：`v2.13.11` 的 [Flutter Linux job](https://github.com/songloft-org/songloft-player/actions/runs/43887627188/job/133369948089)（源码 `7fc5a04`）与 [Linux Bundle job](https://github.com/songloft-org/songloft/actions/runs/43892661200/job/133389054723)（源码 `da5d0da`）均实际使用 Ubuntu 24.04 并成功构建；标准版 tar.gz/DEB/RPM/AppImage 四项产物齐全。两端完整正式发布 CI 通过，版本、提交标识及资产清单回读正确；日志 `/tmp/songloft-release-2.13.11-20261116/{flutter,backend}-linux-fixed.log`。
+- Seen 1× (2026-11-16)。状态：固定基线的实际构建及正式版本发布已验收；桌面实际安装和托盘交互仍 Not run。
 
 ### LYNX-FOCUS-001：scroll-view 委托焦点会改变长表单点击目标
 
