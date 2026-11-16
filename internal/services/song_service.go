@@ -1077,9 +1077,8 @@ func (s *SongService) flushScanBatch(ctx context.Context, batch []scanExtractRes
 				if r.metadata.Style != "" {
 					song.Style = r.metadata.Style
 				}
-				if r.metadata.Track != "" {
-					song.Track = r.metadata.Track
-				}
+				song.Track = r.metadata.Track
+				song.Disc = r.metadata.Disc
 				if shouldApplyScanLyric(song, r.metadata.Lyric) {
 					models.ApplyLyricToSong(song, r.metadata.Lyric, r.metadata.LyricSource)
 				}
@@ -1122,6 +1121,7 @@ func (s *SongService) flushScanBatch(ctx context.Context, batch []scanExtractRes
 					FileSize:   r.fileSize,
 					ISRC:       r.metadata.ISRC,
 					Track:      r.metadata.Track,
+					Disc:       r.metadata.Disc,
 					Year:       r.metadata.Year,
 					Genre:      r.metadata.Genre,
 					Language:   r.metadata.Language,

@@ -60,6 +60,7 @@ func WriteSongTags(filePath string, song *models.Song) FileWriteStatus {
 		Album:       song.Album,
 		Lyrics:      mainLyric,
 		Track:       song.Track,
+		Disc:        song.Disc,
 	}
 
 	if song.Year > 0 {
@@ -138,6 +139,9 @@ func tagsUnchanged(filePath string, opts tag.WriteOptions) bool {
 		return false
 	}
 
+	if opts.Disc != "" && canonicalTrack(m.Disc()) != normalizeTrack(opts.Disc) {
+		return false
+	}
 	fileTrackNum, fileTrackTotal := m.Track()
 	if canonicalTrack(fileTrackNum, fileTrackTotal) != normalizeTrack(opts.Track) {
 		return false

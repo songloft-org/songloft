@@ -7811,10 +7811,11 @@ const docTemplate = `{
                             "file_modified_at",
                             "year",
                             "genre",
-                            "file_size"
+                            "file_size",
+                            "track"
                         ],
                         "type": "string",
-                        "description": "排序字段，缺省 added_at",
+                        "description": "排序字段；指定 album 时缺省 track（碟号、音轨号数字排序），其他情况缺省 added_at；未知轨号排在同碟末尾",
                         "name": "sort",
                         "in": "query"
                     },
@@ -7824,7 +7825,7 @@ const docTemplate = `{
                             "desc"
                         ],
                         "type": "string",
-                        "description": "排序方向，缺省 desc",
+                        "description": "排序方向，track 缺省 asc，其他字段缺省 desc",
                         "name": "order",
                         "in": "query"
                     }
@@ -8227,10 +8228,11 @@ const docTemplate = `{
                             "file_modified_at",
                             "year",
                             "genre",
-                            "file_size"
+                            "file_size",
+                            "track"
                         ],
                         "type": "string",
-                        "description": "排序字段，缺省 added_at",
+                        "description": "排序字段；指定 album 时缺省 track（碟号、音轨号数字排序），其他情况缺省 added_at；未知轨号排在同碟末尾",
                         "name": "sort",
                         "in": "query"
                     },
@@ -8240,7 +8242,7 @@ const docTemplate = `{
                             "desc"
                         ],
                         "type": "string",
-                        "description": "排序方向，缺省 desc",
+                        "description": "排序方向，track 缺省 asc，其他字段缺省 desc",
                         "name": "order",
                         "in": "query"
                     }
@@ -11151,6 +11153,9 @@ const docTemplate = `{
                 "cover_url": {
                     "type": "string"
                 },
+                "disc": {
+                    "type": "string"
+                },
                 "genre": {
                     "type": "string"
                 },
@@ -12448,6 +12453,11 @@ const docTemplate = `{
                 "dedup_key": {
                     "description": "去重 key(由插件定义,典型形态 \"\u003cplatform\u003e:\u003cplatform_id\u003e\");与 PluginEntryPath 组成 UNIQUE",
                     "type": "string"
+                },
+                "disc": {
+                    "description": "碟号，可为 \"1\" 或 \"1/2\"（碟号/总数）",
+                    "type": "string",
+                    "example": "1/2"
                 },
                 "duration": {
                     "description": "播放时长（秒）",

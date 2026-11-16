@@ -411,7 +411,7 @@ func (r *SongRepository) List(ctx context.Context, filter *SongFilter) ([]*model
 	}
 	sb := songSelectBuilder()
 	sb = applySongFilter(sb, filter)
-	sb = applyOrder(sb, filter.OrderBy, filter.Order, "added_at DESC", songOrderWhitelist, "")
+	sb = applySongOrder(sb, filter)
 	sb = applyPagination(sb, filter.Limit, filter.Offset)
 
 	query, args, err := sb.ToSql()
@@ -484,7 +484,7 @@ func (r *SongRepository) ListIDs(ctx context.Context, filter *SongFilter) ([]int
 	}
 	sb := sq.Select("id").From("songs")
 	sb = applySongFilter(sb, filter)
-	sb = applyOrder(sb, filter.OrderBy, filter.Order, "added_at DESC", songOrderWhitelist, "")
+	sb = applySongOrder(sb, filter)
 
 	query, args, err := sb.ToSql()
 	if err != nil {
@@ -638,7 +638,7 @@ func songSelectBuilder() sq.SelectBuilder {
 		"added_at", "updated_at",
 		"year", "genre", "language", "style",
 		"fingerprint", "fingerprint_duration",
-		"isrc", "track",
+		"isrc", "track", "disc",
 		"cue_source_path", "cue_track_index", "cue_audio_path",
 		"file_modified_at", "is_video",
 		"cue_start_seconds", "cue_end_seconds",
@@ -731,7 +731,7 @@ func scanSongRow(scanner interface {
 		&s.AddedAt, &s.UpdatedAt,
 		&s.Year, &s.Genre, &s.Language, &s.Style,
 		&s.Fingerprint, &s.FingerprintDuration,
-		&s.ISRC, &s.Track,
+		&s.ISRC, &s.Track, &s.Disc,
 		&s.CueSourcePath, &s.CueTrackIndex, &s.CueAudioPath,
 		&fileModifiedAt, &isVideo,
 		&s.CueStartSeconds, &s.CueEndSeconds,
@@ -780,6 +780,7 @@ func songRowToModel(row sqlc.Song) *models.Song {
 		FingerprintDuration: row.FingerprintDuration,
 		ISRC:                row.Isrc,
 		Track:               row.Track,
+		Disc:                row.Disc,
 		CueSourcePath:       row.CueSourcePath,
 		CueTrackIndex:       int(row.CueTrackIndex),
 		CueAudioPath:        row.CueAudioPath,
@@ -839,6 +840,7 @@ func songCreateParams(s *models.Song) sqlc.CreateSongParams {
 		FingerprintDuration: s.FingerprintDuration,
 		Isrc:                s.ISRC,
 		Track:               s.Track,
+		Disc:                s.Disc,
 		CueSourcePath:       s.CueSourcePath,
 		CueTrackIndex:       int64(s.CueTrackIndex),
 		CueAudioPath:        s.CueAudioPath,
@@ -879,6 +881,7 @@ func songUpdateParams(s *models.Song) sqlc.UpdateSongParams {
 		FingerprintDuration: s.FingerprintDuration,
 		Isrc:                s.ISRC,
 		Track:               s.Track,
+		Disc:                s.Disc,
 		CueSourcePath:       s.CueSourcePath,
 		CueTrackIndex:       int64(s.CueTrackIndex),
 		CueAudioPath:        s.CueAudioPath,

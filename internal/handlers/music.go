@@ -334,6 +334,9 @@ func parseSongSort(sort, order string) (orderBy, dir string) {
 	dir = order
 	if dir == "" {
 		dir = "DESC"
+		if orderBy == "track" {
+			dir = "ASC"
+		}
 	}
 	return orderBy, dir
 }
@@ -370,8 +373,8 @@ func parseExcludePlaylistLabels(raw string) []string {
 // @Param exclude_playlist_labels query string false "排除属于这些 label 歌单的歌曲(逗号分隔), 默认 hidden; 传 none 显示全部" default(hidden)
 // @Param limit query int false "每页数量" default(20)
 // @Param offset query int false "偏移量" default(0)
-// @Param sort query string false "排序字段，缺省 added_at" Enums(id, title, artist, album, duration, added_at, updated_at, file_modified_at, year, genre, file_size)
-// @Param order query string false "排序方向，缺省 desc" Enums(asc, desc)
+// @Param sort query string false "排序字段；指定 album 时缺省 track（碟号、音轨号数字排序），其他情况缺省 added_at；未知轨号排在同碟末尾" Enums(id, title, artist, album, duration, added_at, updated_at, file_modified_at, year, genre, file_size, track)
+// @Param order query string false "排序方向，track 缺省 asc，其他字段缺省 desc" Enums(asc, desc)
 // @Success 200 {object} map[string]any "成功返回歌曲列表"
 // @Failure 500 {object} map[string]string "服务器错误"
 // @Security BearerAuth
@@ -488,8 +491,8 @@ func (h *SongHandler) ListRandomSongs(w http.ResponseWriter, r *http.Request) {
 // @Param year query int false "按发行年份精确过滤"
 // @Param decade query int false "按年代过滤（起始年，如 1990 匹配 1990-1999）"
 // @Param exclude_playlist_labels query string false "排除属于这些 label 歌单的歌曲(逗号分隔), 默认 hidden; 传 none 显示全部" default(hidden)
-// @Param sort query string false "排序字段，缺省 added_at" Enums(id, title, artist, album, duration, added_at, updated_at, file_modified_at, year, genre, file_size)
-// @Param order query string false "排序方向，缺省 desc" Enums(asc, desc)
+// @Param sort query string false "排序字段；指定 album 时缺省 track（碟号、音轨号数字排序），其他情况缺省 added_at；未知轨号排在同碟末尾" Enums(id, title, artist, album, duration, added_at, updated_at, file_modified_at, year, genre, file_size, track)
+// @Param order query string false "排序方向，track 缺省 asc，其他字段缺省 desc" Enums(asc, desc)
 // @Success 200 {object} map[string]any "成功返回 ID 列表"
 // @Failure 500 {object} map[string]string "服务器错误"
 // @Security BearerAuth
@@ -525,6 +528,9 @@ func applySongTagFilters(filter *database.SongFilter, q url.Values) {
 	filter.Genre = q.Get("genre")
 	filter.Artist = q.Get("artist")
 	filter.Album = q.Get("album")
+	if filter.Album != "" && q.Get("sort") == "" {
+		filter.OrderBy, filter.Order = parseSongSort("track", q.Get("order"))
+	}
 	filter.Language = q.Get("language")
 	filter.Style = q.Get("style")
 	if y, err := strconv.Atoi(q.Get("year")); err == nil && y > 0 {
@@ -2698,6 +2704,7 @@ type WriteSongTagsRequest struct {
 	Language   string `json:"language"`
 	Style      string `json:"style"`
 	Track      string `json:"track"`
+	Disc       string `json:"disc"`
 	Lyrics     string `json:"lyrics"`
 	CoverData  string `json:"cover_data"`
 	CoverURL   string `json:"cover_url"`
@@ -2767,6 +2774,9 @@ func (h *SongHandler) WriteTags(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Track != "" {
 		song.Track = req.Track
+	}
+	if req.Disc != "" {
+		song.Disc = req.Disc
 	}
 	if req.Lyrics != "" {
 		song.Lyric = models.LyricPayloadFromLRC(req.Lyrics).MarshalString()

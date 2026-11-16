@@ -106,6 +106,7 @@ type Song struct {
 	FingerprintDuration float64 `json:"fingerprint_duration,omitempty"`                    // 指纹对应音频时长
 	ISRC                string  `json:"isrc,omitempty"`                                    // ISRC(国际标准录音编码)
 	Track               string  `json:"track,omitempty" example:"3/12"`                    // 音轨号，可为 "3" 或 "3/12"（轨号/总数）
+	Disc                string  `json:"disc,omitempty" example:"1/2"`                      // 碟号，可为 "1" 或 "1/2"（碟号/总数）
 	CueSourcePath       string  `json:"cue_source_path,omitempty"`                         // CUE 来源路径（非空表示 CUE 拆分歌曲）
 	CueTrackIndex       int     `json:"cue_track_index,omitempty"`                         // CUE track 序号 (1-99)
 	CueAudioPath        string  `json:"-"`                                                 // 原始整轨音频路径（内部使用）

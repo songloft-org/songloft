@@ -239,6 +239,9 @@ func (s *SongService) processCueSheet(ctx context.Context, cueSourcePath string,
 		if track.Year != "" {
 			song.Year, _ = strconv.Atoi(track.Year)
 		}
+		if md := metaCache[track.AudioFilePath]; md != nil {
+			song.Disc = md.Disc
+		}
 		songs = append(songs, song)
 	}
 

@@ -111,11 +111,11 @@ INSERT INTO songs (
     plugin_entry_path, source_data, dedup_key,
     year, genre, language, style,
     fingerprint, fingerprint_duration,
-    isrc, track,
+    isrc, track, disc,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, is_video,
     cue_start_seconds, cue_end_seconds
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateSongParams struct {
@@ -147,6 +147,7 @@ type CreateSongParams struct {
 	FingerprintDuration float64
 	Isrc                string
 	Track               string
+	Disc                string
 	CueSourcePath       string
 	CueTrackIndex       int64
 	CueAudioPath        string
@@ -186,6 +187,7 @@ func (q *Queries) CreateSong(ctx context.Context, arg CreateSongParams) (int64, 
 		arg.FingerprintDuration,
 		arg.Isrc,
 		arg.Track,
+		arg.Disc,
 		arg.CueSourcePath,
 		arg.CueTrackIndex,
 		arg.CueAudioPath,
@@ -252,7 +254,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error
+    fingerprint_error, disc
 FROM songs WHERE id = ?
 `
 
@@ -301,6 +303,7 @@ func (q *Queries) GetSongByID(ctx context.Context, id int64) (Song, error) {
 		&i.CueEndSeconds,
 		&i.FingerprintAttemptedAt,
 		&i.FingerprintError,
+		&i.Disc,
 	)
 	return i, err
 }
@@ -794,7 +797,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error
+    fingerprint_error, disc
 FROM songs WHERE cache_path != ''
 `
 
@@ -849,6 +852,7 @@ func (q *Queries) ListSongsWithCache(ctx context.Context) ([]Song, error) {
 			&i.CueEndSeconds,
 			&i.FingerprintAttemptedAt,
 			&i.FingerprintError,
+			&i.Disc,
 		); err != nil {
 			return nil, err
 		}
@@ -971,7 +975,7 @@ UPDATE songs SET
     plugin_entry_path = ?, source_data = ?, dedup_key = ?,
     year = ?, genre = ?, language = ?, style = ?,
     fingerprint = ?, fingerprint_duration = ?,
-    isrc = ?, track = ?,
+    isrc = ?, track = ?, disc = ?,
     cue_source_path = ?, cue_track_index = ?, cue_audio_path = ?,
     file_modified_at = ?, is_video = ?,
     cue_start_seconds = ?, cue_end_seconds = ?
@@ -1007,6 +1011,7 @@ type UpdateSongParams struct {
 	FingerprintDuration float64
 	Isrc                string
 	Track               string
+	Disc                string
 	CueSourcePath       string
 	CueTrackIndex       int64
 	CueAudioPath        string
@@ -1047,6 +1052,7 @@ func (q *Queries) UpdateSong(ctx context.Context, arg UpdateSongParams) (int64, 
 		arg.FingerprintDuration,
 		arg.Isrc,
 		arg.Track,
+		arg.Disc,
 		arg.CueSourcePath,
 		arg.CueTrackIndex,
 		arg.CueAudioPath,

@@ -10,6 +10,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### ALBUM-001: Interpret track/disc order consistently before pagination
+
+- Scope: album lists, ID queues, scanning and tag contracts; songloft-org/songloft#571, baseline `7180df38176ca7b44c1a7d8cf2b3ec269d35ac7d`.
+- Evidence: HTTP defaulted to addition time and Lynx explicitly requested that sort; storing a track number does not make queries sort by it. Restoring the old sorting mechanism fails numeric 1/2/10, multi-disc, pagination and ID regressions.
+- Rule / done right: complete-song and ID queries share numeric disc/track ordering before LIMIT/OFFSET; inspect explicit client parameters and queue-completion requests. Migration only adds the field; existing disc tags require reimport. Tag rewriting preserves disc values omitted by older callers. Real SQLite, six-format tags, scanning/reimport and browser list/playback queue evidence: [verification](docs/en/issue-571-verification.md).
+- Seen 1× (2026-11-16). Status: implementation and local verification complete; final commits, pushes and CI are in the #571 delivery reply. No stable release or device acceptance.
+
 ### CACHE-001: remote cache admission and hits must share source validation
 
 - Scope: external downloads, streamed proxy finalization, remote cache hits and plugin fallback; songloft-org/songloft#570, baseline `6b3f38c923cf15358a1e7156c6290cac9d43b8c2`.

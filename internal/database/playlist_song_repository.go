@@ -120,7 +120,7 @@ func (r *PlaylistSongRepository) GetSongsFiltered(ctx context.Context, playlistI
 		"s.added_at", "s.updated_at",
 		"s.year", "s.genre", "s.language", "s.style",
 		"s.fingerprint", "s.fingerprint_duration",
-		"s.isrc", "s.track",
+		"s.isrc", "s.track", "s.disc",
 		"s.cue_source_path", "s.cue_track_index", "s.cue_audio_path",
 		"s.file_modified_at", "s.is_video",
 		"s.cue_start_seconds", "s.cue_end_seconds",

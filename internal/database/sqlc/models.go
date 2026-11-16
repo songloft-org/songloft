@@ -166,6 +166,7 @@ type Song struct {
 	CueEndSeconds          float64
 	FingerprintAttemptedAt int64
 	FingerprintError       string
+	Disc                   string
 }
 
 type SongArtist struct {

@@ -69,6 +69,7 @@ type Metadata struct {
 	CoverExt     string   // 封面图片扩展名
 	ISRC         string   // ISRC（国际标准录音编码）
 	Track        string   // 音轨号（"3" 或 "3/12"）
+	Disc         string   // 碟号（"1" 或 "1/2"）
 	Year         int      // 发行年份
 	Genre        string   // 流派
 	Language     string   // 语种
@@ -261,6 +262,7 @@ func (m *MetadataExtractor) Extract(ctx context.Context, filePath string) (*Meta
 			}
 
 			metadata.ISRC = extractISRC(tagMeta.Raw())
+			metadata.Disc = canonicalTrack(tagMeta.Disc())
 			if num, total := tagMeta.Track(); num > 0 {
 				if total > 0 {
 					metadata.Track = strconv.Itoa(num) + "/" + strconv.Itoa(total)

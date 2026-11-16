@@ -433,6 +433,7 @@ func (h *SongTagHandler) syncTagsToFile(songID int64) {
 		Language:   song.Language,
 		Style:      song.Style,
 		Track:      song.Track,
+		Disc:       song.Disc,
 		CustomTags: map[string]string{"SONGLOFT_TAGS": tagsValue},
 	}
 	if song.Year > 0 {

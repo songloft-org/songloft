@@ -56,6 +56,7 @@ func TestTagsUnchanged_IdenticalTags(t *testing.T) {
 		Lyrics:      m.Lyrics(),
 		Year:        m.Year(),
 		Track:       trackFromMeta(m),
+		Disc:        canonicalTrack(m.Disc()),
 	}
 	if pic := m.Picture(); pic != nil {
 		opts.Picture = pic
