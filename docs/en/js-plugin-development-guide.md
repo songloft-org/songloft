@@ -300,6 +300,8 @@ Prerequisites for declaring `lynx`:
 - Install `@songloft/lynx-plugin-sdk` as the host communication SDK (replaces `@songloft/client-sdk` used in WebView)
 - Set `"staticHash": false` in `plugin.json` (prevents bundle files from being renamed)
 
+The server compresses full GET `.bundle` responses according to the client's `Accept-Encoding`, reducing first-load transfer size. Range responses and HEAD preserve original byte lengths; conditional caching still returns 304. Plugins should render the page shell before asynchronously loading configuration and business data so the first view does not wait for the network.
+
 Build output structure:
 
 ```
@@ -312,6 +314,16 @@ static/
 **Host communication**: Lynx plugins do NOT use `window.SongloftPlugin` / `@songloft/client-sdk` (those are WebView-only). Instead, use `@songloft/lynx-plugin-sdk`'s `invokeHost` / `onPlayerState` / `onThemeChange` APIs, which communicate via the `NativeModules.SongloftPluginBridge` native bridge.
 
 **Fallback mechanism**: Clients that don't support Lynx (e.g. Flutter-based builds) open `index.html`, which bootstraps web-core to load `.web.bundle` in a WebView — functionally equivalent, just without native performance benefits.
+
+
+Use `apiGet<T>('/api/...')` `apiPost<T>(path, body)`, `apiPut<T>(path, body)` and `apiDelete<T>(path)` from `@songloft/lynx-plugin-sdk`. The `plugin.apiRequest` bridge binds requests to the current frame's plugin. The host handles authentication and server base paths without exposing tokens. GET/POST/PUT/DELETE JSON requests have a 60-second host deadline and a 65-second bridge deadline; failures throw. Absolute URLs, encoded route paths and traversal are rejected. Update the Lynx host or the server-provided Web fallback shim before using these APIs.
+
+`PluginSocket('/status/ws?...')` opens a text socket scoped to the current plugin, exposing `readyState`, `onopen/onmessage/onerror/onclose`, `send` and `close`. The host constructs the authenticated URL, limits each frame to eight sockets and cleans them up when released. Plugins supply relative paths, never server URLs or Tokens. Events use `pluginSocket` (`{id,type,data?}`); business routes must preserve consistent HTTP/WS prefixes. Close business connections while hidden and reconcile state on resume.
+
+Complex plugins implement layered back handling through `plugin.navigationState` / `plugin.navigationResult` and `navigationBack` pushes. Preserve session and request ids; stale replies must not consume a new page's back event. External links use `plugin.openUrl` (HTTP/HTTPS only); song covers use `plugin.resourceUrl` (host song-cover endpoints only). These capabilities need the matching updated host; do not substitute handwritten global APIs for the SDK.
+
+
+Web fallback requires server-side `web-core/` static assets. Its generated entry configures the bridge before loading an absolute bundle URL. Lynx HTML fallback omits COEP to support web-core srcdoc initialization in Chromium 121; ordinary WebView plugins retain `credentialless`. Cross-origin embedding of this HTML fallback from an isolated host is outside this change's supported configurations. Lynx hosts load native/Web bundles directly and do not use this HTML entry.
 
 ---
 
@@ -1645,10 +1657,3 @@ Async chains detached from `ExecuteJS` (background loops started in `onInit`, wo
 ## Appendix: Complete Example
 
 See the [plugin-toolchain/examples/basic](https://github.com/songloft-org/plugin-toolchain/tree/main/examples/basic) directory for complete example plugin code based on the official toolchain.
-
-
-### Lynx plugin API requests and fallback compatibility
-
-Use `apiGet<T>('/api/...')` and `apiPost<T>(path, body)` from `@songloft/lynx-plugin-sdk`. The `plugin.apiRequest` bridge binds requests to the current frame's plugin. The host handles authentication and server base paths without exposing tokens. GET/POST JSON requests have a 60-second host deadline and a 65-second bridge deadline; failures throw. Absolute URLs, encoded route paths and traversal are rejected. Update the Lynx host or the server-provided Web fallback shim before using these APIs.
-
-Web fallback requires server-side `web-core/` static assets. Its generated entry configures the bridge before loading an absolute bundle URL. Lynx HTML fallback omits COEP to support web-core srcdoc initialization in Chromium 121; ordinary WebView plugins retain `credentialless`. Cross-origin embedding of this HTML fallback from an isolated host is outside this change's supported configurations. Lynx hosts load native/Web bundles directly and do not use this HTML entry.

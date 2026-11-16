@@ -300,6 +300,8 @@ static/              # 静态资源目录（可选）
 - 安装 `@songloft/lynx-plugin-sdk` 作为宿主通信 SDK（替代 WebView 下的 `@songloft/client-sdk`）
 - `plugin.json` 中设置 `"staticHash": false`（防止 bundle 文件被重命名）
 
+服务端对完整 GET 的 `.bundle` 响应按客户端 `Accept-Encoding` 启用压缩，降低首次加载传输量；Range 响应和 HEAD 保持原始字节长度，条件缓存仍返回 304。插件应先显示页面框架，再异步加载配置与业务数据，避免首屏等待网络。
+
 构建产物结构：
 
 ```
@@ -313,7 +315,12 @@ static/
 
 **回退机制**：不支持 Lynx 的客户端（如 Flutter 版本）会打开 `index.html`，由 web-core 加载 `.web.bundle` 在 WebView 中渲染——功能等价，只是失去原生性能优势。
 
-Lynx 业务请求使用 `@songloft/lynx-plugin-sdk` 的 `apiGet<T>('/api/...')` / `apiPost<T>(path, body)`。SDK 通过 `plugin.apiRequest` 调用当前 frame 的宿主；插件身份、认证和服务器子路径由宿主处理，插件不读取 Token。支持 GET/POST JSON，请求最长 60 秒，桥接等待 65 秒；错误抛出异常。路径仅限当前插件 `/api` 下，禁止绝对 URL、编码路径及路径穿越。需要更新后的 Lynx 宿主，或服务端提供的 Web 回退 shim。
+Lynx 业务请求使用 `@songloft/lynx-plugin-sdk` 的 `apiGet<T>('/api/...')` / `apiPost<T>(path, body)` / `apiPut<T>(path, body)` / `apiDelete<T>(path)`。SDK 通过 `plugin.apiRequest` 调用当前 frame 的宿主；插件身份、认证和服务器子路径由宿主处理，插件不读取 Token。支持 GET/POST/PUT/DELETE JSON，请求最长 60 秒，桥接等待 65 秒；错误抛出异常。路径仅限当前插件 `/api` 下，禁止绝对 URL、编码路径及路径穿越。需要更新后的 Lynx 宿主，或服务端提供的 Web 回退 shim。
+
+
+`PluginSocket('/status/ws?...')` 提供当前插件内的文本 WebSocket，具有 `readyState`、`onopen/onmessage/onerror/onclose`、`send` 和 `close`。宿主构造认证 URL、限制每 frame 八条连接并在释放 frame 时清理；插件只能传相对路径，不能传服务器或 Token。推送事件为 `pluginSocket`（`{id,type,data?}`），HTTP/WS 前缀由业务路由保持一致。切后台应关闭业务连接，恢复后重新核对状态。
+
+复杂插件通过 `plugin.navigationState` / `plugin.navigationResult` 与 `navigationBack` 推送实现逐层返回；会话标识和请求 id 必须原样关联，过期响应不消费新页面的返回。外链走 `plugin.openUrl`（仅 HTTP/HTTPS）；歌曲封面走 `plugin.resourceUrl`（仅宿主歌曲封面端点）。这些能力要求配套新版宿主，不能用自定义全局对象替代 SDK。
 
 Web 回退需要服务端配置 `web-core/` 静态资源。工具链生成的入口先配置桥接，再以绝对地址加载 bundle。Lynx HTML 回退不发送 COEP 响应头，以兼容 Chromium 121 的 web-core srcdoc 初始化；普通 WebView 插件仍发送 `credentialless`。因此从启用隔离的宿主页跨源嵌入该 HTML 回退不在本次支持范围；Lynx 宿主直接加载原生/Web bundle，不经过该入口。
 

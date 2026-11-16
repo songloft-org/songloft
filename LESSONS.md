@@ -10,6 +10,14 @@
 
 ## 条目
 
+### LYNX-FOCUS-001：scroll-view 委托焦点会改变长表单点击目标
+
+- 范围：公共 Lynx HTML 回退与 Lynx Web 嵌套插件，基线 `e2bfea9b1b2ccce65176f27e9fa0968dbc14acd9` 加工作树。
+- 证据：真实浏览器 pointerdown 命中高级设置后，scroll-view 的 delegatesFocus 将焦点转移到首个密码框，滚动归零，mouseup/click 变成祖先；仅等待或修业务 blur 无效。去除宿主 guard 的隔离反向检查使新增用例失败。
+- 规则与 Done right：宿主对非文本控件的鼠标按下阻止默认委托焦点，并 blur 当前输入；保留输入路径本身的默认编辑行为。服务端 shim 与客户端同名副本同步，实际嵌套 frame 和回退均操作长表单。证据见 miot `docs/lynx-migration.md`；3 项 shim 回归通过，原生触摸验收仍是 Not run。
+- 同日封面复核：用户 Docker 的旧桥接没有 resourceUrl；相同实际歌单 30 行封面全部为空。新增宿主能力后按授权提交主程序，保留图片直接请求，避免插件后端 Base64 兼容造成额外开销。UI 和插件源码更新不能替代宿主更新，验证必须记录实际运行的宿主版本。
+- Seen 1× (2026-11-16)。本轮按用户明确授权提交主程序；发布和设备边界见交付记录。
+
 ### ALBUM-001：专辑顺序必须在分页前统一解释音轨与碟号
 
 - 范围：专辑列表、ID 队列、扫描及标签契约；songloft-org/songloft#571，基线 `7180df38176ca7b44c1a7d8cf2b3ec269d35ac7d`。

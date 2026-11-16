@@ -10,6 +10,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### LYNX-FOCUS-001: scroll-view focus delegation can retarget long-form clicks
+
+- Scope: shared Lynx HTML fallback and nested Web plugin frames, baseline `e2bfea9b1b2ccce65176f27e9fa0968dbc14acd9` plus worktree.
+- Evidence: pointerdown hit the advanced heading, then scroll-view delegatesFocus selected its first password input and reset scroll; mouseup/click hit an ancestor. Waiting or changing domain blur did not fix it. Removing the host guard caused the new regression to fail in an isolated negative check.
+- Rule and Done right: prevent default delegated focus for non-editor mouse presses and blur the current editor; preserve native editor input paths. Synchronize both server/client shim copies and exercise long forms in actual nested frames and fallback. Evidence: miot `docs/en/lynx-migration.md`; all three shim checks pass. Native touch acceptance remains Not run.
+- Same-day cover check: the user’s older Docker bridge lacks resourceUrl, leaving all 30 rendered rows without covers. The host update is committed with explicit authorization and retains direct image requests instead of a slower backend/Base64 compatibility relay. UI/plugin source updates cannot replace host updates; record the host actually running in verification.
+- Seen 1× (2026-11-16). Host commits explicitly authorized in this round; release/device boundaries are in delivery records.
+
 ### ALBUM-001: Interpret track/disc order consistently before pagination
 
 - Scope: album lists, ID queues, scanning and tag contracts; songloft-org/songloft#571, baseline `7180df38176ca7b44c1a7d8cf2b3ec269d35ac7d`.

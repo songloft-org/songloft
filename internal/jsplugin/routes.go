@@ -21,6 +21,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 
 	"songloft/internal/services"
 )
@@ -29,6 +30,9 @@ import (
 var pluginAssets embed.FS
 
 const maxPluginBodySize = 50 << 20 // 50MB，对齐 multipart 上传需求
+
+// Compress complete Lynx bundles without changing media or range responses.
+var compressLynxBundle = chiMiddleware.Compress(5, "application/octet-stream")
 
 func init() {
 	// GENA uses extension methods. Register before any chi router is built;
@@ -540,6 +544,13 @@ func (m *Manager) tryServeStaticFile(w http.ResponseWriter, r *http.Request, sta
 
 	// 其他静态资源：强缓存
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	if strings.HasSuffix(lower, ".bundle") && r.Method == http.MethodGet && r.Header.Get("Range") == "" {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		compressLynxBundle(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, absFile)
+		})).ServeHTTP(w, r)
+		return true
+	}
 	http.ServeFile(w, r, absFile)
 	return true
 }
