@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -362,6 +363,9 @@ func (a *App) Init() error {
 	}
 	jsPluginRepo := a.db.JSPluginRepository()
 	a.jsPluginManager = jsplugin.NewManager(jsPluginRepo, jsPluginsDir, jsPluginsDataDir, a.config.BasePath, a.router, a.db)
+	if runtimeFS, err := fs.Sub(a.webDist, webEmbedRoot+"/web-core"); err == nil {
+		a.jsPluginManager.SetWebCoreFS(runtimeFS)
+	}
 	a.jsPluginManager.SetAuthService(a.authService, a.config.Port)
 
 	// 注入歌词提供者探测钩子：让 models.LyricURLPath 在存在歌词插件时,

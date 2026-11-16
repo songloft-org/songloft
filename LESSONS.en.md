@@ -10,6 +10,15 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### LYNX-FALLBACK-001: Connect WebView fallback routes to the distributed runtime
+
+- Scope: the shared HTML fallback used when Flutter opens Lynx plugins. Parent baseline `39cc87db2a1b92f0be2d96741dc3a1178a1ea7c3`; Flutter baseline `7fc5a04e4c65dfe54b0df299671bbecd2b4f8478`.
+- Evidence: the existing Docker instance returned 404 for `/api/v1/jsplugin-assets/web-core/static/js/client.js`, while embedded `/web-core/static/js/client.js` returned 200. The old route only searched standalone disk directories. An isolated fallback page on Android 14/API 34 x86_64 with system WebView 113.0.5672.136 reproduced the blank screen and undefined `lynx-view`. Reusing embedded assets made the official miot 2026.11.16.2 package display device, playlist, and settings controls and issue business API requests.
+- Rule and Done right: inject the embedded web-core FS into the plugin manager during application assembly, then serve JS/CSS/WASM through plugin asset routes. Preserve complete disk overrides without mixing runtime versions. Fixed filenames use `no-cache`, rather than a year of immutable caching across upgrades. A development environment with a manually copied web-core does not prove the released image works.
+- Validation: `make check`, Swagger generation, and resource/path/MIME regressions passed. An isolated disk-only implementation made all four resource cases fail with 404 and restored the blank Android page. Evidence: `/tmp/songloft-flutter-lynx-20261117/`, including `check.log`, `assets-before.log`, `webview-{before,inspect-final}.log`, `before-webview.png`, and `android-webview.png`. Final worktree identity: `worktree-final.json`.
+- Boundaries: system WebView screenshots use a minimal Android host; an actual ADB tap opened settings (`android-settings.png`). The full Flutter debug build was deliberately stopped during Gradle dependency resolution without producing an APK (`flutter-debug-build.log`). Full Flutter package interaction, physical phones, speaker audio, and iOS/macOS/Windows are Not run. Lite and older builds embedding Flutter still require a standalone web-core directory. The user's Docker was not replaced. Commit, push, and CI for the same SHA are checked separately; stable releases and deployment require separate acceptance.
+- Seen 1× (2026-11-17). Server fix and system WebView comparison verified.
+
 ### CI-004: Pin the build-system baseline for Flutter Linux releases
 
 - Scope: standalone Flutter Linux and backend Linux Bundle jobs; parent baseline `3db91f69c1c00eecf04f630ba425df91c6fb5544`, Flutter `cebc894cde359a0d366c23d9a3acc75ade7832f2`.

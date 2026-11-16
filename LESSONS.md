@@ -10,6 +10,15 @@
 
 ## 条目
 
+### LYNX-FALLBACK-001：WebView 回退路由必须连接实际分发的运行时
+
+- 范围：Flutter 打开 Lynx 插件的公共 HTML 回退，主仓库基线 `39cc87db2a1b92f0be2d96741dc3a1178a1ea7c3`，Flutter 基线 `7fc5a04e4c65dfe54b0df299671bbecd2b4f8478`。
+- 证据：现有 Docker 的 `/api/v1/jsplugin-assets/web-core/static/js/client.js` 返回 404，而内嵌 `/web-core/static/js/client.js` 返回 200；旧路由只查独立磁盘目录。Android 14/API 34 x86_64、系统 WebView 113.0.5672.136 的隔离回退页复现白屏，`lynx-view` 未定义；复用内嵌资源后，miot 2026.11.16.2 正式包显示设备、歌单和设置入口并发起业务 API 请求。
+- 规则与 Done right：在应用装配时向插件管理器注入内嵌 web-core FS，插件公共路由直接提供 JS/CSS/WASM；保留磁盘整套覆盖，不混用不同版本文件。固定名称文件使用 `no-cache`，不能因运行时升级仍缓存一年。开发环境手工放过 web-core 的成功不能代表正式镜像可用。
+- 验证：`make check`、Swagger 生成、资源/路径/MIME 回归通过；隔离恢复仅磁盘读取时四项资源用例均因 404 失败，安卓页面同时恢复白屏。证据 `/tmp/songloft-flutter-lynx-20261117/`：`check.log`、`assets-before.log`、`webview-{before,inspect-final}.log`、`before-webview.png`、`android-webview.png`；最终工作树标识见 `worktree-final.json`。
+- 边界：系统 WebView 截图来自最小 Android 宿主，ADB 实际点击可进入设置（`android-settings.png`）。完整 Flutter debug 构建在 Gradle 依赖解析期间主动停止，未产出 APK（`flutter-debug-build.log`）；完整 Flutter 包交互、真实手机、音箱发声、iOS/macOS/Windows 为 Not run。lite 或旧 Flutter 嵌入构建仍需独立 web-core 目录。未替换用户 Docker；提交、推送与同 SHA CI 另行核对，正式版本及部署另行验收。
+- Seen 1× (2026-11-17)。状态：服务端修复及系统 WebView 对照验证完成。
+
 ### CI-004：Flutter Linux 发布必须固定构建系统基线
 
 - 范围：标准 Flutter Linux 与后端 Linux Bundle；主仓库基线 `3db91f69c1c00eecf04f630ba425df91c6fb5544`，Flutter `cebc894cde359a0d366c23d9a3acc75ade7832f2`。

@@ -9,7 +9,56 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"testing/fstest"
+
+	"github.com/go-chi/chi/v5"
 )
+
+func TestWebCoreAssets(t *testing.T) {
+	// 模拟正式镜像：有内嵌 Web 前端，没有独立 web-core 磁盘目录。
+	t.Chdir(t.TempDir())
+	_, _, repo, _ := setupTestEnv(t)
+	manager := NewManager(repo, t.TempDir(), t.TempDir(), "", nil, nil)
+	t.Cleanup(func() { manager.Close() })
+	runtimeFS := fstest.MapFS{
+		"static/js/client.js":                    {Data: []byte("export const runtime = 'embedded';")},
+		"static/js/async/web-core-main-chunk.js": {Data: []byte("export const main = true;")},
+		"static/css/client.css":                  {Data: []byte("lynx-view{display:block}")},
+		"static/wasm/runtime.module.wasm":        {Data: []byte{'\x00', 'a', 's', 'm', 1, 0, 0, 0}},
+	}
+	manager.SetWebCoreFS(runtimeFS)
+	router := chi.NewRouter()
+	manager.RegisterStaticRoutes(router)
+	const prefix = "/api/v1/jsplugin-assets/web-core/"
+	for file, want := range runtimeFS {
+		t.Run(file, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, prefix+file, nil))
+			if rec.Code != http.StatusOK || rec.Body.String() != string(want.Data) {
+				t.Fatalf("runtime asset = %d %q, want 200 %q", rec.Code, rec.Body.String(), want.Data)
+			}
+			if got := rec.Header().Get("Cache-Control"); got != "no-cache" {
+				t.Fatalf("fixed runtime filename must revalidate after upgrade, got %q", got)
+			}
+			if strings.HasSuffix(file, ".wasm") && rec.Header().Get("Content-Type") != "application/wasm" {
+				t.Fatalf("WASM MIME = %q", rec.Header().Get("Content-Type"))
+			}
+		})
+	}
+	for _, file := range []string{"", "static/js/missing.js", "static/js", "../secret", "static/../../../secret"} {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, prefix+file, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("invalid/missing asset %q = %d, want 404", file, rec.Code)
+		}
+	}
+	manager.SetWebCoreFS(nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, prefix+"static/js/client.js", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("lite without runtime = %d, want 404", rec.Code)
+	}
+}
 
 func TestLynxFallbackRealmHeaders(t *testing.T) {
 	pluginsDir, dataDir, repo, _ := setupTestEnv(t)

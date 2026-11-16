@@ -97,7 +97,7 @@ func (m *Manager) RegisterStaticRoutes(r chi.Router) {
 	r.Get("/api/v1/jsplugin/{entryPath}/", m.handlePluginStatic)
 	r.Get("/api/v1/jsplugin/{entryPath}/static", m.handlePluginStaticSubdir)
 	r.Get("/api/v1/jsplugin/{entryPath}/static/*", m.handlePluginStaticSubdirFiles)
-	r.Get("/api/v1/jsplugin-assets/web-core/*", handleWebCoreAssets)
+	r.Get("/api/v1/jsplugin-assets/web-core/*", m.handleWebCoreAssets)
 	r.Get("/api/v1/jsplugin-assets/*", handlePluginAssets)
 
 	// publicPaths：为声明了 publicPaths 的插件注册无需 JWT 的路由
@@ -180,45 +180,54 @@ func resolveWebCoreDir() string {
 }
 
 // handleWebCoreAssets 服务 @lynx-js/web-core 的静态资源（Lynx 插件在 Flutter
-// WebView 中渲染时需要）。资源从磁盘目录读取（不嵌入二进制，约 620KB）。
+// WebView 中渲染时需要）。优先使用磁盘目录，否则复用完整版内嵌的运行时。
 //
 // @Summary     Web-core 静态资源
-// @Description 服务 Lynx 渲染引擎的 Web 端运行时（CSS/JS/WASM），供声明 renderEngine=lynx 的插件在系统 WebView 中使用。
+// @Description 服务 Lynx 渲染引擎的 Web 端运行时（CSS/JS/WASM），供声明 renderEngine=lynx 的插件在系统 WebView 中使用。优先读取磁盘 web-core 目录，否则读取完整版内嵌资源；两者均无对应文件时返回 404。
 // @Tags        JS 插件
 // @Produce     octet-stream
 // @Param       * path string true "资源路径（如 static/js/client.js）"
 // @Success     200 "资源文件"
-// @Failure     404 {object} map[string]string "资源不存在或 web-core 目录未配置"
+// @Failure     404 {object} map[string]string "资源不存在或未提供 Web 运行时"
 // @Router      /jsplugin-assets/web-core/{path} [get]
-func handleWebCoreAssets(w http.ResponseWriter, r *http.Request) {
-	dir := resolveWebCoreDir()
-	if dir == "" {
-		http.NotFound(w, r)
-		return
-	}
-
+func (m *Manager) handleWebCoreAssets(w http.ResponseWriter, r *http.Request) {
 	subPath := chi.URLParam(r, "*")
-	if subPath == "" {
+	if !fs.ValidPath(subPath) {
 		http.NotFound(w, r)
 		return
 	}
-
-	// 安全：防止路径遍历
-	clean := filepath.Clean(subPath)
-	if strings.Contains(clean, "..") {
+	runtimeFS := m.webCoreFS
+	// 旧部署可继续覆盖整套运行时，避免混用不同版本的 JS/WASM。
+	if dir := resolveWebCoreDir(); dir != "" {
+		runtimeFS = os.DirFS(dir)
+	}
+	if runtimeFS == nil {
 		http.NotFound(w, r)
 		return
 	}
-
-	filePath := filepath.Join(dir, clean)
-	info, err := os.Stat(filePath)
+	f, err := runtimeFS.Open(subPath)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+	info, err := f.Stat()
 	if err != nil || info.IsDir() {
 		http.NotFound(w, r)
 		return
 	}
-
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	http.ServeFile(w, r, filePath)
+	seeker, ok := f.(io.ReadSeeker)
+	if !ok {
+		data, err := fs.ReadFile(runtimeFS, subPath)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		seeker = bytes.NewReader(data)
+	}
+	// client.js 等固定文件名会随宿主升级变化，不能 immutable 缓存一年。
+	w.Header().Set("Cache-Control", "no-cache")
+	http.ServeContent(w, r, info.Name(), info.ModTime(), seeker)
 }
 
 // RegisterAPIRoutes 注册 JS 插件 API 转发路由（需要认证，由调用方添加 AuthMiddleware）

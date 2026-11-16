@@ -1009,7 +1009,7 @@
         },
         "/jsplugin-assets/web-core/{path}": {
             "get": {
-                "description": "服务 Lynx 渲染引擎的 Web 端运行时（CSS/JS/WASM），供声明 renderEngine=lynx 的插件在系统 WebView 中使用。",
+                "description": "服务 Lynx 渲染引擎的 Web 端运行时（CSS/JS/WASM），供声明 renderEngine=lynx 的插件在系统 WebView 中使用。优先读取磁盘 web-core 目录，否则读取完整版内嵌资源；两者均无对应文件时返回 404。",
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -1031,7 +1031,7 @@
                         "description": "资源文件"
                     },
                     "404": {
-                        "description": "资源不存在或 web-core 目录未配置",
+                        "description": "资源不存在或未提供 Web 运行时",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {

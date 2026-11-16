@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -46,6 +47,7 @@ type Manager struct {
 	pluginsDir        string   // data/jsplugins/
 	pluginsDataDir    string   // data/jsplugins_data/
 	basePath          string   // URL 基础路径，用于反向代理子路径部署
+	webCoreFS         fs.FS    // 完整版内嵌的 Lynx Web 运行时，供 Flutter WebView 回退使用
 	router            chi.Router
 	db                database.DB                 // 数据库访问
 	authService       *services.AuthService       // 用于生成插件 JWT Token
@@ -103,6 +105,12 @@ func NewManager(repo Repository, pluginsDir, pluginsDataDir, basePath string, ro
 // Packager 返回内部的 PackageManager（供 handlers 复用，避免重复构造）
 func (m *Manager) Packager() *PackageManager {
 	return m.packager
+}
+
+// SetWebCoreFS 注入内嵌的 web-core 根目录，必须在注册路由前调用。
+// lite 构建可传 nil，继续使用磁盘上的 web-core 目录。
+func (m *Manager) SetWebCoreFS(runtimeFS fs.FS) {
+	m.webCoreFS = runtimeFS
 }
 
 // DetectPluginIcon 检测插件 static 目录中的图标文件。

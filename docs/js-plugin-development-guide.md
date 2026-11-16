@@ -322,7 +322,7 @@ Lynx 业务请求使用 `@songloft/lynx-plugin-sdk` 的 `apiGet<T>('/api/...')` 
 
 复杂插件通过 `plugin.navigationState` / `plugin.navigationResult` 与 `navigationBack` 推送实现逐层返回；会话标识和请求 id 必须原样关联，过期响应不消费新页面的返回。外链走 `plugin.openUrl`（仅 HTTP/HTTPS）；歌曲封面走 `plugin.resourceUrl`（仅宿主歌曲封面端点）。这些能力要求配套新版宿主，不能用自定义全局对象替代 SDK。
 
-Web 回退需要服务端配置 `web-core/` 静态资源。工具链生成的入口先配置桥接，再以绝对地址加载 bundle。Lynx HTML 回退不发送 COEP 响应头，以兼容 Chromium 121 的 web-core srcdoc 初始化；普通 WebView 插件仍发送 `credentialless`。因此从启用隔离的宿主页跨源嵌入该 HTML 回退不在本次支持范围；Lynx 宿主直接加载原生/Web bundle，不经过该入口。
+Web 回退通过 `/api/v1/jsplugin-assets/web-core/*` 加载运行时。完整版服务端自动复用内嵌 Lynx Web 的 `web-core/`，无需额外拷贝；lite 或嵌入 Flutter Web 的旧构建仍需提供磁盘目录（依次查找 `data/web-core/`、工作目录 `web-core/`、可执行文件旁 `web-core/`）。磁盘目录优先覆盖整套运行时，不与内嵌文件混用；固定名称资源使用 `no-cache`，升级后重新校验。工具链生成的入口先配置桥接，再以绝对地址加载 bundle。Lynx HTML 回退不发送 COEP 响应头，以兼容 Chromium 121 的 web-core srcdoc 初始化；普通 WebView 插件仍发送 `credentialless`。因此从启用隔离的宿主页跨源嵌入该 HTML 回退不在本次支持范围；Lynx 宿主直接加载原生/Web bundle，不经过该入口。
 
 
 ---
