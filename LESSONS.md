@@ -10,6 +10,14 @@
 
 ## 条目
 
+### CI-004：Flutter Linux 发布必须固定构建系统基线
+
+- 范围：标准 Flutter Linux 与后端 Linux Bundle；主仓库基线 `3db91f69c1c00eecf04f630ba425df91c6fb5544`，Flutter `cebc894cde359a0d366c23d9a3acc75ade7832f2`。
+- 证据：[失败 Linux job](https://github.com/songloft-org/songloft/actions/runs/43882625312/job/133353770838) 的 `ubuntu-latest` 已切换到 Ubuntu 26.04，安装 `libayatana-appindicator3-dev 0.5.94-1build1` 后，`tray_manager_plugin.cc:118` 的 `app_indicator_new` 因 `-Werror,-Wdeprecated-declarations` 编译失败。此前成功发布使用 Ubuntu 24.04。
+- 规则与 Done right：两个 Linux 发布 job 同时固定 `ubuntu-24.04`，保留现有编译告警策略和发行版兼容基线；不能只修标准版而让 Bundle 继续跟随 latest 漂移。本次仅修改 runner 选择。
+- 验证：actionlint v1.7.12 检查两个工作流通过；原始日志 `/tmp/songloft-release-2.13.11-20261116/linux-baseline.log`。正式版本的实际 Linux 构建另行验收；Not run：桌面安装和托盘交互，运行时代码未修改。
+- Seen 1× (2026-11-16)。状态：环境漂移已确认，固定基线的发布验证待完成。
+
 ### LYNX-FOCUS-001：scroll-view 委托焦点会改变长表单点击目标
 
 - 范围：公共 Lynx HTML 回退与 Lynx Web 嵌套插件，基线 `e2bfea9b1b2ccce65176f27e9fa0968dbc14acd9` 加工作树。

@@ -927,7 +927,8 @@ jobs:
     name: Bundled Linux
     needs: [prepare, quality]
     if: needs.prepare.outputs.should_run == 'true'
-    runs-on: ubuntu-latest
+    # Match the standalone Flutter Linux release environment and runtime baseline.
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

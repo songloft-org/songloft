@@ -10,6 +10,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### CI-004: Pin the build-system baseline for Flutter Linux releases
+
+- Scope: standalone Flutter Linux and backend Linux Bundle jobs; parent baseline `3db91f69c1c00eecf04f630ba425df91c6fb5544`, Flutter `cebc894cde359a0d366c23d9a3acc75ade7832f2`.
+- Evidence: `ubuntu-latest` in the [failed Linux job](https://github.com/songloft-org/songloft/actions/runs/43882625312/job/133353770838) had moved to Ubuntu 26.04. With `libayatana-appindicator3-dev 0.5.94-1build1`, `app_indicator_new` in `tray_manager_plugin.cc:118` failed under `-Werror,-Wdeprecated-declarations`. The previous successful release used Ubuntu 24.04.
+- Rule and Done right: pin both Linux release jobs to `ubuntu-24.04`, preserving the compiler warning policy and distribution compatibility baseline. Fixing only the standalone job leaves Bundle builds exposed to latest-image drift. Only runner selection changes.
+- Validation: actionlint v1.7.12 passed for both workflows; original log `/tmp/songloft-release-2.13.11-20261116/linux-baseline.log`. Actual Linux release builds are checked separately. Not run: desktop installation and tray interaction; runtime code was unchanged.
+- Seen 1× (2026-11-16). Environment drift confirmed; pinned-baseline release acceptance pending.
+
 ### LYNX-FOCUS-001: scroll-view focus delegation can retarget long-form clicks
 
 - Scope: shared Lynx HTML fallback and nested Web plugin frames, baseline `e2bfea9b1b2ccce65176f27e9fa0968dbc14acd9` plus worktree.
