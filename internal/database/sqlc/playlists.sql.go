@@ -147,8 +147,8 @@ func (q *Queries) GetPlaylistByID(ctx context.Context, arg GetPlaylistByIDParams
 }
 
 const insertAutoCreatedPlaylist = `-- name: InsertAutoCreatedPlaylist :execlastid
-INSERT INTO playlists (type, name, description, cover_path, cover_url, labels)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO playlists (type, name, description, cover_path, cover_url, labels, position)
+VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM playlists))
 `
 
 type InsertAutoCreatedPlaylistParams struct {
@@ -277,8 +277,12 @@ func (q *Queries) TouchPlaylist(ctx context.Context, arg TouchPlaylistParams) (i
 }
 
 const updateAutoCreatedPlaylistMeta = `-- name: UpdateAutoCreatedPlaylistMeta :execrows
-UPDATE playlists SET name = ?, description = ?, cover_path = ?, cover_url = ?, updated_at = CURRENT_TIMESTAMP
-WHERE id = ?
+UPDATE playlists SET
+    name = ?1, description = ?2,
+    cover_path = ?3, cover_url = ?4, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?5
+    AND (name != ?1 OR description != ?2
+        OR cover_path != ?3 OR cover_url != ?4)
 `
 
 type UpdateAutoCreatedPlaylistMetaParams struct {

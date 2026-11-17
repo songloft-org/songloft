@@ -596,6 +596,8 @@ func (r *PlaylistRepository) AutoCreate(ctx context.Context, playlistMode string
 				if existing.coverPath != "" || existing.coverURL != "" {
 					writeCoverPath, writeCoverURL = existing.coverPath, existing.coverURL
 				}
+				// SQL 仅在元数据实际变化时 UPDATE；无条件写会触发 updated_at
+				// 触发器，让 position 相同的旧歌单在每次扫描后重新排列。
 				if _, err := q.UpdateAutoCreatedPlaylistMeta(ctx, sqlc.UpdateAutoCreatedPlaylistMetaParams{
 					Name:        name,
 					Description: desc,

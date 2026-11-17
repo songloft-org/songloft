@@ -44,8 +44,8 @@ UPDATE playlists SET pinned_at = ? WHERE id = ?;
 SELECT name FROM playlists;
 
 -- name: InsertAutoCreatedPlaylist :execlastid
-INSERT INTO playlists (type, name, description, cover_path, cover_url, labels)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO playlists (type, name, description, cover_path, cover_url, labels, position)
+VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM playlists));
 
 -- name: UpdatePlaylistLabels :execrows
 UPDATE playlists SET labels = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
@@ -55,5 +55,9 @@ SELECT id, name, cover_path, cover_url FROM playlists
 WHERE EXISTS (SELECT 1 FROM json_each(labels) WHERE value = 'auto_created');
 
 -- name: UpdateAutoCreatedPlaylistMeta :execrows
-UPDATE playlists SET name = ?, description = ?, cover_path = ?, cover_url = ?, updated_at = CURRENT_TIMESTAMP
-WHERE id = ?;
+UPDATE playlists SET
+    name = sqlc.arg(name), description = sqlc.arg(description),
+    cover_path = sqlc.arg(cover_path), cover_url = sqlc.arg(cover_url), updated_at = CURRENT_TIMESTAMP
+WHERE id = sqlc.arg(id)
+    AND (name != sqlc.arg(name) OR description != sqlc.arg(description)
+        OR cover_path != sqlc.arg(cover_path) OR cover_url != sqlc.arg(cover_url));

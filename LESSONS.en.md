@@ -10,6 +10,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### SCAN-ORDER-001: No-op automatic playlist updates still change ordering through triggers
+
+- Scope: rebuilding automatic playlists and default listing order; [songloft-org/songloft#573](https://github.com/songloft-org/songloft/issues/573), baseline `8177b2f208d8436f24a97e08a4ae237f372f88c5`.
+- Evidence: with real in-memory SQLite and baseline generated queries restored, two regressions exposed timestamp changes reordering legacy playlists with equal positions, and new automatic playlists preceding manual playlists because position defaulted to 0. Removing only the explicit timestamp assignment still fires the database timestamp trigger and does not prevent redundant updates.
+- Rule and Done right: issue no UPDATE when metadata is unchanged. Append automatic playlists transactionally, matching regular creation. Cover both legacy equal-position data and new directories, while verifying membership/actual cover changes and retained custom positions/pins.
+- Validation: both final ordering regressions failed as expected under the baseline-query overlay. The fix passed full `make check`, automatic playlist tests, and a real file-move/scoped-scan/manual-add HTTP scenario; see the [verification record](docs/en/issue-573-verification.md). The original missing-song report remains unreproduced; the ordering fix does not establish full issue resolution.
+- Seen 1× (2026-11-17). Ordering partial fix verified locally; commits, CI, and version availability follow the subsequent #573 replies.
+
 ### LICENSE-001: Audit license texts, package metadata, and distributed copies across repositories
 
 - Scope: themes, plugins, toolchain, and client declarations; parent baseline `44309463af527e5aff5273ef7abc74d820b8a6d3`.
