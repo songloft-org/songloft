@@ -137,6 +137,7 @@ type Querier interface {
 	UpdateSongLyrics(ctx context.Context, arg UpdateSongLyricsParams) (int64, error)
 	UpdateSongMetadata(ctx context.Context, arg UpdateSongMetadataParams) error
 	UpdateSongPositionInPlaylist(ctx context.Context, arg UpdateSongPositionInPlaylistParams) (int64, error)
+	UpdateSongRating(ctx context.Context, arg UpdateSongRatingParams) (int64, error)
 	UpdateSongSource(ctx context.Context, arg UpdateSongSourceParams) error
 	UpdateSongTag(ctx context.Context, arg UpdateSongTagParams) error
 	UpdateSongTagFields(ctx context.Context, arg UpdateSongTagFieldsParams) error

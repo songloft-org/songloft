@@ -1311,6 +1311,7 @@ func (h *BridgeHandler) handleSongs(action, data string) (string, error) {
 			URL      *string  `json:"url"`
 			CoverURL *string  `json:"coverUrl"`
 			Duration *float64 `json:"duration"`
+			Rating   *int     `json:"rating"`
 		}
 		if err := json.Unmarshal([]byte(data), &req); err != nil {
 			return "", fmt.Errorf("handleSongs: parse update: %w", err)
@@ -1336,6 +1337,12 @@ func (h *BridgeHandler) handleSongs(action, data string) (string, error) {
 		}
 		if req.Duration != nil {
 			song.Duration = *req.Duration
+		}
+		if req.Rating != nil {
+			if *req.Rating < 0 || *req.Rating > 100 {
+				return "", fmt.Errorf("handleSongs: update rating out of range [0, 100]: %d", *req.Rating)
+			}
+			song.Rating = *req.Rating
 		}
 		song.UpdatedAt = time.Now()
 		if err := h.songService.Update(ctx, song); err != nil {

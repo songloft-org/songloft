@@ -40,6 +40,8 @@ type SongRepository interface {
 	UpdateCoverURL(ctx context.Context, id int64, coverURL string) error
 	UpdateDuration(ctx context.Context, id int64, duration float64) error
 	UpdateSource(ctx context.Context, id int64, pluginEntryPath, sourceData string) error
+	UpdateRating(ctx context.Context, id int64, rating int) error
+	UpdateRatingBatch(ctx context.Context, ids []int64, rating int) (int64, error)
 	ListLocalPaths(ctx context.Context) (map[string]database.LocalPathInfo, error)
 	ListLocalSongsWithRelativePaths(ctx context.Context) ([]database.RelativePathSong, error)
 	UpdateSongFilePath(ctx context.Context, id int64, newPath string) error
@@ -1489,6 +1491,27 @@ func (s *SongService) UpdateCoverURL(ctx context.Context, id int64, coverURL str
 // 用于 SourceResolver 切换音源后回写。
 func (s *SongService) UpdateSongSource(ctx context.Context, id int64, pluginEntryPath, sourceData string) error {
 	return s.songs.UpdateSource(ctx, id, pluginEntryPath, sourceData)
+}
+
+// UpdateRating 更新单首歌曲的评级（0-100；0 表示清除评级）。
+// 评级是用户主观标注，不写入音频文件标签（与星标同步策略解耦，重扫不依赖文件）。
+func (s *SongService) UpdateRating(ctx context.Context, id int64, rating int) error {
+	if rating < 0 || rating > 100 {
+		return fmt.Errorf("rating out of range [0, 100]: %d", rating)
+	}
+	return s.songs.UpdateRating(ctx, id, rating)
+}
+
+// UpdateRatingBatch 批量更新歌曲评级，返回实际更新数量。
+// 存在不存在的 ID 时不报错（与 addSongs 的 skipped 语义一致），行数如实返回。
+func (s *SongService) UpdateRatingBatch(ctx context.Context, ids []int64, rating int) (int64, error) {
+	if rating < 0 || rating > 100 {
+		return 0, fmt.Errorf("rating out of range [0, 100]: %d", rating)
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	return s.songs.UpdateRatingBatch(ctx, ids, rating)
 }
 
 // SaveCoverFromData 从原始字节保存封面到本地，返回 coverPath。

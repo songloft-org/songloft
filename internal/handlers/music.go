@@ -334,7 +334,7 @@ func parseSongSort(sort, order string) (orderBy, dir string) {
 	dir = order
 	if dir == "" {
 		dir = "DESC"
-		if orderBy == "track" {
+		if orderBy == "track" || orderBy == "rating" {
 			dir = "ASC"
 		}
 	}
@@ -370,11 +370,13 @@ func parseExcludePlaylistLabels(raw string) []string {
 // @Param style query string false "按风格精确过滤"
 // @Param year query int false "按发行年份精确过滤"
 // @Param decade query int false "按年代过滤（起始年，如 1990 匹配 1990-1999）"
+// @Param rating query int false "按评级精确过滤（0-100；0=未评级；-1 表示只要未评级歌曲）"
+// @Param min_rating query int false "按评级下限过滤（如 60 = 至少 3 星）；与 rating 同时出现时 rating=-1 优先生效"
 // @Param exclude_playlist_labels query string false "排除属于这些 label 歌单的歌曲(逗号分隔), 默认 hidden; 传 none 显示全部" default(hidden)
 // @Param limit query int false "每页数量" default(20)
 // @Param offset query int false "偏移量" default(0)
-// @Param sort query string false "排序字段；指定 album 时缺省 track（碟号、音轨号数字排序），其他情况缺省 added_at；未知轨号排在同碟末尾" Enums(id, title, artist, album, duration, added_at, updated_at, file_modified_at, year, genre, file_size, track)
-// @Param order query string false "排序方向，track 缺省 asc，其他字段缺省 desc" Enums(asc, desc)
+// @Param sort query string false "排序字段；指定 album 时缺省 track（碟号、音轨号数字排序），其他情况缺省 added_at；未知轨号排在同碟末尾" Enums(id, title, artist, album, duration, added_at, updated_at, file_modified_at, year, genre, file_size, track, rating)
+// @Param order query string false "排序方向，track/rating 缺省 asc，其他字段缺省 desc" Enums(asc, desc)
 // @Success 200 {object} map[string]any "成功返回歌曲列表"
 // @Failure 500 {object} map[string]string "服务器错误"
 // @Security BearerAuth
@@ -543,6 +545,22 @@ func applySongTagFilters(filter *database.SongFilter, q url.Values) {
 		filter.TagID = tagID
 	}
 	filter.TagName = q.Get("tag")
+	// 评级过滤：min_rating 为「≥ 下限」（如 20 = 至少 1 星）；
+	// rating 为精确匹配，0 合法（未评级），-1 表示「未评级」专用筛选。
+	if mr, err := strconv.Atoi(q.Get("min_rating")); err == nil && mr > 0 {
+		filter.MinRating = mr
+	}
+	if raw := q.Get("rating"); raw != "" {
+		if rv, err := strconv.Atoi(raw); err == nil {
+			if rv >= 0 {
+				filter.ExactRating = &rv
+			} else {
+				zero := 0
+				filter.ExactRating = &zero
+				filter.MinRating = 0
+			}
+		}
+	}
 }
 
 // songFacetFields 是 /songs/facets 支持的维度白名单。
@@ -550,18 +568,19 @@ func applySongTagFilters(filter *database.SongFilter, q url.Values) {
 var songFacetFields = map[string]struct{}{
 	"genre": {}, "artist": {}, "album": {},
 	"language": {}, "style": {}, "year": {}, "decade": {},
-	"tag": {},
+	"rating": {},
+	"tag":    {},
 }
 
 // ListSongFacets 按维度聚合曲库标签，返回该维度下的取值 + 计数 + 代表封面（支持搜索/排序/分页）。
 // @Summary 曲库标签分类聚合
 // @Description 按指定维度聚合曲库，返回该维度下非空取值、各自的歌曲数量及一首代表歌曲的封面 URL，用于「分类浏览」的卡片网格。
-// @Description 支持维度：genre(流派)/artist(歌手)/album(专辑)/language(语种)/style(风格)/year(年份)/decade(年代)/tag(标签)。
-// @Description year/decade 的 value 为数字字符串（年代如 "1990" 表示 1990-1999）。取到某取值后可用 /songs?<field>=<value> 拉取该分类下歌曲（tag 维度除外——tag 的 value 为标签名，需用 /songs?tag_name=<value> 过滤）。
+// @Description 支持维度：genre(流派)/artist(歌手)/album(专辑)/language(语种)/style(风格)/year(年份)/decade(年代)/rating(评级)/tag(标签)。
+// @Description year/decade/rating 的 value 为数字字符串（年代如 "1990" 表示 1990-1999；rating 为 20-100 的评级值，未评级歌曲不参与聚合）。取到某取值后可用 /songs?<field>=<value> 拉取该分类下歌曲（tag 维度除外——tag 的 value 为标签名，需用 /songs?tag_name=<value> 过滤）。
 // @Description 支持 keyword 模糊搜索取值、limit/offset 分页、sort(count|name)/order 排序；返回 total 为该维度去重取值总数。
 // @Tags 歌曲管理
 // @Produce json
-// @Param field query string true "聚合维度" Enums(genre, artist, album, language, style, year, decade, tag)
+// @Param field query string true "聚合维度" Enums(genre, artist, album, language, style, year, decade, rating, tag)
 // @Param keyword query string false "对取值模糊搜索"
 // @Param limit query int false "分页大小，缺省 20，上限 100000"
 // @Param offset query int false "分页偏移，缺省 0"
@@ -2832,6 +2851,90 @@ func (h *SongHandler) WriteTags(w http.ResponseWriter, r *http.Request) {
 		"song":       song,
 		"file_write": string(fileWrite),
 	})
+}
+
+// UpdateSongRating 设置单首歌曲的评级。
+// @Summary 设置歌曲评级
+// @Description 设置单首歌曲的评级（0-100 整数；0 表示清除评级，未评级歌曲缺省 0）。评级是用户主观标注，仅存数据库，不写入音频文件标签。星级 UI 按 20/颗映射（如 80 = 4 星）。
+// @Tags 歌曲管理
+// @Accept json
+// @Produce json
+// @Param id path int true "歌曲ID"
+// @Param request body object{rating=int} true "评级值 0-100，0 表示清除评级"
+// @Success 200 {object} map[string]any "成功返回 {id, rating}"
+// @Failure 400 {object} map[string]string "评级值超出 0-100 范围"
+// @Failure 404 {object} map[string]string "歌曲不存在"
+// @Failure 500 {object} map[string]string "服务器错误"
+// @Security BearerAuth
+// @Router /songs/{id}/rating [put]
+func (h *SongHandler) UpdateSongRating(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "无效的歌曲ID", err)
+		return
+	}
+
+	var req struct {
+		Rating *int `json:"rating"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "无效的请求数据", err)
+		return
+	}
+	if req.Rating == nil {
+		respondError(w, http.StatusBadRequest, "缺少 rating 字段", nil)
+		return
+	}
+
+	if err := h.songService.UpdateRating(ctx, id, *req.Rating); err != nil {
+		if errors.Is(err, database.ErrNotFound) {
+			respondError(w, http.StatusNotFound, "歌曲不存在", err)
+			return
+		}
+		respondError(w, http.StatusBadRequest, "设置评级失败", err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{"id": id, "rating": *req.Rating})
+}
+
+// BatchUpdateSongRating 批量设置歌曲评级。
+// @Summary 批量设置歌曲评级
+// @Description 按 ID 列表批量设置评级（0-100；0 表示清除评级）。列表中不存在的 ID 静默跳过，updated 返回实际更新数量。评级仅存数据库，不写入音频文件标签。
+// @Tags 歌曲管理
+// @Accept json
+// @Produce json
+// @Param request body models.BatchUpdateRatingRequest true "批量评级请求"
+// @Success 200 {object} models.BatchUpdateRatingResponse "成功返回 {updated}"
+// @Failure 400 {object} map[string]string "请求数据错误或评级值超出范围"
+// @Failure 500 {object} map[string]string "服务器错误"
+// @Security BearerAuth
+// @Router /songs/batch-rating [post]
+func (h *SongHandler) BatchUpdateSongRating(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var req models.BatchUpdateRatingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "无效的请求数据", err)
+		return
+	}
+	if len(req.IDs) == 0 {
+		respondError(w, http.StatusBadRequest, "ID 列表不能为空", nil)
+		return
+	}
+	if req.Rating < 0 || req.Rating > 100 {
+		respondError(w, http.StatusBadRequest, "评级值超出 0-100 范围", nil)
+		return
+	}
+
+	updated, err := h.songService.UpdateRatingBatch(ctx, req.IDs, req.Rating)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "批量设置评级失败", err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, models.BatchUpdateRatingResponse{Updated: int(updated)})
 }
 
 func detectImageExt(data []byte) string {
