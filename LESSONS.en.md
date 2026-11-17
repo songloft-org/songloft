@@ -10,6 +10,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### HTTP-PROXY-001: Independent plugin transports must explicitly use the global proxy
+
+- Scope: QuickJS `fetch`, `songloft.net.httpStream`, and the shared proxy contract; [songloft-org/songloft#575](https://github.com/songloft-org/songloft/issues/575), baseline `8177b2f208d8436f24a97e08a4ae237f372f88c5`.
+- Evidence: the setting endpoint saved the proxy, but the runtime's normal and insecure TLS transports had no `Proxy` function. Four request regression groups failed on the original implementation with zero proxy hits, while the loopback bypass control passed. Checking saved configuration or the plugin store client alone cannot establish that plugin `fetch` uses it.
+- Rule and Done right: both separate TLS pools call `httputil.ProxyFromGlobal` per request, retaining redirects, permissions, and loopback semantics. Switching / clearing the proxy in an existing JS environment and race checks passed. The released lyrics plugin obtained fixture lyrics for exact / fuzzy search through real CONNECT tunnels, while a local custom source still connected directly. See the [verification record](docs/en/issue-575-verification.md).
+- Seen 1× (2026-11-17). Local fix and verification complete; commit, push, and dev build status are tracked in the delivery evidence. The reporter's Docker, mihomo, and live LRCLIB network remain unverified.
+
 ### SCAN-ORDER-001: No-op automatic playlist updates still change ordering through triggers
 
 - Scope: rebuilding automatic playlists and default listing order; [songloft-org/songloft#573](https://github.com/songloft-org/songloft/issues/573), baseline `8177b2f208d8436f24a97e08a4ae237f372f88c5`.

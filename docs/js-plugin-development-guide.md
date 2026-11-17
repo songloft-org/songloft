@@ -453,6 +453,8 @@ globalThis.onWebSocket = async function(req, socket) {
 
 使用标准全局 `fetch` 函数发起 HTTP 请求（由运行时 polyfill 提供，返回 Promise）。**无需声明权限**。
 
+宿主运行时的 `fetch` 和 `songloft.net.httpStream` 共用 Songloft 的全局 HTTP 代理设置（`/settings/http-proxy`），修改后对后续请求即时生效，无需重启或重载插件。目标为 `localhost` / `127.0.0.1` / `::1` 时直连；未配置代理时直连，不读取 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量。此规则适用于插件后端的请求，浏览器页面中的 `fetch` 由浏览器处理。
+
 ```javascript
 // GET
 const resp = await fetch("https://example.com/api");

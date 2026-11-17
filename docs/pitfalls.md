@@ -253,11 +253,12 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 ## 通用 HTTP Proxy（/settings/http-proxy）
 
 - 业务端点：`GET/PUT /api/v1/settings/http-proxy` 体 `{proxy: string}`，默认 `""`（直连）
-- 仅使用代理感知客户端的后端外发 HTTP 请求经此代理；不能假定任意 `http.Client` 或插件 `fetch` 自动接入。
+- 使用代理感知客户端的后端外发 HTTP 请求，以及插件运行时的 `fetch` / `songloft.net.httpStream`，均使用此代理；任意新建的 `http.Client` 仍需显式接入。
 - 典型值：`http://192.168.1.1:7890`（支持 HTTP/HTTPS/SOCKS5 代理）
 - loopback 地址（`localhost`/`127.0.0.1`/`::1`）自动跳过代理，避免影响内部请求
 - 与 GitHub 镜像加速（`github_proxy` URL 前缀拼接）**共存**：先拼接镜像前缀再经 HTTP Proxy 转发
 - 实现：`internal/httputil/proxy.go` 的 `globalProxy`（私有 `proxyConfig`）通过 `SetGlobalProxy` / `GetGlobalProxy` 管理；`NewClient`、`NewStreamingClient`、`NewDownloadClient` 分别使用适合普通请求、流与下载的共享 Transport。
+- 插件运行时的普通与跳过 TLS 校验 Transport 均通过 `ProxyFromGlobal` 按请求读取当前配置，保留独立连接池和 TLS 权限控制；代理变更无需重载插件。未配置时直连，不自动读取 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量。
 - 启动时从 config 表加载已保存的代理地址（`app.go`）；PUT 时即时生效无需重启
 - 接入示例：`jsplugin/registry.go`、`jsplugin/package.go`、`services/upgrade_service.go`、`handlers/jsplugin_registry.go`、`handlers/hls.go`；完整范围以 `httputil.New*Client` 调用点为准。
 - ffmpeg 远程拉流转码路径（`services/radio_transcode.go` 电台转码、`services/url_transcode.go` 转码代理）同样接入：经 `-http_proxy` 传给 ffmpeg。**仅 http/https 代理**，SOCKS5 不支持（ffmpeg `-http_proxy` 限制）

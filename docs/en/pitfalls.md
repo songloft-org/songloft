@@ -310,11 +310,12 @@ Read all of the following before touching this area.
 ## Generic HTTP Proxy (/settings/http-proxy)
 
 - Business endpoint: `GET/PUT /api/v1/settings/http-proxy` with body `{proxy: string}`, default `""` (direct connection)
-- Only outbound requests using proxy-aware clients use this proxy; do not assume arbitrary `http.Client` instances or plugin `fetch` calls are automatically integrated.
+- Outbound requests using proxy-aware backend clients and plugin runtime `fetch` / `songloft.net.httpStream` use this proxy; arbitrary new `http.Client` instances still need explicit integration.
 - Typical value: `http://192.168.1.1:7890` (supports HTTP/HTTPS/SOCKS5 proxies)
 - Loopback addresses (`localhost`/`127.0.0.1`/`::1`) automatically bypass the proxy, avoiding interference with internal requests
 - **Coexists** with GitHub mirror acceleration (`github_proxy` URL-prefix concatenation): the mirror prefix is concatenated first, then forwarded through the HTTP Proxy
 - Implementation: `globalProxy` (private `proxyConfig`) in `internal/httputil/proxy.go` is managed by `SetGlobalProxy` / `GetGlobalProxy`; `NewClient`, `NewStreamingClient`, and `NewDownloadClient` use shared transports suited to ordinary requests, streams, and downloads respectively.
+- Both normal and insecure TLS transports in the plugin runtime use `ProxyFromGlobal` to read the current configuration per request, retaining separate connection pools and TLS permission checks; proxy changes require no plugin reload. With no configured proxy, requests connect directly rather than reading `HTTP_PROXY` / `HTTPS_PROXY` environment variables.
 - The saved proxy address is loaded from the config table at startup (`app.go`); a PUT takes effect immediately without a restart
 - Examples include `jsplugin/registry.go`, `jsplugin/package.go`, `services/upgrade_service.go`, `handlers/jsplugin_registry.go`, and `handlers/hls.go`; use the `httputil.New*Client` call sites for the complete scope.
 - ffmpeg remote-pull transcode paths (`services/radio_transcode.go` radio transcode, `services/url_transcode.go` transcode proxy) are also integrated: passed to ffmpeg via `-http_proxy`. **HTTP/HTTPS proxies only**; SOCKS5 is not supported (ffmpeg `-http_proxy` limitation)

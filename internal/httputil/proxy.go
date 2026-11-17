@@ -94,6 +94,13 @@ func GetGlobalProxy() string {
 	return globalProxy.get()
 }
 
+// ProxyFromGlobal selects the current configured proxy for a request, bypassing
+// loopback destinations. Custom transports can use it as their Proxy function
+// to follow live settings updates while retaining their own TLS and pool policy.
+func ProxyFromGlobal(req *http.Request) (*url.URL, error) {
+	return globalProxy.proxyFunc(req)
+}
+
 // NewClient creates an http.Client that uses the global HTTP proxy.
 // Requests to loopback addresses bypass the proxy automatically.
 func NewClient(timeout time.Duration) *http.Client {

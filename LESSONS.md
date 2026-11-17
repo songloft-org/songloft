@@ -10,6 +10,13 @@
 
 ## 条目
 
+### HTTP-PROXY-001：插件的独立 Transport 必须显式接入全局代理
+
+- 范围：QuickJS `fetch`、`songloft.net.httpStream` 与公共代理契约；[songloft-org/songloft#575](https://github.com/songloft-org/songloft/issues/575)，基线 `8177b2f208d8436f24a97e08a4ae237f372f88c5`。
+- 证据：设置端点已保存代理，运行时普通及跳过 TLS 校验的 Transport 却没有 `Proxy`；旧实现下四组请求回归失败且代理命中为 0，回环直连对照通过。仅检查代理配置保存或插件商店客户端不能证明插件 `fetch` 已接入。
+- 规则与 Done right：两种独立 TLS 连接池都按请求调用 `httputil.ProxyFromGlobal`；保留重定向、权限和回环语义。已有 JS 环境切换 / 清空代理回归及 race 检查通过；正式 lyrics 插件的精确 / 模糊搜索经真实 CONNECT 隧道取得夹具歌词，本地自定义源仍直连。完整记录见[验证记录](docs/issue-575-verification.md)。
+- Seen 1× (2026-11-17)。状态：本地修复与验证完成；提交、推送及 dev 构建状态见本次交付记录。报告人的 Docker、mihomo 和线上 LRCLIB 未验收。
+
 ### SCAN-ORDER-001：自动歌单空更新也会经触发器改变排序
 
 - 范围：自动歌单重建与默认列表排序；[songloft-org/songloft#573](https://github.com/songloft-org/songloft/issues/573)，基线 `8177b2f208d8436f24a97e08a4ae237f372f88c5`。
