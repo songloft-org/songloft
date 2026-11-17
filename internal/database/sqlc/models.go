@@ -167,6 +167,7 @@ type Song struct {
 	FingerprintAttemptedAt int64
 	FingerprintError       string
 	Disc                   string
+	Rating                 int64
 }
 
 type SongArtist struct {

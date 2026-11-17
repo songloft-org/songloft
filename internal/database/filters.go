@@ -33,6 +33,12 @@ type SongFilter struct {
 	TagID int64
 	// TagName 按自定义标签名模糊匹配过滤歌曲（空表示不过滤）。
 	TagName string
+	// MinRating 评级下限（含），0 表示不过滤；用于「≥ N 星」筛选。
+	// 评级值域为 0-100，0 恰好与「不过滤」语义重合（≥0 等于全量），故用 int 即可。
+	MinRating int
+	// ExactRating 评级精确匹配；nil 表示不过滤。指针语义避免与「0=未评级」
+	// 的合法取值冲突（Go 零值陷阱）——0 指针表示只要未评级歌曲。
+	ExactRating *int
 	// ExcludePlaylistLabels 排除属于「带这些 label 的歌单」的歌曲。
 	// 典型用途：排除隐藏歌单（label=hidden）里的歌，让主歌曲列表不显示它们。
 	ExcludePlaylistLabels []string
@@ -98,6 +104,7 @@ var (
 		"id": {}, "title": {}, "artist": {}, "album": {},
 		"duration": {}, "added_at": {}, "updated_at": {},
 		"file_modified_at": {}, "year": {}, "genre": {}, "file_size": {},
+		"rating": {},
 	}
 	playlistOrderWhitelist = map[string]struct{}{
 		"id": {}, "name": {}, "position": {},
@@ -135,6 +142,7 @@ var (
 		"style":    "style",
 		"year":     "year",
 		"decade":   "(year / 10) * 10",
+		"rating":   "rating",
 	}
 	// songNameColumn 把 /songs/names 的 field 映射到固定 SQL 列名。
 	// 仅使用映射值拼接列名（绝不拼用户输入），防 SQL 注入 —— 同 songFacetColumn 范式。
@@ -171,10 +179,14 @@ func IsSongFacetField(field string) bool {
 }
 
 // facetBaseCond 返回某 facet 维度「取值非空」的基础过滤条件。
-// year/decade 用 year>0；文本维度用 <col> != ”。
+// year/decade 用 year>0；rating 用 rating>0（0 表示未评级，不参与聚合）；
+// 文本维度用 <col> != ”。
 func facetBaseCond(field, col string) sq.Sqlizer {
 	if field == "year" || field == "decade" {
 		return sq.Gt{"year": 0}
+	}
+	if field == "rating" {
+		return sq.Gt{"rating": 0}
 	}
 	return sq.NotEq{col: ""}
 }

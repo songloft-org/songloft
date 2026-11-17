@@ -622,7 +622,8 @@ async function songsExample() {
     file_path: "/path/to/file.mp3",
     url: "",
     cover_url: "",        // 封面 URL（CoverPath 内部字段不会序列化输出）
-    is_video: false       // 是否为视频容器
+    is_video: false,      // 是否为视频容器
+    rating: 80            // 评级 0-100（0=未评级；星级 UI 按 20/颗映射）；宿主 v2.14.0+ 提供
 }
 ```
 

@@ -107,6 +107,7 @@ type Song struct {
 	ISRC                string  `json:"isrc,omitempty"`                                    // ISRC(国际标准录音编码)
 	Track               string  `json:"track,omitempty" example:"3/12"`                    // 音轨号，可为 "3" 或 "3/12"（轨号/总数）
 	Disc                string  `json:"disc,omitempty" example:"1/2"`                      // 碟号，可为 "1" 或 "1/2"（碟号/总数）
+	Rating              int     `json:"rating,omitempty" example:"80"`                     // 评级 0-100（0 表示未评级；星级客户端按 20/颗映射，如 80 = 4 星）
 	CueSourcePath       string  `json:"cue_source_path,omitempty"`                         // CUE 来源路径（非空表示 CUE 拆分歌曲）
 	CueTrackIndex       int     `json:"cue_track_index,omitempty"`                         // CUE track 序号 (1-99)
 	CueAudioPath        string  `json:"-"`                                                 // 原始整轨音频路径（内部使用）
@@ -657,6 +658,17 @@ const (
 type BatchDeleteSongsRequest struct {
 	IDs         []int64 `json:"ids" example:"1"`              // 要删除的歌曲 ID 列表
 	DeleteFiles bool    `json:"delete_files" example:"false"` // 是否同步删除本地音频文件
+}
+
+// BatchUpdateRatingRequest 批量设置歌曲评级请求
+type BatchUpdateRatingRequest struct {
+	IDs    []int64 `json:"ids" example:"1"`     // 要设置评级的歌曲 ID 列表
+	Rating int     `json:"rating" example:"80"` // 评级值 0-100（0 表示清除评级；星级客户端按 20/颗映射）
+}
+
+// BatchUpdateRatingResponse 批量设置歌曲评级响应
+type BatchUpdateRatingResponse struct {
+	Updated int `json:"updated" example:"2"` // 实际更新的歌曲数量（不存在的 ID 静默跳过）
 }
 
 // BatchDeleteSongsResponse 批量删除歌曲响应

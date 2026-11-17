@@ -114,8 +114,8 @@ INSERT INTO songs (
     isrc, track, disc,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, is_video,
-    cue_start_seconds, cue_end_seconds
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    cue_start_seconds, cue_end_seconds, rating
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateSongParams struct {
@@ -155,6 +155,7 @@ type CreateSongParams struct {
 	IsVideo             int64
 	CueStartSeconds     float64
 	CueEndSeconds       float64
+	Rating              int64
 }
 
 func (q *Queries) CreateSong(ctx context.Context, arg CreateSongParams) (int64, error) {
@@ -195,6 +196,7 @@ func (q *Queries) CreateSong(ctx context.Context, arg CreateSongParams) (int64, 
 		arg.IsVideo,
 		arg.CueStartSeconds,
 		arg.CueEndSeconds,
+		arg.Rating,
 	)
 	if err != nil {
 		return 0, err
@@ -254,7 +256,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc
+    fingerprint_error, disc, rating
 FROM songs WHERE id = ?
 `
 
@@ -304,6 +306,7 @@ func (q *Queries) GetSongByID(ctx context.Context, id int64) (Song, error) {
 		&i.FingerprintAttemptedAt,
 		&i.FingerprintError,
 		&i.Disc,
+		&i.Rating,
 	)
 	return i, err
 }
@@ -797,7 +800,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc
+    fingerprint_error, disc, rating
 FROM songs WHERE cache_path != ''
 `
 
@@ -853,6 +856,7 @@ func (q *Queries) ListSongsWithCache(ctx context.Context) ([]Song, error) {
 			&i.FingerprintAttemptedAt,
 			&i.FingerprintError,
 			&i.Disc,
+			&i.Rating,
 		); err != nil {
 			return nil, err
 		}
@@ -978,7 +982,7 @@ UPDATE songs SET
     isrc = ?, track = ?, disc = ?,
     cue_source_path = ?, cue_track_index = ?, cue_audio_path = ?,
     file_modified_at = ?, is_video = ?,
-    cue_start_seconds = ?, cue_end_seconds = ?
+    cue_start_seconds = ?, cue_end_seconds = ?, rating = ?
 WHERE id = ?
 `
 
@@ -1019,6 +1023,7 @@ type UpdateSongParams struct {
 	IsVideo             int64
 	CueStartSeconds     float64
 	CueEndSeconds       float64
+	Rating              int64
 	ID                  int64
 }
 
@@ -1060,6 +1065,7 @@ func (q *Queries) UpdateSong(ctx context.Context, arg UpdateSongParams) (int64, 
 		arg.IsVideo,
 		arg.CueStartSeconds,
 		arg.CueEndSeconds,
+		arg.Rating,
 		arg.ID,
 	)
 	if err != nil {
@@ -1217,6 +1223,23 @@ func (q *Queries) UpdateSongMetadata(ctx context.Context, arg UpdateSongMetadata
 		arg.ID,
 	)
 	return err
+}
+
+const updateSongRating = `-- name: UpdateSongRating :execrows
+UPDATE songs SET rating = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+`
+
+type UpdateSongRatingParams struct {
+	Rating int64
+	ID     int64
+}
+
+func (q *Queries) UpdateSongRating(ctx context.Context, arg UpdateSongRatingParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateSongRating, arg.Rating, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateSongSource = `-- name: UpdateSongSource :exec

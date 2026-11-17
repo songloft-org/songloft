@@ -10,7 +10,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc
+    fingerprint_error, disc, rating
 FROM songs WHERE id = ?;
 
 -- name: CreateSong :execlastid
@@ -24,8 +24,8 @@ INSERT INTO songs (
     isrc, track, disc,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, is_video,
-    cue_start_seconds, cue_end_seconds
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    cue_start_seconds, cue_end_seconds, rating
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateSong :execrows
 UPDATE songs SET
@@ -39,7 +39,7 @@ UPDATE songs SET
     isrc = ?, track = ?, disc = ?,
     cue_source_path = ?, cue_track_index = ?, cue_audio_path = ?,
     file_modified_at = ?, is_video = ?,
-    cue_start_seconds = ?, cue_end_seconds = ?
+    cue_start_seconds = ?, cue_end_seconds = ?, rating = ?
 WHERE id = ?;
 
 -- name: DeleteSong :execrows
@@ -50,6 +50,9 @@ UPDATE songs SET lyric = ?, lyric_source = ?, lyric_remote_url = ? WHERE id = ?;
 
 -- name: UpdateSongCoverURL :execrows
 UPDATE songs SET cover_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
+
+-- name: UpdateSongRating :execrows
+UPDATE songs SET rating = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;
 
 -- name: UpdateSongDuration :exec
 UPDATE songs SET duration = ?, updated_at = CURRENT_TIMESTAMP
@@ -172,7 +175,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc
+    fingerprint_error, disc, rating
 FROM songs WHERE cache_path != '';
 
 -- name: ListSongsNeedingMetadata :many

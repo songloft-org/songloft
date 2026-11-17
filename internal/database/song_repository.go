@@ -110,6 +110,46 @@ func (r *SongRepository) UpdateCoverURL(ctx context.Context, id int64, coverURL 
 	return nil
 }
 
+// UpdateRating 更新单首歌曲的评级（0-100；0 表示未评级）。歌曲不存在返回 ErrNotFound。
+func (r *SongRepository) UpdateRating(ctx context.Context, id int64, rating int) error {
+	rows, err := r.queries.UpdateSongRating(ctx, sqlc.UpdateSongRatingParams{
+		Rating: int64(rating),
+		ID:     id,
+	})
+	if err != nil {
+		return fmt.Errorf("update song rating %d: %w", id, err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UpdateRatingBatch 批量更新歌曲评级，返回实际更新的行数。
+// squirrel 动态 IN 列表（变长 ID），与 List/Count 的动态 SQL 范式一致。
+func (r *SongRepository) UpdateRatingBatch(ctx context.Context, ids []int64, rating int) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	sb := sq.Update("songs").
+		Set("rating", rating).
+		Set("updated_at", "CURRENT_TIMESTAMP").
+		Where(sq.Eq{"id": ids})
+	query, args, err := sb.ToSql()
+	if err != nil {
+		return 0, fmt.Errorf("build batch rating sql: %w", err)
+	}
+	result, err := r.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("batch update rating: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("batch rating rows affected: %w", err)
+	}
+	return rows, nil
+}
+
 // UpdateDuration 仅在原 duration 为 0 时回填时长。
 func (r *SongRepository) UpdateDuration(ctx context.Context, id int64, duration float64) error {
 	if err := r.queries.UpdateSongDuration(ctx, sqlc.UpdateSongDurationParams{
@@ -642,6 +682,7 @@ func songSelectBuilder() sq.SelectBuilder {
 		"cue_source_path", "cue_track_index", "cue_audio_path",
 		"file_modified_at", "is_video",
 		"cue_start_seconds", "cue_end_seconds",
+		"rating",
 	).From("songs")
 }
 
@@ -695,6 +736,13 @@ func applySongFilter(sb sq.SelectBuilder, filter *SongFilter) sq.SelectBuilder {
 	if filter.TagID > 0 {
 		sb = sb.Where("id IN (SELECT song_id FROM song_tag_links WHERE tag_id = ?)", filter.TagID)
 	}
+	// 评级过滤：MinRating 为「≥ 下限」，ExactRating 非 nil 为精确匹配（含 0=未评级）
+	if filter.MinRating > 0 {
+		sb = sb.Where(sq.GtOrEq{"rating": filter.MinRating})
+	}
+	if filter.ExactRating != nil {
+		sb = sb.Where(sq.Eq{"rating": *filter.ExactRating})
+	}
 	// 按自定义标签名模糊匹配
 	if filter.TagName != "" {
 		sb = sb.Where(`id IN (SELECT l.song_id FROM song_tag_links l JOIN song_tags t ON l.tag_id = t.id WHERE t.name LIKE ?)`, "%"+filter.TagName+"%")
@@ -735,6 +783,7 @@ func scanSongRow(scanner interface {
 		&s.CueSourcePath, &s.CueTrackIndex, &s.CueAudioPath,
 		&fileModifiedAt, &isVideo,
 		&s.CueStartSeconds, &s.CueEndSeconds,
+		&s.Rating,
 	}
 	if err := scanner.Scan(append(dest, extra...)...); err != nil {
 		return nil, fmt.Errorf("scan song: %w", err)
@@ -786,6 +835,7 @@ func songRowToModel(row sqlc.Song) *models.Song {
 		CueAudioPath:        row.CueAudioPath,
 		CueStartSeconds:     row.CueStartSeconds,
 		CueEndSeconds:       row.CueEndSeconds,
+		Rating:              int(row.Rating),
 		AddedAt:             row.AddedAt,
 		UpdatedAt:           row.UpdatedAt,
 		FileModifiedAt:      nullTimeToPtr(row.FileModifiedAt),
@@ -846,6 +896,7 @@ func songCreateParams(s *models.Song) sqlc.CreateSongParams {
 		CueAudioPath:        s.CueAudioPath,
 		CueStartSeconds:     s.CueStartSeconds,
 		CueEndSeconds:       s.CueEndSeconds,
+		Rating:              int64(s.Rating),
 		FileModifiedAt:      nullTimeFromPtr(s.FileModifiedAt),
 	}
 }
@@ -887,6 +938,7 @@ func songUpdateParams(s *models.Song) sqlc.UpdateSongParams {
 		CueAudioPath:        s.CueAudioPath,
 		CueStartSeconds:     s.CueStartSeconds,
 		CueEndSeconds:       s.CueEndSeconds,
+		Rating:              int64(s.Rating),
 		FileModifiedAt:      nullTimeFromPtr(s.FileModifiedAt),
 		ID:                  s.ID,
 	}
