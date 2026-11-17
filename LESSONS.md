@@ -10,6 +10,14 @@
 
 ## 条目
 
+### LICENSE-001：跨仓库许可证核对要覆盖正文、包元数据与分发副本
+
+- 范围：主题、插件、工具链及客户端声明；主仓库基线 `44309463af527e5aff5273ef7abc74d820b8a6d3`。
+- 证据：2026-11-17 的本地 21 仓库检查发现八个子仓库缺少根 LICENSE；Subsonic README 写 MIT，而 `plugin.json` 自初始提交即声明 Apache-2.0；工具链七个包自创建即声明 MIT，不能仅凭根 README 不同就判为遗漏。
+- 规则与 Done right：沿实际资源/包路径核对声明和正文；已声明 Apache-2.0 的仓库补同一标准正文，npm 包按自身元数据放置 LICENSE，并用 `npm pack --dry-run --json --ignore-scripts` 检查实际收录。工具链 README 明确七个 MIT 例外，保留第三方许可证；脚手架基础模板也带 LICENSE。
+- 验证：八个根 LICENSE 与主仓库正文逐字节一致，12 个工具链 npm 包均收录匹配正文；本地证据、工作树标识与相关 Not run 见 `/tmp/songloft-license-fix-20261117/verification.json`，提交 SHA、推送及自动流水线结果另见同目录 `delivery.json`。
+- Seen 1× (2026-11-17)。状态：本地修正完成，按本批授权提交、推送并核对自动流水线。
+
 ### LYNX-FALLBACK-001：WebView 回退路由必须连接实际分发的运行时
 
 - 范围：Flutter 打开 Lynx 插件的公共 HTML 回退，主仓库基线 `39cc87db2a1b92f0be2d96741dc3a1178a1ea7c3`，Flutter 基线 `7fc5a04e4c65dfe54b0df299671bbecd2b4f8478`。

@@ -10,6 +10,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### LICENSE-001: Audit license texts, package metadata, and distributed copies across repositories
+
+- Scope: themes, plugins, toolchain, and client declarations; parent baseline `44309463af527e5aff5273ef7abc74d820b8a6d3`.
+- Evidence: the local 21-repository audit on 2026-11-17 found eight subrepositories without a root LICENSE. Subsonic's README said MIT although `plugin.json` declared Apache-2.0 from its first commit. Seven toolchain packages declared MIT from creation, so their difference from the root README alone did not establish a stale declaration.
+- Rule and Done right: trace loaded assets and packaged files, comparing declarations with full texts. Add the standard Apache-2.0 text to repositories already declaring it; give each npm package the LICENSE matching its own metadata and verify inclusion with `npm pack --dry-run --json --ignore-scripts`. Document the seven MIT exceptions in the toolchain README, preserve third-party licenses, and include LICENSE in the base scaffold template.
+- Validation: all eight root LICENSE files match the parent's text byte for byte; all 12 toolchain npm packages include matching texts. Local evidence, worktree identities, and relevant Not run items: `/tmp/songloft-license-fix-20261117/verification.json`. Commit SHAs, pushes, and automatic workflow results are recorded separately in `delivery.json` in the same directory.
+- Seen 1× (2026-11-17). Local corrections complete; commits, pushes, and automatic workflow checks follow this batch's authorization.
+
 ### LYNX-FALLBACK-001: Connect WebView fallback routes to the distributed runtime
 
 - Scope: the shared HTML fallback used when Flutter opens Lynx plugins. Parent baseline `39cc87db2a1b92f0be2d96741dc3a1178a1ea7c3`; Flutter baseline `7fc5a04e4c65dfe54b0df299671bbecd2b4f8478`.
