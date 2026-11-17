@@ -20,6 +20,34 @@ type ScanConfig struct {
 	SupportedFormats []string // 支持的音频格式
 }
 
+// ExcludedDirectory 记录被排除规则剪枝的目录，不代表其中的文件数量。
+type ExcludedDirectory struct {
+	Path     string `json:"path"`
+	RuleType string `json:"rule_type"` // path 或 name
+	Rule     string `json:"rule"`
+}
+
+// ScanValidation 仅检查扫描起点与排除规则，不遍历文件系统。
+type ScanValidation struct {
+	Paths               []string            `json:"paths"`
+	ExcludedDirectories []ExcludedDirectory `json:"excluded_directories"`
+}
+
+func (s *Scanner) ValidateRoots(roots []string) ScanValidation {
+	if len(roots) == 0 {
+		roots = []string{s.config.MusicPath}
+	}
+	result := ScanValidation{Paths: []string{}, ExcludedDirectories: []ExcludedDirectory{}}
+	for _, root := range roots {
+		if excluded := s.ExclusionForDir(root); excluded != nil {
+			result.ExcludedDirectories = append(result.ExcludedDirectories, *excluded)
+		} else {
+			result.Paths = append(result.Paths, root)
+		}
+	}
+	return result
+}
+
 // DirEntry 目录条目（用于目录树懒加载）
 type DirEntry struct {
 	Name        string `json:"name"`
@@ -96,9 +124,10 @@ func (s *Scanner) ScanFiles(ctx context.Context, onProgress func(count int)) ([]
 
 // ScanResult 扫描结果
 type ScanResult struct {
-	AudioFiles []string
-	CueFiles   []string            // .cue 文件绝对路径
-	LyricDirs  map[string]struct{} // 含 .lrc 文件的目录集合
+	AudioFiles          []string
+	CueFiles            []string            // .cue 文件绝对路径
+	LyricDirs           map[string]struct{} // 含 .lrc 文件的目录集合
+	ExcludedDirectories []ExcludedDirectory
 }
 
 // ScanFilesWithCue 扫描音频文件和 .cue 文件（整个音乐根目录）。
@@ -129,7 +158,7 @@ func (s *Scanner) ScanFilesWithCueInDirs(ctx context.Context, roots []string, on
 			continue
 		}
 		if err := s.scanDirWithCue(ctx, root, visited, result, onProgress); err != nil {
-			return nil, fmt.Errorf("failed to scan directory %s: %w", root, err)
+			return result, fmt.Errorf("failed to scan directory %s: %w", root, err)
 		}
 		scanned++
 	}
@@ -157,7 +186,8 @@ func (s *Scanner) scanDirWithCue(ctx context.Context, dirPath string, visited ma
 	}
 	visited[realPath] = true
 
-	if s.ShouldExcludeDir(dirPath) {
+	if excluded := s.ExclusionForDir(dirPath); excluded != nil {
+		result.ExcludedDirectories = append(result.ExcludedDirectories, *excluded)
 		return nil
 	}
 
@@ -296,6 +326,11 @@ func (s *Scanner) IsAudioFile(filename string) bool {
 // 1. 按完整路径精确排除（ExcludePaths）：目录路径以排除路径为前缀时排除
 // 2. 按名称模式匹配排除（ExcludeDirs）：路径中任何层级包含该名称时排除
 func (s *Scanner) ShouldExcludeDir(dirPath string) bool {
+	return s.ExclusionForDir(dirPath) != nil
+}
+
+// ExclusionForDir 与扫描、清理共用相同匹配语义，并返回命中的规则。
+func (s *Scanner) ExclusionForDir(dirPath string) *ExcludedDirectory {
 	cleanPath := filepath.Clean(dirPath)
 
 	// 1. 检查完整路径排除列表（精确匹配）
@@ -303,7 +338,7 @@ func (s *Scanner) ShouldExcludeDir(dirPath string) bool {
 		cleanExclude := filepath.Clean(excludePath)
 		// 目录路径等于排除路径，或者是排除路径的子目录
 		if cleanPath == cleanExclude || strings.HasPrefix(cleanPath, cleanExclude+string(os.PathSeparator)) {
-			return true
+			return &ExcludedDirectory{Path: cleanPath, RuleType: "path", Rule: cleanExclude}
 		}
 	}
 
@@ -312,12 +347,12 @@ func (s *Scanner) ShouldExcludeDir(dirPath string) bool {
 	for _, part := range parts {
 		for _, excludeDir := range s.config.ExcludeDirs {
 			if part == excludeDir {
-				return true
+				return &ExcludedDirectory{Path: cleanPath, RuleType: "name", Rule: excludeDir}
 			}
 		}
 	}
 
-	return false
+	return nil
 }
 
 // IsFileInExcludedArea 判断文件路径是否在排除区域内

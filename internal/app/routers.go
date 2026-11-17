@@ -296,6 +296,7 @@ func (a *App) setupAPIV1Router() {
 
 			// 扫描管理模块
 			r.Post("/scan", scanHandler.ScanAndImport)
+			r.Post("/scan/validate", scanHandler.ValidateScan)
 			r.Get("/scan/progress", scanHandler.GetScanProgress)
 			r.Post("/scan/cancel", scanHandler.CancelScan)
 			r.Get("/scan/directories", scanHandler.ListDirectories)

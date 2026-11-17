@@ -31,20 +31,27 @@ const (
 
 // ScanProgress 扫描进度信息
 type ScanProgress struct {
-	Status          ScanStatus `json:"status"`            // 当前状态
-	DiscoveredFiles int        `json:"discovered_files"`  // scanning 阶段已发现的音频文件数
-	TotalFiles      int        `json:"total_files"`       // 总文件数
-	ScannedFiles    int        `json:"scanned_files"`     // 已扫描文件数
-	ImportedFiles   int        `json:"imported_files"`    // 已导入文件数
-	SkippedFiles    int        `json:"skipped_files"`     // 跳过的文件数（已存在）
-	FailedFiles     int        `json:"failed_files"`      // 失败的文件数
-	CleanedFiles    int        `json:"cleaned_files"`     // 清理的过期文件数
-	CueSplitSources int        `json:"cue_split_sources"` // splitting_cue 阶段已处理的 CUE 来源数
-	LocalSongCount  int        `json:"local_song_count"`  // 扫描完成后数据库中本地歌曲总数
-	CurrentFile     string     `json:"current_file"`      // 当前处理的文件
-	StartTime       *time.Time `json:"start_time"`        // 开始时间
-	EndTime         *time.Time `json:"end_time"`          // 结束时间
-	Error           string     `json:"error"`             // 错误信息
+	ExcludedDirectories []ExcludedDirectory `json:"excluded_directories"` // 实际因规则跳过的目录
+	Status              ScanStatus          `json:"status"`               // 当前状态
+	DiscoveredFiles     int                 `json:"discovered_files"`     // scanning 阶段已发现的音频文件数
+	TotalFiles          int                 `json:"total_files"`          // 总文件数
+	ScannedFiles        int                 `json:"scanned_files"`        // 已扫描文件数
+	ImportedFiles       int                 `json:"imported_files"`       // 已导入文件数
+	SkippedFiles        int                 `json:"skipped_files"`        // 跳过的文件数（已存在）
+	FailedFiles         int                 `json:"failed_files"`         // 失败的文件数
+	CleanedFiles        int                 `json:"cleaned_files"`        // 清理的过期文件数
+	CueSplitSources     int                 `json:"cue_split_sources"`    // splitting_cue 阶段已处理的 CUE 来源数
+	LocalSongCount      int                 `json:"local_song_count"`     // 扫描完成后数据库中本地歌曲总数
+	CurrentFile         string              `json:"current_file"`         // 当前处理的文件
+	StartTime           *time.Time          `json:"start_time"`           // 开始时间
+	EndTime             *time.Time          `json:"end_time"`             // 结束时间
+	Error               string              `json:"error"`                // 错误信息
+}
+
+func (m *ScanProgressManager) SetExcludedDirectories(dirs []ExcludedDirectory) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.progress.ExcludedDirectories = append([]ExcludedDirectory{}, dirs...)
 }
 
 // ScanProgressManager 扫描进度管理器

@@ -1,5 +1,7 @@
 # #573 排查与验证记录
 
+2026-11-17 后续：报告人补充确认命中排除路径；扫描提示优化另见 [扫描排除诊断与验证](issue-573-scan-exclusions.md)。下文保留排序修复当时的调查边界。
+
 目标：[songloft-org/songloft#573](https://github.com/songloft-org/songloft/issues/573)。本次只确认并修复扫描影响歌单排序的缺陷；移动后歌曲不可见尚未复现，不能据此关闭 Issue。
 
 ## 验证对象

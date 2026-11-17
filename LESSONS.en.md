@@ -10,6 +10,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### SCAN-EXCLUDE-001: Explain scan exclusions separately from playlist exclusions
+
+- Scope: targeted scanning, exclusion diagnostics and client scan controls; songloft-org/songloft#573, baseline `4e73b078d86472e0c3409d24a87a6aca2b82380a`.
+- Evidence: the reporter excluded `yt-dlp` from scanning to avoid many one-song folder playlists. Targeted descendants inherited that rule; the old endpoint accepted a job which discovered no songs. Removing the start guard in isolation makes the new regression observe 200 and background work; removing traversal diagnostics loses actual pruned directories.
+- Rule / Done right: share scanner matching to return paths and matching rules. Refuse all-excluded roots; scan mixed roots normally and explain skipped directories. Count pruned directories without walking them to estimate song counts. Preserve exclusions and cleanup without a temporary bypass; use existing `auto_create_exclude_dirs` for automatic-playlist-only exclusions. Real HTTP, positive/negative client tests and verification limits are in the [record](docs/en/issue-573-scan-exclusions.md).
+- Seen 1× (2026-11-17). Status: local implementation and verification complete; the user subsequently authorized commits, pushes and an Issue reply, with delivery tracked in this batch's record. Local fixtures do not establish acceptance on the reporter's Docker instance.
+
 ### HTTP-PROXY-001: Independent plugin transports must explicitly use the global proxy
 
 - Scope: QuickJS `fetch`, `songloft.net.httpStream`, and the shared proxy contract; [songloft-org/songloft#575](https://github.com/songloft-org/songloft/issues/575), baseline `8177b2f208d8436f24a97e08a4ae237f372f88c5`.

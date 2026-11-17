@@ -76,7 +76,11 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 - 视频容器探测：扫描 mp4/mov/m4v/mkv/webm/avi/ts/mpg/mpeg/flv/wmv/rm/rmvb/3gp 等容器时用 ffprobe 探测是否含真实视频轨（排除封面 attached_pic）来置 `songs.is_video`，客户端据此渲染画面 / 选择投屏 mime
 - **本地起服务验证时，music 目录不要放在 `/tmp` 下**：`music_path` 的默认 `exclude_dirs` 含 `tmp`，
   而 `ShouldExcludeDir` 是**按路径任一层级的目录名**匹配的，于是整个 `/tmp/...` 根目录被排除。
-  表现是扫描「成功完成」但 `discovered_files=0`，**不报错、不打 warn**，极易误判为自己的改动坏了
+  历史上表现为扫描「成功完成」但 `discovered_files=0`。现在 `/scan/validate` 返回命中的排除规则，
+  手动扫描所有起点被排除时返回 400，不启动任务；实际遍历剪枝的目录写入进度 `excluded_directories`。
+- 排除扫描与排除自动创建歌单分开：只想避免单曲目录生成大量歌单时，使用 `auto_create_exclude_dirs`，
+  不要把目录放进 `exclude_dirs/exclude_paths`。排除规则不提供临时豁免；名称/路径排除仍保留配置保存后的清理语义。
+- 排除诊断统计的是被剪枝的目录，不能当成歌曲数量，也不为预估数量额外遍历被排除的目录。详见 [#573 扫描排除诊断](issue-573-scan-exclusions.md)。
 
 <a id="scan-batches"></a>
 

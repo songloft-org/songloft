@@ -65,18 +65,24 @@ type ScanRequest struct {
 	Paths []string `json:"paths,omitempty"`
 }
 
+type ScanStartResponse struct {
+	Message             string                       `json:"message"`
+	ExcludedDirectories []services.ExcludedDirectory `json:"excluded_directories"`
+}
+
 // ScanAndImport 扫描并导入本地音乐（异步）
 // @Summary 扫描并导入本地音乐
 // @Description 异步扫描音乐目录并导入新发现的音乐文件到数据库，立即返回，可通过进度接口查询状态。
 // @Description reimport=true 时对已入库文件也重新提取元数据；默认 false 走增量（跳过已存在且时长有效的文件）。
 // @Description paths 为目录级定向扫描（Issue #262）：省略/为空时扫描整个音乐根目录；非空时只扫描给定目录（含子目录），
 // @Description 且过期记录清理仅收敛到这些目录之内（不影响其余曲库）。每个目录必须位于音乐根目录之下，否则返回 400。
+// @Description 始终遵守排除规则。所有扫描起点均被排除时返回 400，不启动任务；部分被排除时在响应和进度中列出原因。
 // @Tags 扫描管理
 // @Accept json
 // @Produce json
 // @Param request body ScanRequest false "扫描请求参数"
-// @Success 200 {object} map[string]interface{} "扫描任务已启动"
-// @Failure 400 {object} map[string]string "指定目录不在音乐目录下"
+// @Success 200 {object} ScanStartResponse "扫描任务已启动，含被排除的扫描起点"
+// @Failure 400 {object} map[string]string "指定目录不在音乐目录下，或所有扫描起点均被排除"
 // @Failure 409 {object} map[string]string "扫描正在进行中"
 // @Failure 500 {object} map[string]string "启动扫描失败"
 // @Security BearerAuth
@@ -84,7 +90,7 @@ type ScanRequest struct {
 func (h *ScanHandler) ScanAndImport(w http.ResponseWriter, r *http.Request) {
 	// 解析请求参数
 	var req ScanRequest
-	if r.ContentLength > 0 {
+	if r.ContentLength != 0 {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			respondError(w, http.StatusBadRequest, "无效的请求参数", err)
 			return
@@ -97,15 +103,52 @@ func (h *ScanHandler) ScanAndImport(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "指定目录不在音乐目录下", err)
 		return
 	}
+	validation := h.scanner.ValidateRoots(scopePaths)
+	if len(validation.Paths) == 0 {
+		details := make([]string, 0, len(validation.ExcludedDirectories))
+		for _, dir := range validation.ExcludedDirectories {
+			details = append(details, fmt.Sprintf("%s (%s: %s)", dir.Path, dir.RuleType, dir.Rule))
+		}
+		respondError(w, http.StatusBadRequest, "所有扫描目录均被排除，请调整排除设置", fmt.Errorf("%s", strings.Join(details, "; ")))
+		return
+	}
 
 	if err := h.songService.ScanAndImportAsync(req.Reimport, scopePaths); err != nil {
 		respondError(w, http.StatusConflict, "扫描正在进行中", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "扫描任务已启动",
+	respondJSON(w, http.StatusOK, ScanStartResponse{
+		Message:             "扫描任务已启动",
+		ExcludedDirectories: validation.ExcludedDirectories,
 	})
+}
+
+// ValidateScan 检查所选扫描目录的排除规则。
+// @Summary 检查扫描目录
+// @Description 使用与扫描相同的路径校验和排除规则，返回可扫描起点及被排除起点的路径、规则类型（path/name）和规则值。不遍历子目录、不启动扫描、不修改配置。paths 省略或为空时检查音乐根目录。
+// @Tags 扫描管理
+// @Accept json
+// @Produce json
+// @Param request body ScanRequest false "仅使用 paths 字段"
+// @Success 200 {object} services.ScanValidation "可扫描目录及排除原因；paths 为空表示全部被排除"
+// @Failure 400 {object} map[string]string "无效参数或目录不在音乐目录下"
+// @Security BearerAuth
+// @Router /scan/validate [post]
+func (h *ScanHandler) ValidateScan(w http.ResponseWriter, r *http.Request) {
+	var req ScanRequest
+	if r.ContentLength != 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, http.StatusBadRequest, "无效的请求参数", err)
+			return
+		}
+	}
+	paths, err := h.sanitizeScanPaths(req.Paths)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "指定目录不在音乐目录下", err)
+		return
+	}
+	respondJSON(w, http.StatusOK, h.scanner.ValidateRoots(paths))
 }
 
 // sanitizeScanPaths 校验并规整定向扫描的目录列表：

@@ -10,6 +10,13 @@
 
 ## 条目
 
+### SCAN-EXCLUDE-001：排除扫描与排除自动歌单要分开解释
+
+- 范围：定向扫描、排除诊断及客户端扫描入口；songloft-org/songloft#573，基线 `4e73b078d86472e0c3409d24a87a6aca2b82380a`。
+- 证据：报告人确认将 `yt-dlp` 加入扫描排除是为了避免单曲目录生成大量歌单；子目录定向扫描继承该规则，旧接口返回成功启动，最终没有发现歌曲。隔离移除启动校验后，新回归观察到 200 和后台任务；移除遍历诊断后，实际剪枝目录没有记录。
+- 规则与 Done right：复用扫描匹配器返回路径和命中规则；全排除不启动，混合目录正常扫描并解释跳过项。诊断只数被剪枝目录，不能为估算歌曲数额外遍历。保留排除及清理语义，不增加临时豁免；只排除自动歌单用现有 `auto_create_exclude_dirs`。真实 HTTP、客户端正反向测试与验证边界见[记录](docs/issue-573-scan-exclusions.md)。
+- Seen 1× (2026-11-17)。状态：本地实现与验证完成，用户随后授权提交、推送与 Issue 回复，具体交付以本批记录为准；不把本地夹具当成报告人 Docker 验收。
+
 ### HTTP-PROXY-001：插件的独立 Transport 必须显式接入全局代理
 
 - 范围：QuickJS `fetch`、`songloft.net.httpStream` 与公共代理契约；[songloft-org/songloft#575](https://github.com/songloft-org/songloft/issues/575)，基线 `8177b2f208d8436f24a97e08a4ae237f372f88c5`。

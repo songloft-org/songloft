@@ -1,5 +1,7 @@
 # #573 investigation and verification
 
+2026-11-17 follow-up: the reporter identified a matching exclusion path. See [scan exclusion diagnostics and verification](issue-573-scan-exclusions.md). The historical ordering investigation below retains its original evidence boundaries.
+
 Target: [songloft-org/songloft#573](https://github.com/songloft-org/songloft/issues/573). This change confirms and fixes scan-related playlist ordering defects. Missing songs after moving files have not been reproduced, so this does not establish that the entire issue is resolved.
 
 ## Verified code

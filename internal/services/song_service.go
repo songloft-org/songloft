@@ -594,6 +594,9 @@ func (s *SongService) doScanAndImport(ctx context.Context, reimport bool, scopeR
 	scanResult, err := s.scanner.Load().ScanFilesWithCueInDirs(ctx, scopeRoots, func(count int) {
 		s.scanProgressManager.SetDiscoveredFiles(count)
 	})
+	if scanResult != nil {
+		s.scanProgressManager.SetExcludedDirectories(scanResult.ExcludedDirectories)
+	}
 	if err != nil {
 		s.scanProgressManager.Fail(fmt.Errorf("failed to scan files: %w", err))
 		return

@@ -96,8 +96,14 @@ registry fetch — up to 500 `plugin.json` files, 8 concurrent, 15s timeout each
 - Video container probe: when scanning containers like mp4/mov/m4v/mkv/webm/avi/ts/mpg/mpeg/flv/wmv/rm/rmvb/3gp, ffprobe detects whether a real video track is present (excluding the cover attached_pic) to set `songs.is_video`; the client uses this to render the picture / pick the cast mime
 - **When verifying locally, don't put the music directory under `/tmp`**: the default `exclude_dirs` for
   `music_path` includes `tmp`, and `ShouldExcludeDir` matches **any path segment by directory name**, so
-  the entire `/tmp/...` root gets excluded. The symptom is a scan that "completes successfully" with
-  `discovered_files=0` — **no error, no warning** — easy to misread as your own change breaking things
+  the entire `/tmp/...` root gets excluded. Historically this could "complete successfully" with
+  `discovered_files=0`. `/scan/validate` now returns the matching rule; a manual scan with every root
+  excluded returns 400 without starting a job. Actual traversal pruning is reported in progress `excluded_directories`.
+- Keep scan exclusions separate from automatic playlist exclusions. To avoid many one-song folder playlists,
+  use `auto_create_exclude_dirs` rather than `exclude_dirs/exclude_paths`. No temporary bypass is provided;
+  name/path exclusions retain their existing cleanup behavior when settings are saved.
+- Diagnostics count pruned directories, never presumed song counts, and do not walk excluded subtrees to
+  estimate their contents. See [#573 scan exclusion diagnostics](issue-573-scan-exclusions.md).
 
 <a id="scan-batches"></a>
 
