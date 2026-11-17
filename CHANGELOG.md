@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [v2.13.12] - 2026-11-17
+### :bug: Bug Fixes
+- [`afe3640`](https://github.com/songloft-org/songloft/commit/afe36400e441f5a4bb2df48db144a75be7be58f0) - **jsplugin**: 修复 Flutter 打开 Lynx 插件白屏 *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :memo: Documentation Changes
+- [`ff493cb`](https://github.com/songloft-org/songloft/commit/ff493cb8683fff81ec62faa29b5b95c471d5c015) - update CHANGELOG for v2.13.11 *(commit by [@github-actions[bot]](https://github.com/apps/github-actions))*
+- [`39cc87d`](https://github.com/songloft-org/songloft/commit/39cc87db2a1b92f0be2d96741dc3a1178a1ea7c3) - **ci**: 记录 Linux 固定环境发布验证 *(commit by [@hanxi](https://github.com/hanxi))*
+
+### :wrench: Chores
+- [`281ca48`](https://github.com/songloft-org/songloft/commit/281ca487465e0e8bf3b3c5e7f82ca3b13fad7917) - **clients**: 同步 Flutter 与 Lynx 客户端发布版本 *(commit by [@hanxi](https://github.com/hanxi))*
+- [`8c014b3`](https://github.com/songloft-org/songloft/commit/8c014b342ea69683293fec729e9396a925b94e66) - release version 2.13.12 *(commit by [@hanxi](https://github.com/hanxi))*
+
+
 ## [v2.13.11] - 2026-11-16
 ### :sparkles: New Features
 - [`b98eb00`](https://github.com/songloft-org/songloft/commit/b98eb00361b3cfcc79353413468c5c72e4773c78) - **jsplugin**: 完善 Lynx 插件回退资源及客户端接入 *(commit by [@hanxi](https://github.com/hanxi))*
@@ -2418,3 +2431,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [v2.13.9]: https://github.com/songloft-org/songloft/compare/v2.13.8...v2.13.9
 [v2.13.10]: https://github.com/songloft-org/songloft/compare/v2.13.9...v2.13.10
 [v2.13.11]: https://github.com/songloft-org/songloft/compare/v2.13.10...v2.13.11
+[v2.13.12]: https://github.com/songloft-org/songloft/compare/v2.13.11...v2.13.12
