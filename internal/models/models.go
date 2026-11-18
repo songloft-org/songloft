@@ -118,6 +118,8 @@ type Song struct {
 	UpdatedAt       time.Time  `json:"updated_at" example:"2024-01-01T12:00:00Z"` // 最后更新时间
 	FileModifiedAt  *time.Time `json:"file_modified_at,omitempty"`                // 文件修改时间(mtime，本地歌曲扫描时记录；未知为 nil)
 	PlaylistAddedAt *time.Time `json:"playlist_added_at,omitempty"`               // 加入当前歌单的时间，仅歌单成员查询返回
+
+	RadioMode RadioMode `json:"radio_mode,omitempty"` // 电台播放模式，缺省按 URL 后缀识别
 }
 
 // SongBrief is a lightweight song representation for list display.
@@ -149,11 +151,35 @@ func (s *Song) IsPluginSourced() bool {
 	return s.PluginEntryPath != "" && s.SourceData != ""
 }
 
-// IsHLSStream 判断歌曲源头是否为 HLS 播放列表（.m3u8/.m3u）。
-// 仅电台类型且源 URL 后缀匹配时返回 true。
-func (s *Song) IsHLSStream() bool {
-	if s.Type != TypeRadio || s.URL == "" {
+type RadioMode string
+
+const (
+	RadioModeAuto      RadioMode = ""
+	RadioModeHLS       RadioMode = "hls"
+	RadioModeAudioOnly RadioMode = "audio_only"
+)
+
+// ValidForSource 校验显式电台模式，自动模式保留已有的音源格式。
+func (m RadioMode) ValidForSource(rawURL string) bool {
+	switch m {
+	case RadioModeAuto:
+		return true
+	case RadioModeHLS, RadioModeAudioOnly:
+		u, err := url.Parse(rawURL)
+		return err == nil && u.Hostname() != "" && (u.Scheme == "http" || u.Scheme == "https") &&
+			(m != RadioModeAudioOnly || (u.User == nil && u.Fragment == "" && len(rawURL) <= 8192))
+	default:
 		return false
+	}
+}
+
+// IsHLSStream 判断电台是否向客户端提供 HLS 播放列表。
+func (s *Song) IsHLSStream() bool {
+	if s.Type != TypeRadio || s.URL == "" || s.RadioMode == RadioModeAudioOnly {
+		return false
+	}
+	if s.RadioMode == RadioModeHLS {
+		return true
 	}
 	u, err := url.Parse(s.URL)
 	if err != nil {

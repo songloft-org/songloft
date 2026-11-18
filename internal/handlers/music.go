@@ -52,6 +52,7 @@ type SongHandler struct {
 	reassigner        AsyncReassigner
 	lyricFetcher      *services.LyricFetcher // 解包插件 JSON 拿 LRC 文本(歌词 url 分支用)
 	hlsHandler        *HLSHandler            // 电台 HLS 流的反代委托（开关在 HLSHandler 内）
+	hlsTranscode      *services.HLSTranscodeService
 	playActivity      *playactivity.Registry // 跟踪进行中的 play/prefetch/transcode/reassign 工作，用户切歌时一次性 cancel
 	getMusicPath      func() string          // 获取 music_path（由 scanner.GetMusicPath 注入）
 	playBroadcaster   PlayEventBroadcaster   // JS 插件播放事件广播（可选，nil 安全）
@@ -86,6 +87,10 @@ func NewSongHandler(
 		playActivity: playActivity,
 		radioClient:  radioClient,
 	}
+}
+
+func (h *SongHandler) SetHLSTranscodeService(s *services.HLSTranscodeService) {
+	h.hlsTranscode = s
 }
 
 // SetGetMusicPath 注入 music_path 获取函数。
@@ -990,12 +995,12 @@ func (h *SongHandler) BatchDeleteSongs(w http.ResponseWriter, r *http.Request) {
 
 // UpdateSong 更新歌曲信息
 // @Summary 更新歌曲信息
-// @Description 更新歌曲信息（仅支持网络歌曲和电台）
+// @Description 更新网络歌曲或电台。电台可将 radio_mode 设为 hls（保留原 HLS 流）或 audio_only（服务端输出 MP3），空字符串恢复按后缀自动识别，省略则保留原模式。纯音频模式清除 is_video。
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
 // @Param id path int true "歌曲ID"
-// @Param request body object{title=string,artist=string,album=string,url=string,cover_url=string,is_live=boolean,is_video=boolean} true "歌曲信息"
+// @Param request body object{title=string,artist=string,album=string,url=string,cover_url=string,is_live=boolean,is_video=boolean,radio_mode=string} true "歌曲信息"
 // @Success 200 {object} models.Song "更新成功"
 // @Failure 400 {object} map[string]string "请求数据错误"
 // @Failure 404 {object} map[string]string "歌曲不存在"
@@ -1021,13 +1026,14 @@ func (h *SongHandler) UpdateSong(w http.ResponseWriter, r *http.Request) {
 
 	// 解析请求
 	var req struct {
-		Title    string `json:"title"`
-		Artist   string `json:"artist"`
-		Album    string `json:"album"`
-		URL      string `json:"url"`
-		CoverURL string `json:"cover_url"`
-		IsLive   *bool  `json:"is_live"`
-		IsVideo  *bool  `json:"is_video"` // 是否含视频画面;仅在显式提供时更新
+		Title     string            `json:"title"`
+		Artist    string            `json:"artist"`
+		Album     string            `json:"album"`
+		URL       string            `json:"url"`
+		CoverURL  string            `json:"cover_url"`
+		IsLive    *bool             `json:"is_live"`
+		IsVideo   *bool             `json:"is_video"` // 是否含视频画面;仅在显式提供时更新
+		RadioMode *models.RadioMode `json:"radio_mode"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1057,6 +1063,20 @@ func (h *SongHandler) UpdateSong(w http.ResponseWriter, r *http.Request) {
 	// is_video 适用于网络歌曲与电台(视频画面/视频电台),仅在显式提供时更新。
 	if req.IsVideo != nil {
 		existingSong.IsVideo = *req.IsVideo
+	}
+	if req.RadioMode != nil {
+		if existingSong.Type != models.TypeRadio {
+			respondError(w, http.StatusBadRequest, "radio_mode 仅适用于电台", nil)
+			return
+		}
+		existingSong.RadioMode = *req.RadioMode
+	}
+	if !existingSong.RadioMode.ValidForSource(existingSong.URL) {
+		respondError(w, http.StatusBadRequest, "电台播放模式或 HTTP/HTTPS 源地址无效", nil)
+		return
+	}
+	if existingSong.RadioMode == models.RadioModeAudioOnly {
+		existingSong.IsVideo = false
 	}
 
 	// 非本地歌曲更新后必须仍有可用音源：直链 URL 或插件 source_data。
@@ -1187,11 +1207,11 @@ func (h *SongHandler) waitForDownloadIdle() {
 
 // AddRadios 批量添加电台/广播
 // @Summary 批量添加电台/广播
-// @Description 批量添加电台/广播到数据库
+// @Description 批量添加电台。radio_mode 缺省时按 URL 后缀自动识别；hls 可用于无后缀的 HLS 入口，保留源流；audio_only 从 HTTP/HTTPS HLS、TS 或 MP4 源实时提取第一条音轨并输出 MP3，需 FFmpeg。
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
-// @Param request body []object{url=string,title=string,cover_url=string,is_video=boolean} true "电台/广播列表"
+// @Param request body []object{url=string,title=string,artist=string,cover_url=string,is_video=boolean,radio_mode=string} true "电台/广播列表"
 // @Success 201 {object} object{songs=[]models.Song,count=int} "添加成功"
 // @Failure 400 {object} map[string]string "请求数据错误"
 // @Failure 500 {object} map[string]string "添加失败"
@@ -1201,11 +1221,12 @@ func (h *SongHandler) AddRadios(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var reqs []struct {
-		URL      string `json:"url"`
-		Title    string `json:"title"`
-		Artist   string `json:"artist"`
-		CoverURL string `json:"cover_url"`
-		IsVideo  bool   `json:"is_video"` // 是否为视频电台(直播画面);由调用方(客户端开关)显式声明
+		URL       string           `json:"url"`
+		Title     string           `json:"title"`
+		Artist    string           `json:"artist"`
+		CoverURL  string           `json:"cover_url"`
+		IsVideo   bool             `json:"is_video"` // 是否为视频电台(直播画面);由调用方(客户端开关)显式声明
+		RadioMode models.RadioMode `json:"radio_mode"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&reqs); err != nil {
@@ -1224,12 +1245,17 @@ func (h *SongHandler) AddRadios(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, fmt.Sprintf("第 %d 条：URL 和标题不能为空", i+1), nil)
 			return
 		}
+		if !req.RadioMode.ValidForSource(req.URL) {
+			respondError(w, http.StatusBadRequest, fmt.Sprintf("第 %d 条：电台播放模式或 HTTP/HTTPS 源地址无效", i+1), nil)
+			return
+		}
 		inputs = append(inputs, services.RadioInput{
-			URL:      req.URL,
-			Title:    req.Title,
-			Artist:   req.Artist,
-			CoverURL: req.CoverURL,
-			IsVideo:  req.IsVideo,
+			URL:       req.URL,
+			Title:     req.Title,
+			Artist:    req.Artist,
+			CoverURL:  req.CoverURL,
+			IsVideo:   req.IsVideo,
+			RadioMode: req.RadioMode,
 		})
 	}
 
@@ -1432,7 +1458,7 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // 不需要判断 song.type/source — 所有分发逻辑都集中在这里。
 //
 // @Summary 流式播放歌曲
-// @Description 按 song.ID 流式返回音频。内部根据 song.type 分发到本地文件 / 缓存下载 / 直链下载 / 电台 302。
+// @Description 按 song.ID 流式播放。内部根据 song.type 分发到本地文件、网络歌曲或电台。HLS 电台返回播放列表或 302；配置为 audio_only 的电台返回首条音轨转码得到的 MP3。
 // @Tags 歌曲管理
 // @Produce application/octet-stream
 // @Param id path int true "歌曲 ID"
@@ -1450,7 +1476,10 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // @Success 202 {string} string "预拉取已触发"
 // @Success 302 {string} string "电台流重定向"
 // @Failure 404 {string} string "歌曲不存在"
-// @Failure 502 {string} string "音源不可用"
+// @Failure 403 {object} map[string]string "纯音频转码的源或其子资源不在允许范围内"
+// @Failure 502 {string} string "音源不可用或电台纯音频转码失败"
+// @Failure 503 {object} map[string]string "纯音频转码工具不可用或并发已满"
+// @Failure 504 {object} map[string]string "纯音频转码启动超时"
 // @Security BearerAuth
 // @Router /songs/{id}/play [get]
 // @Router /songs/{id}/play.m3u8 [get]
@@ -2330,6 +2359,10 @@ func (h *SongHandler) serveRadio(w http.ResponseWriter, r *http.Request, song *m
 		http.NotFound(w, r)
 		return
 	}
+	if song.RadioMode == models.RadioModeAudioOnly {
+		h.serveRadioAudio(w, r, song)
+		return
+	}
 
 	// radio_transcode=<fmt>：把电台流实时转码为目标格式（典型 mp3）。用于只支持 MP3、无法解码
 	// AAC/HE-AAC 或不支持 HLS 的音箱（songloft-org/songloft#275）。由客户端按设备能力下发；
@@ -2363,7 +2396,7 @@ func (h *SongHandler) serveRadio(w http.ResponseWriter, r *http.Request, song *m
 		slog.Warn("radio transcode unavailable, falling back to passthrough", "songId", song.ID, "url", song.URL, "error", err)
 	}
 
-	if isHLSURL(song.URL) {
+	if song.IsHLSStream() {
 		// hls=direct：原生 player（mpv/ExoPlayer/AVPlayer）自带 HLS 解析且无 CORS 限制，
 		// 让它直接 302 到源站自行拉取切片。经本机反代会多一次「拉列表→改写→客户端回访切片」
 		// 往返，对文件名带时间戳、窗口很短的直播源(#249 brtv-radiolive)会导致切片在回访前
@@ -2448,6 +2481,32 @@ func (h *SongHandler) serveRadio(w http.ResponseWriter, r *http.Request, song *m
 	}
 }
 
+func (h *SongHandler) serveRadioAudio(w http.ResponseWriter, r *http.Request, song *models.Song) {
+	if h.hlsTranscode == nil {
+		respondError(w, http.StatusServiceUnavailable, "电台纯音频转码不可用", nil)
+		return
+	}
+	w.Header().Set("Content-Type", "audio/mpeg")
+	w.Header().Set("Cache-Control", "no-store")
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	u, _ := url.Parse(song.URL) // 已在保存电台时校验
+	var referer string
+	if u != nil {
+		referer = u.Scheme + "://" + u.Host + "/"
+	}
+	err := h.hlsTranscode.StreamAudio(r.Context(), w, services.HLSTranscodeOptions{
+		URL: song.URL, UserAgent: radioStreamUserAgent, Referer: referer,
+	})
+	var transcodeErr *services.HLSTranscodeError
+	if errors.As(err, &transcodeErr) && r.Context().Err() == nil {
+		w.Header().Del("Content-Type")
+		respondHLSTranscodeError(w, transcodeErr)
+	}
+}
+
 // normalizeAudioContentType 把上游返回的非标准音频 MIME 归一化为浏览器 / 解码器能识别的标准值。
 // 典型:Shoutcast/streamtheworld 类 HE-AAC 电台返回 `audio/aacp`(遗留 MIME),浏览器 <audio>
 // 与部分播放器无法据此选对解码器;实际负载是标准 ADTS AAC,改标 `audio/aac` 更兼容。(#275)
@@ -2480,16 +2539,6 @@ func radioTranscodeContentType(format string) string {
 	default:
 		return "application/octet-stream"
 	}
-}
-
-// isHLSURL 判断 URL 是否指向 HLS 播放列表(.m3u8/.m3u),忽略大小写与查询串。
-func isHLSURL(rawURL string) bool {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return false
-	}
-	ext := strings.ToLower(filepath.Ext(u.Path))
-	return ext == ".m3u8" || ext == ".m3u"
 }
 
 // serveRemote 网络歌曲:根据音源类型分发到缓存或代理。

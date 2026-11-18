@@ -682,7 +682,7 @@ func songSelectBuilder() sq.SelectBuilder {
 		"cue_source_path", "cue_track_index", "cue_audio_path",
 		"file_modified_at", "is_video",
 		"cue_start_seconds", "cue_end_seconds",
-		"rating",
+		"rating", "radio_mode",
 	).From("songs")
 }
 
@@ -783,7 +783,7 @@ func scanSongRow(scanner interface {
 		&s.CueSourcePath, &s.CueTrackIndex, &s.CueAudioPath,
 		&fileModifiedAt, &isVideo,
 		&s.CueStartSeconds, &s.CueEndSeconds,
-		&s.Rating,
+		&s.Rating, &s.RadioMode,
 	}
 	if err := scanner.Scan(append(dest, extra...)...); err != nil {
 		return nil, fmt.Errorf("scan song: %w", err)
@@ -822,6 +822,7 @@ func songRowToModel(row sqlc.Song) *models.Song {
 		SampleRate:          int(row.SampleRate),
 		IsLive:              row.IsLive != 0,
 		IsVideo:             row.IsVideo != 0,
+		RadioMode:           models.RadioMode(row.RadioMode),
 		PluginEntryPath:     row.PluginEntryPath,
 		SourceData:          row.SourceData,
 		DedupKey:            row.DedupKey,
@@ -897,6 +898,7 @@ func songCreateParams(s *models.Song) sqlc.CreateSongParams {
 		CueStartSeconds:     s.CueStartSeconds,
 		CueEndSeconds:       s.CueEndSeconds,
 		Rating:              int64(s.Rating),
+		RadioMode:           string(s.RadioMode),
 		FileModifiedAt:      nullTimeFromPtr(s.FileModifiedAt),
 	}
 }
@@ -939,6 +941,7 @@ func songUpdateParams(s *models.Song) sqlc.UpdateSongParams {
 		CueStartSeconds:     s.CueStartSeconds,
 		CueEndSeconds:       s.CueEndSeconds,
 		Rating:              int64(s.Rating),
+		RadioMode:           string(s.RadioMode),
 		FileModifiedAt:      nullTimeFromPtr(s.FileModifiedAt),
 		ID:                  s.ID,
 	}

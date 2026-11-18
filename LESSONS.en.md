@@ -10,6 +10,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### RADIO-001: A radio entry point's URL suffix can differ from its media format
+
+- Scope: [songloft-org/songloft#578](https://github.com/songloft-org/songloft/issues/578), radio playback URLs and server-side audio extraction, baseline `81204e279428db3565f4c33df176a76f7fbf4514`.
+- Evidence: The numeric Migu URL redirects twice to an HLS master playlist whose segments carry HEVC and AAC. The baseline add-radio response emitted `/play`, which selects progressive playback in the client. With HLS mode, it emits `/play.m3u8` and the proxied segments decode to HEVC frames. Switching the same station to audio-only yields a single MP3 track. See `/tmp/songloft-578.jCp7cj/{baseline,live}.log`.
+- Rule and example: Persist the playback mode the user selects and keep the original entry URL so its redirects continue to work. Emit a client playback path that reflects the final response format. Use the [live stream gateway](docs/en/pitfalls.md#hls-proxy) for audio extraction and destination validation.
+- Seen 1× (2026-11-18).
+
 ### LYNX-CACHE-001: Reference versioned host scripts directly from the fallback page
 
 - Scope: Lynx plugin fallback pages in Electron and system WebViews, [songloft-org/songloft-plugin-miot#143](https://github.com/songloft-org/songloft-plugin-miot/issues/143), server baseline `b6719811adbf56737ec08f45ec2bcfb636aa209a`.

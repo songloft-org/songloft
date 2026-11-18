@@ -303,6 +303,8 @@ func songToBackup(s *models.Song) models.BackupSong {
 		BitRate:         s.BitRate,
 		SampleRate:      s.SampleRate,
 		IsLive:          s.IsLive,
+		IsVideo:         s.IsVideo,
+		RadioMode:       s.RadioMode,
 		PluginEntryPath: s.PluginEntryPath,
 		SourceData:      s.SourceData,
 		DedupKey:        s.DedupKey,
@@ -310,6 +312,10 @@ func songToBackup(s *models.Song) models.BackupSong {
 }
 
 func backupToSong(bs *models.BackupSong) *models.Song {
+	mode := bs.RadioMode
+	if bs.Type != models.TypeRadio || !mode.ValidForSource(bs.URL) {
+		mode = models.RadioModeAuto
+	}
 	return &models.Song{
 		Type:            bs.Type,
 		Title:           bs.Title,
@@ -324,6 +330,8 @@ func backupToSong(bs *models.BackupSong) *models.Song {
 		BitRate:         bs.BitRate,
 		SampleRate:      bs.SampleRate,
 		IsLive:          bs.IsLive,
+		IsVideo:         bs.IsVideo && mode != models.RadioModeAudioOnly,
+		RadioMode:       mode,
 		PluginEntryPath: bs.PluginEntryPath,
 		SourceData:      bs.SourceData,
 		DedupKey:        bs.DedupKey,

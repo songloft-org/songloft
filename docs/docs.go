@@ -8556,7 +8556,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "批量添加电台/广播到数据库",
+                "description": "批量添加电台。radio_mode 缺省时按 URL 后缀自动识别；hls 可用于无后缀的 HLS 入口，保留源流；audio_only 从 HTTP/HTTPS HLS、TS 或 MP4 源实时提取第一条音轨并输出 MP3，需 FFmpeg。",
                 "consumes": [
                     "application/json"
                 ],
@@ -8578,11 +8578,17 @@ const docTemplate = `{
                             "items": {
                                 "type": "object",
                                 "properties": {
+                                    "artist": {
+                                        "type": "string"
+                                    },
                                     "cover_url": {
                                         "type": "string"
                                     },
                                     "is_video": {
                                         "type": "boolean"
+                                    },
+                                    "radio_mode": {
+                                        "type": "string"
                                     },
                                     "title": {
                                         "type": "string"
@@ -9047,7 +9053,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "更新歌曲信息（仅支持网络歌曲和电台）",
+                "description": "更新网络歌曲或电台。电台可将 radio_mode 设为 hls（保留原 HLS 流）或 audio_only（服务端输出 MP3），空字符串恢复按后缀自动识别，省略则保留原模式。纯音频模式清除 is_video。",
                 "consumes": [
                     "application/json"
                 ],
@@ -9088,6 +9094,9 @@ const docTemplate = `{
                                 },
                                 "is_video": {
                                     "type": "boolean"
+                                },
+                                "radio_mode": {
+                                    "type": "string"
                                 },
                                 "title": {
                                     "type": "string"
@@ -9798,7 +9807,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "按 song.ID 流式返回音频。内部根据 song.type 分发到本地文件 / 缓存下载 / 直链下载 / 电台 302。",
+                "description": "按 song.ID 流式播放。内部根据 song.type 分发到本地文件、网络歌曲或电台。HLS 电台返回播放列表或 302；配置为 audio_only 的电台返回首条音轨转码得到的 MP3。",
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -9894,6 +9903,15 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
+                    "403": {
+                        "description": "纯音频转码的源或其子资源不在允许范围内",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "404": {
                         "description": "歌曲不存在",
                         "schema": {
@@ -9901,9 +9919,27 @@ const docTemplate = `{
                         }
                     },
                     "502": {
-                        "description": "音源不可用",
+                        "description": "音源不可用或电台纯音频转码失败",
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    "503": {
+                        "description": "纯音频转码工具不可用或并发已满",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "504": {
+                        "description": "纯音频转码启动超时",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -9916,7 +9952,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "按 song.ID 流式返回音频。内部根据 song.type 分发到本地文件 / 缓存下载 / 直链下载 / 电台 302。",
+                "description": "按 song.ID 流式播放。内部根据 song.type 分发到本地文件、网络歌曲或电台。HLS 电台返回播放列表或 302；配置为 audio_only 的电台返回首条音轨转码得到的 MP3。",
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -10012,6 +10048,15 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
+                    "403": {
+                        "description": "纯音频转码的源或其子资源不在允许范围内",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "404": {
                         "description": "歌曲不存在",
                         "schema": {
@@ -10019,9 +10064,27 @@ const docTemplate = `{
                         }
                     },
                     "502": {
-                        "description": "音源不可用",
+                        "description": "音源不可用或电台纯音频转码失败",
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    "503": {
+                        "description": "纯音频转码工具不可用或并发已满",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "504": {
+                        "description": "纯音频转码启动超时",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -12611,6 +12674,19 @@ const docTemplate = `{
                 }
             }
         },
+        "models.RadioMode": {
+            "type": "string",
+            "enum": [
+                "",
+                "hls",
+                "audio_only"
+            ],
+            "x-enum-varnames": [
+                "RadioModeAuto",
+                "RadioModeHLS",
+                "RadioModeAudioOnly"
+            ]
+        },
         "models.RefreshTokenRequest": {
             "type": "object",
             "required": [
@@ -12776,6 +12852,14 @@ const docTemplate = `{
                     "description": "音源插件 entryPath(网络歌曲)",
                     "type": "string",
                     "example": "my-source"
+                },
+                "radio_mode": {
+                    "description": "电台播放模式，缺省按 URL 后缀识别",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.RadioMode"
+                        }
+                    ]
                 },
                 "rating": {
                     "description": "评级 0-100（0 表示未评级；星级客户端按 20/颗映射，如 80 = 4 星）",

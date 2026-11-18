@@ -1257,11 +1257,12 @@ type RemoteSongInput struct {
 
 // RadioInput 批量添加电台的单条输入
 type RadioInput struct {
-	URL      string
-	Title    string
-	Artist   string
-	CoverURL string
-	IsVideo  bool // 是否为视频电台(直播画面)
+	URL       string
+	Title     string
+	Artist    string
+	CoverURL  string
+	IsVideo   bool // 是否为视频电台(直播画面)
+	RadioMode models.RadioMode
 }
 
 // AddRemoteSongs 批量添加网络歌曲
@@ -1314,7 +1315,8 @@ func (s *SongService) AddRadios(ctx context.Context, inputs []RadioInput) ([]*mo
 			URL:       input.URL,
 			CoverURL:  input.CoverURL,
 			IsLive:    true,
-			IsVideo:   input.IsVideo,
+			IsVideo:   input.IsVideo && input.RadioMode != models.RadioModeAudioOnly,
+			RadioMode: input.RadioMode,
 			AddedAt:   now,
 			UpdatedAt: now,
 		}

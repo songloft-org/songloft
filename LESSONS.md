@@ -10,6 +10,13 @@
 
 ## 条目
 
+### RADIO-001：电台入口的 URL 后缀可能与实际媒体容器不同
+
+- 范围：[songloft-org/songloft#578](https://github.com/songloft-org/songloft/issues/578)，电台播放 URL 与服务端音轨提取，基线 `81204e279428db3565f4c33df176a76f7fbf4514`。
+- 证据：咪咕数字路径经两次重定向返回 HLS 主播放列表，媒体分片含 HEVC 与 AAC。基线的 HTTP 添加响应给出 `/play`，客户端据此选择渐进式播放。新实现的 HLS 模式给出 `/play.m3u8`，经实际代理取得的分片可解码 HEVC 帧，同一电台改为仅音频后输出单轨 MP3。日志在 `/tmp/songloft-578.jCp7cj/{baseline,live}.log`。
+- 规则与示例：在电台数据中保存用户声明的播放模式，原始入口地址保留重定向行为。向客户端输出与最终响应类型一致的播放路径。音频提取复用有地址校验的[直播拉流网关](docs/pitfalls.md#hls-proxy)。
+- Seen 1× (2026-11-18)。
+
 ### LYNX-CACHE-001：回退页必须直接引用带版本的宿主脚本
 
 - 范围：Electron 与系统 WebView 的 Lynx 插件回退页，[songloft-org/songloft-plugin-miot#143](https://github.com/songloft-org/songloft-plugin-miot/issues/143)，服务端基线 `b6719811adbf56737ec08f45ec2bcfb636aa209a`。

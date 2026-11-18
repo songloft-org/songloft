@@ -247,6 +247,8 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 - 切换时机：源站 Referer/UA 防盗链导致播放失败 / Web 嵌入模式 CORS 阻塞时，开启代理
 - 反代端点：`/api/v1/songs/{id}/hls/playlist?u=<base64url>` 和 `/api/v1/songs/{id}/hls/segment?u=<base64url>`
 - HLS 电台 song.url 强制带 `.m3u8` 后缀（`/api/v1/songs/{id}/play.m3u8`）：ExoPlayer/AVPlayer 按 URL 后缀选 MediaSource，无后缀会落到 ProgressiveMediaSource 导致直播无法播
+- 电台 `radio_mode=hls` 显式声明无后缀的 HLS 入口（含直播取流跳转）；客户端播放路径仍带 `.m3u8`，源地址按原值保存。空值按后缀识别。H.265 等源编码由支持该编码的播放器解码。
+- `radio_mode=audio_only` 的电台使用 `/play` 并清除 `is_video`。服务端经直播转码网关拉取 HLS、TS 或 MP4，复用转码私网白名单和共享的 4 个转码槽位，抽取首条音轨输出 MP3。请求结束时回收进程；启动失败返回 HTTP 错误。`HEAD` 只返回音频响应头。
 - 改写规则：经典 HLS + LL-HLS 全集（PART/PRELOAD-HINT/RENDITION-REPORT）+ `EXT-X-DATERANGE:X-ASSET-URI`（HLS Interstitials 单 URI）。`X-ASSET-LIST`（JSON 子代理）暂未实现，遇到时原样透传
 - 安全：无签名请求保留同源校验（scheme+host+port 与 `song.URL` 严格相等）；跨源 HTTP(S) 资源从实际播放列表中改写为带 `sig` 的代理链接。HMAC-SHA256 签名绑定歌曲 ID、当前源 URL、端点类型及完整资源 URL，不能篡改或跨歌曲/端点复用。入口及每次重定向均用 `services.IsHostnameAllowed` 拦截私网；私网白名单仍不作用于 HLS。密钥仅在当前进程有效，重启后须重新获取播放列表。
 - player 跨域：改写后的 URL 全部是相对路径（`playlist?u=...` / `segment?u=...`），规避 BASE_PATH 子路径部署问题

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,6 +21,11 @@ import (
 )
 
 const HLSIdleTimeout = 120 * time.Second
+
+// FFmpeg 只连接回环网关，所有 HLS 网络引用由网关解析和校验。
+func hlsInputArgs() []string {
+	return []string{"-http_proxy", "", "-protocol_whitelist", "http,tcp,crypto", "-format_whitelist", "hls,mpegts,mov"}
+}
 
 // HLSTranscodeError 是可公开给客户端的错误，不包含上游地址、凭证或进程输出。
 type HLSTranscodeError struct {
@@ -62,6 +68,8 @@ type HLSTranscodeService struct {
 	mu                                                      sync.Mutex
 	sessions                                                map[string]*hlsSession
 	closed                                                  bool
+	ctx                                                     context.Context
+	cancel                                                  context.CancelFunc
 	wg                                                      sync.WaitGroup
 	idleTimeout, startupTimeout, stallTimeout, pollInterval time.Duration
 	maxBytes                                                int64
@@ -72,10 +80,57 @@ func NewHLSTranscodeService(cache *CacheService, allowlist func() []string) (*HL
 	if err != nil {
 		return nil, err
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	return &HLSTranscodeService{cache: cache, allowlist: allowlist, root: root,
+		ctx: ctx, cancel: cancel,
 		sessions: make(map[string]*hlsSession), idleTimeout: HLSIdleTimeout,
 		startupTimeout: 30 * time.Second, stallTimeout: 30 * time.Second,
 		pollInterval: 200 * time.Millisecond, maxBytes: 128 << 20}, nil
+}
+
+// StreamAudio 将直播源的第一条音轨实时转成 MP3。请求结束即停止拉流。
+func (s *HLSTranscodeService) StreamAudio(ctx context.Context, w io.Writer, opts HLSTranscodeOptions) error {
+	if err := validateHLSURL(opts.URL); err != nil {
+		return err
+	}
+	if s.cache == nil || s.cache.getFFmpegPath() == "" {
+		return hlsError(503, "ffmpeg 未配置")
+	}
+	ffmpeg, err := safeLookPath(s.cache.getFFmpegPath())
+	if err != nil {
+		return hlsError(503, "ffmpeg 不可用")
+	}
+	select {
+	case seekStreamSem <- struct{}{}:
+		defer func() { <-seekStreamSem }()
+	default:
+		return hlsError(503, "转码并发已满")
+	}
+	if s.ctx.Err() != nil {
+		return hlsError(503, "转码服务已关闭")
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stop := context.AfterFunc(s.ctx, cancel)
+	defer stop()
+	gateway, err := newHLSPullGateway(ctx, opts, s.allowlist)
+	if err != nil {
+		var publicErr *HLSTranscodeError
+		if errors.As(err, &publicErr) {
+			return publicErr
+		}
+		return hlsError(500, "无法初始化直播拉流服务")
+	}
+	defer gateway.Close()
+	args := append([]string{"-nostdin", "-hide_banner", "-loglevel", "error"}, hlsInputArgs()...)
+	args = append(args, "-rw_timeout", "15000000", "-re", "-i", gateway.URL(opts.URL),
+		"-map", "0:a:0", "-vn", "-c:a", "libmp3lame", "-b:a", "128k",
+		"-write_xing", "0", "-id3v2_version", "0", "-f", "mp3", "pipe:1")
+	err = streamRadio(ctx, w, ffmpeg, args, s.startupTimeout)
+	if errors.Is(err, ErrRadioTranscodeUnavailable) {
+		return gateway.failure("无法从直播源提取音频")
+	}
+	return err
 }
 
 // Create 预留共享转码槽位；只有首个完整分片和播放列表就绪后才交付会话。
@@ -202,7 +257,7 @@ func (s *HLSTranscodeService) run(session *hlsSession, opts HLSTranscodeOptions)
 	input := gateway.URL(opts.URL)
 	// 只接受 HLS / MPEG-TS / MP4 媒体；所有网络引用先经过受控网关。
 	// FFmpeg 只连接本机网关，不能继承环境 http_proxy 把能力 URL 发给外部代理。
-	inputArgs := []string{"-http_proxy", "", "-protocol_whitelist", "http,tcp,crypto", "-format_whitelist", "hls,mpegts,mov"}
+	inputArgs := hlsInputArgs()
 	probeCtx, probeCancel := context.WithTimeout(processCtx, s.startupTimeout)
 	probeArgs := append([]string{"-v", "error"}, inputArgs...)
 	probeArgs = append(probeArgs, "-analyzeduration", "2000000", "-probesize", "2097152", "-show_entries", "stream=codec_type,codec_name,field_order:stream_disposition=attached_pic", "-of", "json", input)
@@ -457,6 +512,7 @@ func (s *HLSTranscodeService) remove(session *hlsSession) {
 func (s *HLSTranscodeService) Close() {
 	s.mu.Lock()
 	s.closed = true
+	s.cancel()
 	for _, session := range s.sessions {
 		session.cancel()
 	}

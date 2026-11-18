@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
+	"time"
 
 	"songloft/internal/httputil"
 )
@@ -68,7 +69,12 @@ func (c *CacheService) StreamTranscodedRadio(ctx context.Context, w io.Writer, o
 	args = append(args, "-i", opts.UpstreamURL, "-vn", "-codec:a", encoder)
 	args = append(args, qualityArgs...)
 	args = append(args, "-f", muxer, "pipe:1")
+	return streamRadio(ctx, w, ffmpegPath, args, 0)
+}
 
+func streamRadio(ctx context.Context, w io.Writer, ffmpegPath string, args []string, startupTimeout time.Duration) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	cmd := exec.CommandContext(ctx, ffmpegPath, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -79,14 +85,25 @@ func (c *CacheService) StreamTranscodedRadio(ctx context.Context, w io.Writer, o
 	cmd.Stderr = &capWriter{w: &stderr, remaining: 4096}
 
 	if err := cmd.Start(); err != nil {
+		_ = stdout.Close()
 		return fmt.Errorf("%w: start: %v", ErrRadioTranscodeUnavailable, err)
 	}
 
+	var deadline *time.Timer
+	if startupTimeout > 0 {
+		deadline = time.AfterFunc(startupTimeout, cancel)
+		defer deadline.Stop()
+	}
 	reader := bufio.NewReaderSize(stdout, 64*1024)
 	// 预读第一字节：只有确认 ffmpeg 真的产出了音频，才提交响应头/首字节。
 	// 若在任何字节之前就 EOF/失败（坏源、鉴权失败、编码器不支持容器等），返回
 	// ErrRadioTranscodeUnavailable 让调用方降级为原样代理——此时尚未写出任何字节。
 	first, _ := reader.Peek(1)
+	if deadline != nil && !deadline.Stop() {
+		cancel()
+		_ = cmd.Wait()
+		return hlsError(http.StatusGatewayTimeout, "电台纯音频转码启动超时")
+	}
 	if len(first) == 0 {
 		_ = cmd.Wait()
 		msg := strings.TrimSpace(stderr.String())
@@ -98,17 +115,21 @@ func (c *CacheService) StreamTranscodedRadio(ctx context.Context, w io.Writer, o
 
 	// 已确认有音频输出：从此刻起本函数拥有响应，流式转发直到结束或断开。
 	_, copyErr := io.Copy(&flushingWriter{w: w}, reader)
+	canceled := ctx.Err() != nil
+	if copyErr != nil {
+		cancel()
+	}
 	waitErr := cmd.Wait()
 
 	// ctx 取消（客户端断开）是正常收尾，不当作错误。
-	if ctx.Err() != nil {
+	if canceled {
 		return nil
 	}
 	if copyErr != nil {
 		return copyErr
 	}
-	if waitErr != nil {
-		slog.Warn("radio transcode ffmpeg exited with error", "url", opts.UpstreamURL, "stderr", strings.TrimSpace(stderr.String()), "error", waitErr)
+	if ctx.Err() == nil && waitErr != nil {
+		slog.Warn("radio transcode ffmpeg exited with error", "stderr", strings.TrimSpace(stderr.String()), "error", waitErr)
 	}
 	return nil
 }

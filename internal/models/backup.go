@@ -27,23 +27,25 @@ type BackupPlaylist struct {
 }
 
 type BackupSong struct {
-	TagIDs          []int64 `json:"tag_ids,omitempty"`
-	Type            string  `json:"type"`
-	Title           string  `json:"title"`
-	Artist          string  `json:"artist"`
-	Album           string  `json:"album"`
-	Duration        float64 `json:"duration"`
-	FilePath        string  `json:"file_path"`
-	URL             string  `json:"url"`
-	CoverURL        string  `json:"cover_url"`
-	FileSize        int64   `json:"file_size"`
-	Format          string  `json:"format"`
-	BitRate         int     `json:"bit_rate"`
-	SampleRate      int     `json:"sample_rate"`
-	IsLive          bool    `json:"is_live"`
-	PluginEntryPath string  `json:"plugin_entry_path"`
-	SourceData      string  `json:"source_data"`
-	DedupKey        string  `json:"dedup_key"`
+	TagIDs          []int64   `json:"tag_ids,omitempty"`
+	Type            string    `json:"type"`
+	Title           string    `json:"title"`
+	Artist          string    `json:"artist"`
+	Album           string    `json:"album"`
+	Duration        float64   `json:"duration"`
+	FilePath        string    `json:"file_path"`
+	URL             string    `json:"url"`
+	CoverURL        string    `json:"cover_url"`
+	FileSize        int64     `json:"file_size"`
+	Format          string    `json:"format"`
+	BitRate         int       `json:"bit_rate"`
+	SampleRate      int       `json:"sample_rate"`
+	IsLive          bool      `json:"is_live"`
+	IsVideo         bool      `json:"is_video,omitempty"`
+	RadioMode       RadioMode `json:"radio_mode,omitempty"`
+	PluginEntryPath string    `json:"plugin_entry_path"`
+	SourceData      string    `json:"source_data"`
+	DedupKey        string    `json:"dedup_key"`
 }
 
 type ImportResult struct {

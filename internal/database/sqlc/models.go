@@ -168,6 +168,7 @@ type Song struct {
 	FingerprintError       string
 	Disc                   string
 	Rating                 int64
+	RadioMode              string
 }
 
 type SongArtist struct {

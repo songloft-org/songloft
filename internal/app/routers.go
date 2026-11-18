@@ -48,6 +48,7 @@ func (a *App) setupAPIV1Router() {
 		a.playActivity,
 	)
 	songHandler.SetGetMusicPath(a.scanner.GetMusicPath)
+	songHandler.SetHLSTranscodeService(a.hlsTranscodeService)
 	songHandler.SetPlayBroadcaster(&playEventBroadcastAdapter{m: a.jsPluginManager})
 	songHandler.SetLyricSearcher(a.jsPluginManager)
 	songHandler.SetCoverSearcher(a.jsPluginManager)

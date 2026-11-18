@@ -195,7 +195,7 @@ func isSameOrigin(a, b *url.URL) bool {
 }
 
 // looksLikePlaylist 判断 URL path 后缀是否为 .m3u8 / .m3u（忽略 query）。
-// 与 music.go:isHLSURL 同义，独立实现避免循环 + 便于 hls_test 单测。
+// 判断相对或绝对 HLS 资源引用是否指向子播放列表。
 func looksLikePlaylist(rawURL string) bool {
 	u, err := url.Parse(rawURL)
 	if err != nil {

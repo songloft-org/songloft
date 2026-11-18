@@ -10,7 +10,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc, rating
+    fingerprint_error, disc, rating, radio_mode
 FROM songs WHERE id = ?;
 
 -- name: CreateSong :execlastid
@@ -24,8 +24,8 @@ INSERT INTO songs (
     isrc, track, disc,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, is_video,
-    cue_start_seconds, cue_end_seconds, rating
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    cue_start_seconds, cue_end_seconds, rating, radio_mode
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateSong :execrows
 UPDATE songs SET
@@ -39,7 +39,7 @@ UPDATE songs SET
     isrc = ?, track = ?, disc = ?,
     cue_source_path = ?, cue_track_index = ?, cue_audio_path = ?,
     file_modified_at = ?, is_video = ?,
-    cue_start_seconds = ?, cue_end_seconds = ?, rating = ?
+    cue_start_seconds = ?, cue_end_seconds = ?, rating = ?, radio_mode = ?
 WHERE id = ?;
 
 -- name: DeleteSong :execrows
@@ -175,7 +175,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc, rating
+    fingerprint_error, disc, rating, radio_mode
 FROM songs WHERE cache_path != '';
 
 -- name: ListSongsNeedingMetadata :many
