@@ -317,10 +317,12 @@ static/
 
 The server versions the bridge script and module URLs by embedded content. Plugins can declare their own Web bundle URL on the fallback page’s bridge script tag with `data-songloft-lynx-bundle`, for example `static/main.web.bundle?v=<content-hash>`. Relative URLs resolve against the plugin page’s `<base>`. When omitted, the shim uses the original fixed URL.
 
+**Toolchain 2.22.0+ does this automatically**: when `songloft-plugin build` flattens `main.web.bundle`, it computes the first 16 hexadecimal digits of the bundle’s SHA-256 and declares the versioned URL on the generated fallback page. If the plugin ships its own `static/index.html`, it still wins (the build overlays the plugin’s `static/` directory over the generated page), and the declaration format is unchanged. The versioned URL requires an updated server whose `lynx-plugin-bridge-shim` reads the declaration.
+
 **Static asset caching**
 
 - The server versions the host files it ships by actual content. Give plugin-owned JavaScript, CSS, images, and fonts content-hashed filenames or URLs during the build and update their references at the same time. Identical contents can reuse cached responses, and changed contents get a new URL.
-- MIoT and Bili hash `main.web.bundle` after the frontend build, use the first 16 hexadecimal digits of its SHA-256 as `v`, and generate `static/index.html`. The builder overlays the plugin’s `static/` directory before hashing and packaging the ZIP. Keeping the `main.web.bundle` filename preserves compatibility with older hosts and clients that load the fixed entry directly.
+- The builder injects content hashes into the filenames of JS, CSS, images, and fonts under `static/` and rewrites their references (disable with `staticHash: false` in the manifest). The Lynx `main.web.bundle` / `main.lynx.bundle` keep fixed filenames for compatibility with older hosts and clients that load the fixed entry directly; their cache version comes from the fallback page declaration (see above). MIoT and Bili originally generated a versioned `static/index.html` with custom scripts; this behavior is built into the toolchain since 2.22.0, so the custom scripts can be dropped after upgrading the dependency.
 - Check that the HTML declaration in the final ZIP matches the packaged bundle hash. Then open the fallback page under a deployment subpath and confirm that the browser requests the new URL. Clients with a year-long cached response can keep using the old bytes even after the server changes the headers for that URL.
 
 

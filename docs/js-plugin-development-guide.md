@@ -317,10 +317,12 @@ static/
 
 服务端按内嵌内容为 Lynx 回退页引用的宿主桥接脚本和模块生成版本 URL。插件可在回退页的桥接脚本标签上通过 `data-songloft-lynx-bundle` 声明自己的 Web bundle 地址，例如 `static/main.web.bundle?v=<内容哈希>`。相对地址以插件页面的 `<base>` 为基准，未声明时使用原有固定地址。
 
+**工具链 2.22.0 起自动完成这一步**：`songloft-plugin build` 平铺 `main.web.bundle` 时按内容计算 SHA-256 前 16 位，并在生成的回退页上声明带版本的地址。插件自带 `static/index.html` 时仍以插件的为准（构建时插件 `static/` 覆盖 builder 生成的页面），声明格式不变；带版本地址需要新版服务端（`lynx-plugin-bridge-shim` 读取声明）配合。
+
 **静态资源缓存**
 
 - 宿主文件随服务端发布，版本由服务端依据实际内容生成。插件自己的 JS、CSS、图片和字体应在构建时使用带内容哈希的文件名或 URL，并同步更新引用。内容相同可复用缓存，内容变化就请求新地址。
-- MIoT 和 Bili 在前端构建完成后计算 `main.web.bundle` 的 SHA-256，取前 16 位十六进制作为 `v`，并生成 `static/index.html`。工具链将插件的 `static/` 覆盖到构建产物中，再计算包哈希和打包。保留 `main.web.bundle` 文件名可兼容直接加载固定入口的客户端及旧版宿主。
+- 工具链构建时会给 static/ 下的 JS、CSS、图片和字体文件名注入内容哈希并改写引用（manifest `staticHash: false` 可关闭）。Lynx 的 `main.web.bundle` / `main.lynx.bundle` 保持固定文件名以兼容直接加载固定入口的客户端及旧版宿主，其缓存版本由回退页声明（见上）。MIoT 和 Bili 早期用自定义脚本生成带版本的 `static/index.html`，该行为自工具链 2.22.0 起内置，升级依赖后自定义脚本可下线。
 - 验收时检查最终 ZIP 中的 HTML 声明与 bundle 哈希是否一致，再打开带部署子路径的回退页，确认浏览器实际请求新地址。只修改旧 URL 的缓存响应头，已经缓存一年的客户端仍可能继续用旧内容。
 
 Lynx 业务请求使用 `@songloft/lynx-plugin-sdk` 的 `apiGet<T>('/api/...')` / `apiPost<T>(path, body)` / `apiPut<T>(path, body)` / `apiDelete<T>(path)`。SDK 通过 `plugin.apiRequest` 调用当前 frame 的宿主；插件身份、认证和服务器子路径由宿主处理，插件不读取 Token。支持 GET/POST/PUT/DELETE JSON，请求最长 60 秒，桥接等待 65 秒；错误抛出异常。路径仅限当前插件 `/api` 下，禁止绝对 URL、编码路径及路径穿越。需要更新后的 Lynx 宿主，或服务端提供的 Web 回退 shim。
