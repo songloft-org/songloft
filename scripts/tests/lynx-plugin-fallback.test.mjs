@@ -29,6 +29,7 @@ test("fallback configures its bridge before starting an absolute bundle under a 
       addEventListener() {},
       baseURI: "https://host.test/music/api/v1/jsplugin/bili/",
       getElementById: () => view,
+      querySelector: () => null,
     },
     window: {
       addEventListener() {},
@@ -161,6 +162,7 @@ test("fallback sockets are scoped, authenticated and released; navigation reconn
       baseURI: "https://host.test/music/api/v1/jsplugin/miot/",
       getElementById: () => view,
       addEventListener: (event, callback) => handlers.set(event, callback),
+      querySelector: () => null,
     },
     window,
   });
@@ -253,6 +255,7 @@ test("plain headings do not delegate browser focus to an offscreen input", async
       getElementById: () => view,
       addEventListener() {},
       baseURI: "https://host.test/",
+      querySelector: () => null,
     },
     window: { addEventListener() {} },
   });
@@ -272,4 +275,35 @@ test("plain headings do not delegate browser focus to an offscreen input", async
   });
   assert.equal(prevented, 1);
   assert.equal(blurred, 1);
+});
+
+test("the versioned bridge URL from the bootstrap script tag overrides the path fallback", async () => {
+  const view = {
+    setAttribute() {},
+    sendGlobalEvent() {},
+  };
+  await runInNewContext(source, {
+    URL,
+    Promise,
+    setTimeout,
+    clearTimeout,
+    customElements: { whenDefined: async () => {} },
+    location: { pathname: "/music/api/v1/jsplugin/bili/static/index.html" },
+    document: {
+      addEventListener() {},
+      baseURI: "https://host.test/music/api/v1/jsplugin/bili/",
+      getElementById: () => view,
+      querySelector: () => ({
+        dataset: {
+          songloftLynxBridge:
+            "/music/api/v1/jsplugin-assets/lynx-plugin-bridge-module.js?v=7",
+        },
+      }),
+    },
+    window: { addEventListener() {} },
+  });
+  assert.equal(
+    view.nativeModulesMap.SongloftPluginBridge,
+    "/music/api/v1/jsplugin-assets/lynx-plugin-bridge-module.js?v=7",
+  );
 });
