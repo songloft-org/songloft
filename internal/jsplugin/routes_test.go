@@ -86,6 +86,70 @@ func TestLynxFallbackRealmHeaders(t *testing.T) {
 	}
 }
 
+func TestLynxFallbackVersionsHostAssets(t *testing.T) {
+	pluginsDir, dataDir, repo, _ := setupTestEnv(t)
+	ctx := context.Background()
+	plugin := &JSPlugin{Name: "Lynx", Version: "1.0.0", EntryPath: "lynx", Main: "main.js", RenderEngine: RenderEngineLynx, Status: JSPluginStatusActive, FilePath: "lynx.zip"}
+	if err := repo.Create(ctx, plugin); err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Join(dataDir, plugin.EntryPath, "static")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const shim = "lynx-plugin-bridge-shim.js"
+	const bridge = "lynx-plugin-bridge-module.js"
+	const html = `<head></head><lynx-view id="plugin-view"></lynx-view>
+<!-- <script src="../../jsplugin-assets/lynx-plugin-bridge-shim.js"></script> -->
+<script type='module' src='../../jsplugin-assets/lynx-plugin-bridge-shim.js' data-songloft-lynx-bundle='static/main.web.bundle?v=plugin'></script>`
+	for name, content := range map[string]string{"index.html": html, "main.web.bundle": "bundle"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const base = "/songloft"
+	manager := NewManager(repo, pluginsDir, dataDir, base, nil, nil)
+	t.Cleanup(func() { manager.Close() })
+	router := chi.NewRouter()
+	router.Route(base, manager.RegisterStaticRoutes)
+	get := func(path string) *httptest.ResponseRecorder {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s: HTTP %d: %s", path, rec.Code, rec.Body.String())
+		}
+		return rec
+	}
+	const assets = base + "/api/v1/jsplugin-assets/"
+	const entry = base + "/api/v1/jsplugin/lynx"
+	for _, path := range []string{entry + "?embed=1", entry + "/static/"} {
+		body := get(path).Body.String()
+		for _, want := range []string{
+			`src="` + assets + shim + "?v=" + assetVersions[shim] + `"`,
+			`data-songloft-lynx-bridge="` + assets + bridge + "?v=" + assetVersions[bridge] + `"`,
+			`data-songloft-lynx-bundle="static/main.web.bundle?v=plugin"`,
+		} {
+			if strings.Count(body, want) != 1 {
+				t.Errorf("expected one %s in fallback page %s", want, path)
+			}
+		}
+	}
+	if got := get(entry + "/static/main.web.bundle?v=plugin").Body.String(); got != "bundle" {
+		t.Fatalf("bundle payload = %q", got)
+	}
+	for _, asset := range []string{shim, bridge} {
+		if got := get(assets + asset + "?v=" + assetVersions[asset]).Header().Get("Cache-Control"); !strings.Contains(got, "immutable") {
+			t.Errorf("%s with current hash: %q", asset, got)
+		}
+		for _, query := range []string{"", "?v=old"} {
+			if got := get(assets + asset + query).Header().Get("Cache-Control"); got != "no-cache" {
+				t.Errorf("%s%s: cache policy %q", asset, query, got)
+			}
+		}
+	}
+}
+
 // TestInjectHTMLHeadAssetVersioning 验证注入的每个公共资源 URL 都带内容哈希版本号（#278）。
 // 若丢失版本号，jsplugin-assets 的 immutable 长缓存会让老浏览器永远拿不到资源更新。
 func TestInjectHTMLHeadAssetVersioning(t *testing.T) {

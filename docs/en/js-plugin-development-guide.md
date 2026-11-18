@@ -315,6 +315,14 @@ static/
 
 **Fallback mechanism**: Clients that don't support Lynx (e.g. Flutter-based builds) open `index.html`, which bootstraps web-core to load `.web.bundle` in a WebView — functionally equivalent, just without native performance benefits.
 
+The server versions the bridge script and module URLs by embedded content. Plugins can declare their own Web bundle URL on the fallback page’s bridge script tag with `data-songloft-lynx-bundle`, for example `static/main.web.bundle?v=<content-hash>`. Relative URLs resolve against the plugin page’s `<base>`. When omitted, the shim uses the original fixed URL.
+
+**Static asset caching**
+
+- The server versions the host files it ships by actual content. Give plugin-owned JavaScript, CSS, images, and fonts content-hashed filenames or URLs during the build and update their references at the same time. Identical contents can reuse cached responses, and changed contents get a new URL.
+- MIoT and Bili hash `main.web.bundle` after the frontend build, use the first 16 hexadecimal digits of its SHA-256 as `v`, and generate `static/index.html`. The builder overlays the plugin’s `static/` directory before hashing and packaging the ZIP. Keeping the `main.web.bundle` filename preserves compatibility with older hosts and clients that load the fixed entry directly.
+- Check that the HTML declaration in the final ZIP matches the packaged bundle hash. Then open the fallback page under a deployment subpath and confirm that the browser requests the new URL. Clients with a year-long cached response can keep using the old bytes even after the server changes the headers for that URL.
+
 
 Use `apiGet<T>('/api/...')` `apiPost<T>(path, body)`, `apiPut<T>(path, body)` and `apiDelete<T>(path)` from `@songloft/lynx-plugin-sdk`. The `plugin.apiRequest` bridge binds requests to the current frame's plugin. The host handles authentication and server base paths without exposing tokens. GET/POST/PUT/DELETE JSON requests have a 60-second host deadline and a 65-second bridge deadline; failures throw. Absolute URLs, encoded route paths and traversal are rejected. Update the Lynx host or the server-provided Web fallback shim before using these APIs.
 

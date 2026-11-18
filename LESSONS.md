@@ -10,6 +10,14 @@
 
 ## 条目
 
+### LYNX-CACHE-001：回退页必须直接引用带版本的宿主脚本
+
+- 范围：Electron 与系统 WebView 的 Lynx 插件回退页，[songloft-org/songloft-plugin-miot#143](https://github.com/songloft-org/songloft-plugin-miot/issues/143)，服务端基线 `b6719811adbf56737ec08f45ec2bcfb636aa209a`。
+- 证据：[桌面修复](https://github.com/songloft-org/songloft-desktop/commit/502688952fe0198d9e78dc7acc2c6716f9dde9d2) 记录旧的无版本 shim 曾被缓存一年，且旧脚本不会设置 Lynx bundle 地址。隔离旧 Go 路由后，回归用例因回退页仍使用固定地址而失败。
+- 规则与正确示例：在服务回退 HTML 时直接改写工具链生成的 shim 引用，按嵌入内容版本化 shim 和桥接模块。插件生成自己的 bundle URL，宿主读取声明即可。浏览器尚有旧的不可变缓存时，单独更改旧 URL 的响应头无法使浏览器请求该 URL。
+- 验证：Docker Chrome 先命中旧 shim 的不可变缓存夹具，再打开子路径部署的 MIoT 正式包，三个新资源和插件 API 均返回 200。证据位于 `/tmp/songloft-lynx-cache-1yoKQ2/`。Electron 应用和原生 Lynx frame 未实测。
+- Seen 1× (2026-11-18)。
+
 ### SCAN-EXCLUDE-001：排除扫描与排除自动歌单要分开解释
 
 - 范围：定向扫描、排除诊断及客户端扫描入口；songloft-org/songloft#573，基线 `4e73b078d86472e0c3409d24a87a6aca2b82380a`。

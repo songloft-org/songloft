@@ -315,6 +315,14 @@ static/
 
 **回退机制**：不支持 Lynx 的客户端（如 Flutter 版本）会打开 `index.html`，由 web-core 加载 `.web.bundle` 在 WebView 中渲染——功能等价，只是失去原生性能优势。
 
+服务端按内嵌内容为 Lynx 回退页引用的宿主桥接脚本和模块生成版本 URL。插件可在回退页的桥接脚本标签上通过 `data-songloft-lynx-bundle` 声明自己的 Web bundle 地址，例如 `static/main.web.bundle?v=<内容哈希>`。相对地址以插件页面的 `<base>` 为基准，未声明时使用原有固定地址。
+
+**静态资源缓存**
+
+- 宿主文件随服务端发布，版本由服务端依据实际内容生成。插件自己的 JS、CSS、图片和字体应在构建时使用带内容哈希的文件名或 URL，并同步更新引用。内容相同可复用缓存，内容变化就请求新地址。
+- MIoT 和 Bili 在前端构建完成后计算 `main.web.bundle` 的 SHA-256，取前 16 位十六进制作为 `v`，并生成 `static/index.html`。工具链将插件的 `static/` 覆盖到构建产物中，再计算包哈希和打包。保留 `main.web.bundle` 文件名可兼容直接加载固定入口的客户端及旧版宿主。
+- 验收时检查最终 ZIP 中的 HTML 声明与 bundle 哈希是否一致，再打开带部署子路径的回退页，确认浏览器实际请求新地址。只修改旧 URL 的缓存响应头，已经缓存一年的客户端仍可能继续用旧内容。
+
 Lynx 业务请求使用 `@songloft/lynx-plugin-sdk` 的 `apiGet<T>('/api/...')` / `apiPost<T>(path, body)` / `apiPut<T>(path, body)` / `apiDelete<T>(path)`。SDK 通过 `plugin.apiRequest` 调用当前 frame 的宿主；插件身份、认证和服务器子路径由宿主处理，插件不读取 Token。支持 GET/POST/PUT/DELETE JSON，请求最长 60 秒，桥接等待 65 秒；错误抛出异常。路径仅限当前插件 `/api` 下，禁止绝对 URL、编码路径及路径穿越。需要更新后的 Lynx 宿主，或服务端提供的 Web 回退 shim。
 
 

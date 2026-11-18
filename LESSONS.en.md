@@ -10,6 +10,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### LYNX-CACHE-001: Reference versioned host scripts directly from the fallback page
+
+- Scope: Lynx plugin fallback pages in Electron and system WebViews, [songloft-org/songloft-plugin-miot#143](https://github.com/songloft-org/songloft-plugin-miot/issues/143), server baseline `b6719811adbf56737ec08f45ec2bcfb636aa209a`.
+- Evidence: the [desktop fix](https://github.com/songloft-org/songloft-desktop/commit/502688952fe0198d9e78dc7acc2c6716f9dde9d2) records that the old unversioned shim was cached for a year and did not set the Lynx bundle URL. The regression test fails with the old Go routes overlaid because the page still uses fixed URLs.
+- Rule and correct example: rewrite the generated shim reference when serving fallback HTML. Version the shim and bridge module by embedded content. Plugins generate their bundle URLs and the host reads the declaration. A browser with an immutable cached response can keep using it without requesting the URL, so changing its response headers alone is insufficient.
+- Verification: Docker Chrome reused an immutable legacy shim fixture, then opened the released MIoT package under a deployment subpath. All three new assets and the plugin API returned 200. Evidence is in `/tmp/songloft-lynx-cache-1yoKQ2/`. The Electron app and native Lynx frames were not exercised.
+- Seen 1× (2026-11-18).
+
 ### SCAN-EXCLUDE-001: Explain scan exclusions separately from playlist exclusions
 
 - Scope: targeted scanning, exclusion diagnostics and client scan controls; songloft-org/songloft#573, baseline `4e73b078d86472e0c3409d24a87a6aca2b82380a`.

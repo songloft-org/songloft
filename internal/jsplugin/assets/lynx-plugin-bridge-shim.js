@@ -53,9 +53,12 @@
   // Pending host-call replies keyed by callId
   var pendingReplies = {}
 
+  var bootstrap = document.querySelector('script[data-songloft-lynx-bridge]')
+
   // Configure the child <lynx-view>'s nativeModulesMap with our bridge shim
   lv.nativeModulesMap = Object.assign({}, lv.nativeModulesMap || {}, {
     SongloftPluginBridge:
+      bootstrap?.dataset.songloftLynxBridge ||
       (location.pathname.match(/^(.*?)\/api\/v1\/jsplugin\//)?.[1] || '') +
       '/api/v1/jsplugin-assets/lynx-plugin-bridge-module.js',
   })
@@ -420,6 +423,6 @@
   // Configure the bridge before starting the child worker. Worker URLs must be absolute.
   lv.setAttribute(
     'url',
-    new URL('static/main.web.bundle', document.baseURI).href,
+    new URL(bootstrap?.dataset.songloftLynxBundle || 'static/main.web.bundle', document.baseURI).href,
   )
 })()

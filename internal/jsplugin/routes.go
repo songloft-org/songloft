@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
+	nethtml "golang.org/x/net/html"
 
 	"songloft/internal/services"
 )
@@ -136,7 +138,7 @@ func handlePluginAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	if (subPath == "lynx-plugin-bridge-shim.js" || subPath == "lynx-plugin-bridge-module.js") && r.URL.Query().Get("v") == "" {
+	if (subPath == "lynx-plugin-bridge-shim.js" || subPath == "lynx-plugin-bridge-module.js") && r.URL.Query().Get("v") != assetVersions[subPath] {
 		w.Header().Set("Cache-Control", "no-cache")
 	}
 
@@ -525,6 +527,11 @@ func (m *Manager) tryServeStaticFile(w http.ResponseWriter, r *http.Request, sta
 			slog.Warn("jsplugin-static: 读取 HTML 失败", "absFile", absFile, "error", readErr)
 			return false
 		}
+		plugin, err := m.repo.GetByEntryPath(r.Context(), entryPath)
+		isLynx := err == nil && plugin.RenderEngine == RenderEngineLynx
+		if isLynx {
+			content = versionLynxFallback(content, m.basePath)
+		}
 		content = injectHTMLHead(content, entryPath, m.basePath)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache")
@@ -544,7 +551,7 @@ func (m *Manager) tryServeStaticFile(w http.ResponseWriter, r *http.Request, sta
 		// Web-core's srcdoc MTS realm does not finish its bootstrap under COEP
 		// in Chromium 121 (the WebView fallback baseline). Native Lynx frames
 		// load bundles directly; only their HTML fallback needs this exception.
-		if plugin, err := m.repo.GetByEntryPath(r.Context(), entryPath); err == nil && plugin.RenderEngine == RenderEngineLynx {
+		if isLynx {
 			w.Header().Del("Cross-Origin-Embedder-Policy")
 		}
 		_, _ = w.Write(content)
@@ -562,6 +569,50 @@ func (m *Manager) tryServeStaticFile(w http.ResponseWriter, r *http.Request, sta
 	}
 	http.ServeFile(w, r, absFile)
 	return true
+}
+
+// Update the generated bootstrap script before the browser can request the old URL.
+// Keep the rest of the plugin's HTML byte-for-byte intact.
+func versionLynxFallback(content []byte, basePath string) []byte {
+	const shim = "lynx-plugin-bridge-shim.js"
+	if !bytes.Contains(content, []byte(shim)) {
+		return content
+	}
+	const publicAssets = "/api/v1/jsplugin-assets/"
+	assetsBase := basePath + publicAssets
+	tokenizer := nethtml.NewTokenizer(bytes.NewReader(content))
+	offset := 0
+	for tokenType := tokenizer.Next(); tokenType != nethtml.ErrorToken; tokenType = tokenizer.Next() {
+		start := offset
+		offset += len(tokenizer.Raw())
+		if tokenType != nethtml.StartTagToken {
+			continue
+		}
+		token := tokenizer.Token()
+		if token.Data != "script" {
+			continue
+		}
+		for i, attr := range token.Attr {
+			if attr.Key != "src" {
+				continue
+			}
+			src, err := url.Parse(attr.Val)
+			if err != nil || src.IsAbs() || src.Host != "" {
+				continue
+			}
+			switch src.Path {
+			case "../../jsplugin-assets/" + shim, publicAssets + shim, assetsBase + shim:
+				token.Attr[i].Val = assetURL(assetsBase, shim)
+				token.Attr = append(token.Attr,
+					nethtml.Attribute{Key: "data-songloft-lynx-bridge", Val: assetURL(assetsBase, "lynx-plugin-bridge-module.js")},
+				)
+				result := append([]byte(nil), content[:start]...)
+				result = append(result, token.String()...)
+				return append(result, content[offset:]...)
+			}
+		}
+	}
+	return content
 }
 
 // injectHTMLHead 在 HTML 的 <head> 后（紧跟开标签）注入 <base> 标签、auth bridge 脚本和公共资源引用。
