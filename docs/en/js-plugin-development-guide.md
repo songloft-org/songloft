@@ -1212,9 +1212,13 @@ if (isClient()) {
 
 Build-free vanilla static pages need no install — just use the injected `window.SongloftPlugin.player` directly (only losing type hints).
 
+### Opening external links and fullscreen video
+
+Check `host.getInfo().capabilities` for `plugin.openUrl` or `player.openVideo`. WebView plugins use `host.openExternalUrl(url)` and `player.openVideo({ id })`. Native Lynx plugins use `invokeHost('plugin', 'openUrl', { url })` and `invokeHost('player', 'openVideo', { id })`. External links accept absolute HTTP(S) URLs. Fullscreen video accepts a library entry ID. See the [Lynx platform support table](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/en/reference/plugin-client-sdk.md#lynx-platform-support) for support and verification by platform.
+
 ### Plugin audio effects
 
-Check `host.getInfo().capabilities` for `player.audioEffects`. Compatible hosts provide `player.getAudioEffects()`, `player.applyAudioEffects({ playbackId, effects })`, and `player.clearAudioEffects({ playbackId })`. Start host playback with a song or playlist, then use `supported` to display the effects available for the current output. Clearing effects restores user settings and playback continues. Lynx Android initially supports EQ presets. Native Lynx plugins use the same contract through `invokeHost('player', method, params)`. See the [Lynx plugin client SDK](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/en/reference/plugin-client-sdk.md#plugin-audio-effects).
+Check `host.getInfo().capabilities` for `player.audioEffects`. Compatible hosts provide `player.getAudioEffects()`, `player.applyAudioEffects({ playbackId, effects })`, and `player.clearAudioEffects({ playbackId })`. Start host playback with a song or playlist, then use `supported` to display the effects available for the current output. Clearing effects restores user settings and playback continues. Lynx provides EQ presets on supported Android, iOS, macOS, Windows, and Web outputs. Native Lynx plugins use the same contract through `invokeHost('player', method, params)`. See the [Lynx plugin client SDK](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/en/reference/plugin-client-sdk.md#plugin-audio-effects).
 
 ### Favorite State Sync — Notify the Host After Changing Favorites
 

@@ -1210,9 +1210,13 @@ if (isClient()) {
 
 免构建的 vanilla 静态页面无需安装，直接用注入的 `window.SongloftPlugin.player` 即可（仅少了类型提示）。
 
+### 打开外链和全屏视频
+
+通过 `host.getInfo().capabilities` 检查 `plugin.openUrl` 或 `player.openVideo`。WebView 分别调用 `host.openExternalUrl(url)` 和 `player.openVideo({ id })`，原生 Lynx 使用 `invokeHost('plugin', 'openUrl', { url })` 和 `invokeHost('player', 'openVideo', { id })`。外链接收绝对 HTTP(S) 地址，曲库全屏视频接收条目 ID。各端的支持和验收状态见 [Lynx 平台支持表](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/reference/plugin-client-sdk.md#lynx-平台支持)。
+
 ### 插件播放音效
 
-通过 `host.getInfo().capabilities` 检查 `player.audioEffects`。支持该能力的宿主提供 `player.getAudioEffects()`、`player.applyAudioEffects({ playbackId, effects })` 和 `player.clearAudioEffects({ playbackId })`。插件先用歌曲 ID 或歌单启动宿主播放，再按 `supported` 显示该输出可用的音效。清除音效会恢复用户设置并继续播放。Lynx Android 先支持 EQ 预设。原生 Lynx 插件通过 `invokeHost('player', method, params)` 使用相同契约。详见 [Lynx 插件客户端 SDK](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/reference/plugin-client-sdk.md#插件播放音效)。
+通过 `host.getInfo().capabilities` 检查 `player.audioEffects`。支持该能力的宿主提供 `player.getAudioEffects()`、`player.applyAudioEffects({ playbackId, effects })` 和 `player.clearAudioEffects({ playbackId })`。插件先用歌曲 ID 或歌单启动宿主播放，再按 `supported` 显示该输出可用的音效。清除音效会恢复用户设置并继续播放。Lynx 的 Android、iOS、macOS、Windows 和 Web 在可用输出上支持 EQ 预设。原生 Lynx 插件通过 `invokeHost('player', method, params)` 使用相同契约。详见 [Lynx 插件客户端 SDK](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/reference/plugin-client-sdk.md#插件播放音效)。
 
 ### 收藏状态同步 —— 改完收藏必须通知宿主
 

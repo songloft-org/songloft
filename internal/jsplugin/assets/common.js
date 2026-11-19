@@ -622,6 +622,23 @@
     var hostPending = {};
     var hostCallSeq = 0;
 
+    function sendHostMessage(message) {
+        if (isLynxHost()) {
+            var json = JSON.stringify(message);
+            if (window.LynxWebViewBridge && typeof window.LynxWebViewBridge.onMessageReceived === 'function') {
+                window.LynxWebViewBridge.onMessageReceived(json);
+            } else if (window.LynxJSBridge && typeof window.LynxJSBridge.onMessageReceived === 'function') {
+                window.LynxJSBridge.onMessageReceived(json);
+            } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeApp) {
+                window.webkit.messageHandlers.nativeApp.postMessage(json);
+            } else {
+                throw new Error('songloft Lynx WebView bridge unavailable');
+            }
+        } else {
+            window.parent.postMessage(message, '*');
+        }
+    }
+
     function invokeViaPostMessage(ns, method, params) {
         return new Promise(function(resolve, reject) {
             var id = 'c' + (++hostCallSeq) + '_' + Date.now();
@@ -630,22 +647,12 @@
                 reject(new Error('songloft host call timeout: ' + ns + '.' + method));
             }, HOST_CALL_TIMEOUT_MS);
             hostPending[id] = { resolve: resolve, reject: reject, timer: timer };
+            if (ns === 'player' && method === 'openVideo') {
+                params = Object.assign({}, params, { __songloftReplyAck: true });
+            }
             var message = { type: 'songloft-host-call', id: id, ns: ns, method: method, params: params || null };
             try {
-                if (isLynxHost()) {
-                    var json = JSON.stringify(message);
-                    if (window.LynxWebViewBridge && typeof window.LynxWebViewBridge.onMessageReceived === 'function') {
-                        window.LynxWebViewBridge.onMessageReceived(json);
-                    } else if (window.LynxJSBridge && typeof window.LynxJSBridge.onMessageReceived === 'function') {
-                        window.LynxJSBridge.onMessageReceived(json);
-                    } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeApp) {
-                        window.webkit.messageHandlers.nativeApp.postMessage(json);
-                    } else {
-                        throw new Error('songloft Lynx WebView bridge unavailable');
-                    }
-                } else {
-                    window.parent.postMessage(message, '*');
-                }
+                sendHostMessage(message);
             } catch (error) {
                 clearTimeout(timer);
                 delete hostPending[id];
@@ -659,8 +666,21 @@
         if (!p) return;
         clearTimeout(p.timer);
         delete hostPending[msg.id];
-        if (msg.ok) p.resolve(msg.data);
-        else p.reject(new Error(msg.error || 'songloft host call failed'));
+        if (!msg.ok) {
+            p.reject(new Error(msg.error || 'songloft host call failed'));
+            return;
+        }
+        p.resolve(msg.data);
+        if (msg.acknowledge === true) {
+            Promise.resolve().then(function() {
+                sendHostMessage({
+                    type: 'songloft-host-call',
+                    id: msg.id,
+                    ns: 'lifecycle',
+                    method: 'hostReplyReceived'
+                });
+            }).catch(function(error) { console.error('Could not confirm host reply', error); });
+        }
     }
 
     /**
@@ -695,11 +715,17 @@
 
     var host = {
         isAvailable: isHostAvailable,
-        getInfo: function() { return invokeHost('host', 'getInfo'); }
+        getInfo: function() { return invokeHost('host', 'getInfo'); },
+        openExternalUrl: function(url) {
+            return invokeHost('plugin', 'openUrl', { url: url }).then(function() {});
+        }
     };
 
     var player = {
         getState: function() { return invokeHost('player', 'getState'); },
+        openVideo: function(options) {
+            return invokeHost('player', 'openVideo', options).then(function() {});
+        },
         getAudioEffects: function() { return invokeHost('player', 'getAudioEffects'); },
         applyAudioEffects: function(options) { return invokeHost('player', 'applyAudioEffects', options); },
         clearAudioEffects: function(options) {
