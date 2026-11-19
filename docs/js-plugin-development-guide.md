@@ -1210,6 +1210,10 @@ if (isClient()) {
 
 免构建的 vanilla 静态页面无需安装，直接用注入的 `window.SongloftPlugin.player` 即可（仅少了类型提示）。
 
+### 插件播放音效
+
+通过 `host.getInfo().capabilities` 检查 `player.audioEffects`。支持该能力的宿主提供 `player.getAudioEffects()`、`player.applyAudioEffects({ playbackId, effects })` 和 `player.clearAudioEffects({ playbackId })`。插件先用歌曲 ID 或歌单启动宿主播放，再按 `supported` 显示该输出可用的音效。清除音效会恢复用户设置并继续播放。Lynx Android 先支持 EQ 预设。原生 Lynx 插件通过 `invokeHost('player', method, params)` 使用相同契约。详见 [Lynx 插件客户端 SDK](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/reference/plugin-client-sdk.md#插件播放音效)。
+
 ### 收藏状态同步 —— 改完收藏必须通知宿主
 
 插件自己改收藏（如直接 POST `/playlists/1/songs`）时，服务端数据是对的，但 Flutter 侧曲库的红心读的是 `FavoriteNotifier` 的**内存缓存**，不会自动跟着变。改完必须调一次 `favorite.refresh`：

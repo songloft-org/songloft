@@ -1212,6 +1212,10 @@ if (isClient()) {
 
 Build-free vanilla static pages need no install — just use the injected `window.SongloftPlugin.player` directly (only losing type hints).
 
+### Plugin audio effects
+
+Check `host.getInfo().capabilities` for `player.audioEffects`. Compatible hosts provide `player.getAudioEffects()`, `player.applyAudioEffects({ playbackId, effects })`, and `player.clearAudioEffects({ playbackId })`. Start host playback with a song or playlist, then use `supported` to display the effects available for the current output. Clearing effects restores user settings and playback continues. Lynx Android initially supports EQ presets. Native Lynx plugins use the same contract through `invokeHost('player', method, params)`. See the [Lynx plugin client SDK](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/en/reference/plugin-client-sdk.md#plugin-audio-effects).
+
 ### Favorite State Sync — Notify the Host After Changing Favorites
 
 When a plugin changes favorites itself (e.g. POSTing `/playlists/1/songs` directly), the server data is correct, but the heart icons in the Flutter library read `FavoriteNotifier`'s **in-memory cache** and will not follow along. Call `favorite.refresh` once afterwards:

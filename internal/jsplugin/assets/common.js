@@ -700,6 +700,11 @@
 
     var player = {
         getState: function() { return invokeHost('player', 'getState'); },
+        getAudioEffects: function() { return invokeHost('player', 'getAudioEffects'); },
+        applyAudioEffects: function(options) { return invokeHost('player', 'applyAudioEffects', options); },
+        clearAudioEffects: function(options) {
+            return invokeHost('player', 'clearAudioEffects', options).then(function() {});
+        },
         setQueue: function(ids, options) {
             options = options || {};
             return invokeHost('player', 'setQueue', {
