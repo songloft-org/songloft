@@ -12,6 +12,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -1590,6 +1591,18 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 把正式播放请求纳入 playActivity，让同会话切到其他歌曲时可以停止旧流，避免多个连接
+	// 同时读取外接磁盘。保留同曲请求，兼容同一客户端向多台音箱的同步播放。
+	var releasePlay func()
+	if h.playActivity != nil && r.Method != http.MethodHead {
+		playCtx, release := h.trackActivity(r.Context(), sk, song.ID, playactivity.CatPlay)
+		releasePlay = release
+		r = r.WithContext(playCtx)
+	}
+	if releasePlay != nil {
+		defer releasePlay()
+	}
+
 	opts := servePlayOptions{
 		targetFormat: targetFormat,
 		bitrate:      bitrate,
@@ -2323,7 +2336,94 @@ func (h *SongHandler) serveLocal(w http.ResponseWriter, r *http.Request, song *m
 			w.Header().Set("Content-Type", "audio/x-matroska")
 		}
 	}
-	http.ServeFile(w, r, srcPath)
+	serveAudioFile(w, r, srcPath)
+}
+
+// serveAudioFile 与 http.ServeFile 保持 Range、条件请求和 MIME 推断语义，同时让播放活动取消
+// 能在下一次读取前停止文件流。http.ServeFile 直接持有 *os.File，无法观察派生 context。
+func serveAudioFile(w http.ResponseWriter, r *http.Request, path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	contentWriter := &contextResponseWriter{ResponseWriter: w, ctx: r.Context()}
+	http.ServeContent(contentWriter, r, info.Name(), info.ModTime(), &contextReadSeeker{
+		ctx:  r.Context(),
+		file: f,
+	})
+}
+
+type contextResponseWriter struct {
+	http.ResponseWriter
+	ctx context.Context
+}
+
+func (w *contextResponseWriter) Write(p []byte) (int, error) {
+	select {
+	case <-w.ctx.Done():
+		return 0, w.ctx.Err()
+	default:
+	}
+	return w.ResponseWriter.Write(p)
+}
+
+func (w *contextResponseWriter) ReadFrom(src io.Reader) (int64, error) {
+	buf := make([]byte, 32*1024)
+	var total int64
+	for {
+		select {
+		case <-w.ctx.Done():
+			return total, w.ctx.Err()
+		default:
+		}
+		n, err := src.Read(buf)
+		if n > 0 {
+			written, writeErr := w.Write(buf[:n])
+			total += int64(written)
+			if writeErr != nil {
+				return total, writeErr
+			}
+			if written != n {
+				return total, io.ErrShortWrite
+			}
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return total, nil
+			}
+			return total, err
+		}
+	}
+}
+
+type contextReadSeeker struct {
+	ctx  context.Context
+	file io.ReadSeeker
+}
+
+func (s *contextReadSeeker) Read(p []byte) (int, error) {
+	select {
+	case <-s.ctx.Done():
+		return 0, s.ctx.Err()
+	default:
+	}
+	return s.file.Read(p)
+}
+
+func (s *contextReadSeeker) Seek(offset int64, whence int) (int64, error) {
+	select {
+	case <-s.ctx.Done():
+		return 0, s.ctx.Err()
+	default:
+	}
+	return s.file.Seek(offset, whence)
 }
 
 // videoContentType 按视频容器扩展名返回对应的 MIME 类型;非视频容器返回空字符串。
@@ -2675,7 +2775,7 @@ func (h *SongHandler) serveCachedFile(w http.ResponseWriter, r *http.Request, so
 		return
 	}
 	w.Header().Set("Cache-Control", "public, max-age=604800")
-	http.ServeFile(w, r, cachedPath)
+	serveAudioFile(w, r, cachedPath)
 }
 
 // GetSongLyric 获取歌曲歌词。

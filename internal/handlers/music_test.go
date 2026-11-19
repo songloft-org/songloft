@@ -13,13 +13,16 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"songloft/internal/contextkeys"
 	"songloft/internal/database"
 	"songloft/internal/database/testutil"
 	"songloft/internal/models"
 	"songloft/internal/services"
+	"songloft/internal/services/playactivity"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -835,6 +838,91 @@ func playSeekRequestMethod(t *testing.T, handler *SongHandler, id int64, query, 
 	rr := httptest.NewRecorder()
 	handler.GetSongPlay(rr, req)
 	return rr
+}
+
+type blockingResponseWriter struct {
+	header  http.Header
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+	body    bytes.Buffer
+	status  int
+}
+
+func newBlockingResponseWriter() *blockingResponseWriter {
+	return &blockingResponseWriter{
+		header:  make(http.Header),
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+}
+
+func (w *blockingResponseWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *blockingResponseWriter) WriteHeader(status int) {
+	w.status = status
+}
+
+func (w *blockingResponseWriter) Write(p []byte) (int, error) {
+	w.once.Do(func() { close(w.started) })
+	<-w.release
+	return w.body.Write(p)
+}
+
+func TestGetSongPlayTracksAndCancelsLocalStreams(t *testing.T) {
+	db := testutil.OpenMemoryDB(t)
+	repo := db.SongRepository()
+	songService := services.NewSongService(repo, nil, nil, nil, nil, nil)
+	activity := playactivity.New()
+	handler := NewSongHandler(songService, nil, nil, nil, nil, activity)
+
+	firstPath := writeSeekTestFile(t, "first.mp3")
+	secondPath := writeSeekTestFile(t, "second.mp3")
+	firstID := seedSong(t, repo, &models.Song{Type: models.TypeLocal, Title: "第一首", FilePath: firstPath})
+	secondID := seedSong(t, repo, &models.Song{Type: models.TypeLocal, Title: "第二首", FilePath: secondPath})
+	request := func(id int64) *http.Request {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/songs/"+strconv.FormatInt(id, 10)+"/play", nil)
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", strconv.FormatInt(id, 10))
+		ctx := context.WithValue(req.Context(), chi.RouteCtxKey, rctx)
+		ctx = context.WithValue(ctx, contextkeys.ClientIDKey, "speaker-client")
+		return req.WithContext(ctx)
+	}
+
+	firstWriter := newBlockingResponseWriter()
+	firstDone := make(chan struct{})
+	go func() {
+		handler.GetSongPlay(firstWriter, request(firstID))
+		close(firstDone)
+	}()
+	select {
+	case <-firstWriter.started:
+	case <-time.After(time.Second):
+		t.Fatal("first local stream did not start")
+	}
+
+	sk := playactivity.SessionKey{ClientID: "speaker-client"}
+	if got := activity.Size(sk); got != 1 {
+		t.Fatalf("active local stream count = %d, want 1", got)
+	}
+
+	secondWriter := httptest.NewRecorder()
+	handler.GetSongPlay(secondWriter, request(secondID))
+	if secondWriter.Code != http.StatusOK || secondWriter.Body.String() != "audio-file-bytes" {
+		t.Fatalf("second local stream = %d %q", secondWriter.Code, secondWriter.Body.String())
+	}
+
+	close(firstWriter.release)
+	select {
+	case <-firstDone:
+	case <-time.After(time.Second):
+		t.Fatal("canceled first local stream did not return")
+	}
+	if got := activity.Size(sk); got != 0 {
+		t.Fatalf("active local stream count after switch = %d, want 0", got)
+	}
 }
 
 // TestGetSongPlaySeekStreamsMP3 验证本地歌曲带 seek 时走流式 MP3：

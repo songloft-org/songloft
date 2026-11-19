@@ -10,6 +10,7 @@ import (
 	"songloft/internal/database/testutil"
 	"songloft/internal/models"
 	"songloft/internal/services"
+	"songloft/internal/services/playactivity"
 )
 
 // newAuthServiceForTest 启动 :memory: SQLite 并构造一份可用的 AuthService。
@@ -46,6 +47,9 @@ func TestAuthMiddlewareSuccess(t *testing.T) {
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := playactivity.SessionFromContext(r.Context()).ClientID; got == "" {
+			t.Error("play activity session client ID should be populated by auth middleware")
+		}
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("success"))
 	})

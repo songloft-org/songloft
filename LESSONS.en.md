@@ -10,6 +10,15 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### PLAY-STREAM-001: Register speaker playback streams and reclaim them on session switches
+
+- Scope: local-song playback, playback-activity sessions, and authentication context; [songloft-org/songloft#584](https://github.com/songloft-org/songloft/issues/584), baseline `7dede0c`.
+- Failure evidence: the report log contains multiple `/songs/{id}/play` requests for the same song. Some stay open for tens of seconds to 19 minutes while the bytes sent remain far below the declared length. The old local `http.ServeFile` path did not register playback activity, and the typed `client_id` key written by authentication differed from the string key read by playback activity, so production requests could not cancel old streams by client session.
+- Rule and fix: authentication middleware and playback activity share one typed context key. Register formal playback as `CatPlay` and reclaim old playback streams when the same session switches songs. Serve local and cached files through a context-aware `ServeContent` wrapper that preserves Range and conditional-request semantics and stops the stream before its next read or write. Keep same-song requests for synchronized playback to multiple speakers, and leave prefetch and transcode entries unaffected.
+- Validation: the isolated baseline failed both the new authentication and local-stream-reclamation regressions, while the fix passed. `make check`, targeted playback/authentication/playback-activity tests, and `CGO_ENABLED=1 go test -race ./internal/services/playactivity ./internal/middleware ./internal/handlers -run 'TestGetSongPlay'` passed. Real speaker output, external mechanical-disk throughput, and Docker deployment remain unverified.
+- Boundary: the complete `go test -race` run reported existing goose global `SetBaseFS` / `SetDialect` races in the parallel subtests of `TestPlaylistCoverRemoteTimeoutStillServesLocalMember`. The log is `/tmp/songloft-584-race-full.log`; the race has no call relationship with this playback change.
+- Seen 1× (2026-11-19). Status: local uncommitted implementation; the reporter's device environment still needs retesting.
+
 ### BUNDLE-ANDROID-001: Verify embedded SQLite inside the app sandbox
 
 - Scope: Flutter and Lynx Android x86_64 Bundle builds. Backend commits `8c014b342ea69683293fec729e9396a925b94e66` and `81204e279428db3565f4c33df176a76f7fbf4514` use the same modernc SQLite and libc versions.

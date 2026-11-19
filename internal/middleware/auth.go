@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"strings"
 
+	"songloft/internal/contextkeys"
 	"songloft/internal/services"
 )
 
 // contextKey 是 context value key 的专用类型，避免跨包碰撞。
 type contextKey string
 
-const clientIDKey contextKey = "client_id"
 const credentialTypeKey contextKey = "credential_type"
 
 // RequireLoginSession 限制凭证管理仅由正常登录的访问令牌操作。
@@ -29,7 +29,7 @@ func RequireLoginSession(next http.Handler) http.Handler {
 
 // ClientIDFromContext 从请求上下文中提取 clientID。
 func ClientIDFromContext(ctx context.Context) string {
-	if v, ok := ctx.Value(clientIDKey).(string); ok {
+	if v, ok := ctx.Value(contextkeys.ClientIDKey).(string); ok {
 		return v
 	}
 	return ""
@@ -107,7 +107,7 @@ func AuthMiddleware(authService *services.AuthService, publicPathCheckers ...Pub
 			}
 
 			// 将 claims 信息添加到请求上下文
-			ctx := context.WithValue(r.Context(), clientIDKey, claims.ClientID)
+			ctx := context.WithValue(r.Context(), contextkeys.ClientIDKey, claims.ClientID)
 			ctx = context.WithValue(ctx, credentialTypeKey, claims.CredentialType)
 
 			// 认证成功，继续处理请求

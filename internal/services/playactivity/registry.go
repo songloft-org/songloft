@@ -9,6 +9,8 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+
+	"songloft/internal/contextkeys"
 )
 
 // Category 标记一条 entry 的工作类型。Activate 在判断"是否取消"时按 cat 区分行为。
@@ -29,9 +31,8 @@ type SessionKey struct {
 	ClientID string
 }
 
-// ctxClientIDKey 与 middleware/auth.go 里 context.WithValue 用的 key 保持一致。
-// 这里的 key 类型是 string，对应 r.Context().Value("client_id") 的查询。
-const ctxClientIDKey = "client_id"
+// ctxClientIDKey 保留给本包测试使用，并与认证中间件共用同一个 typed key。
+const ctxClientIDKey = contextkeys.ClientIDKey
 
 // SessionFromContext 从请求 ctx 里抽出 client_id 构造 SessionKey；
 // 没有 client_id（系统任务、未走鉴权中间件的内部调用）时返回零值，落到独立"系统桶"。

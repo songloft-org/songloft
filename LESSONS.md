@@ -10,6 +10,15 @@
 
 ## 条目
 
+### PLAY-STREAM-001：音箱播放流必须登记并按会话切换回收
+
+- 范围：本地歌曲播放、播放活动会话和鉴权 context；[songloft-org/songloft#584](https://github.com/songloft-org/songloft/issues/584)，基线 `7dede0c`。
+- 失败证据：报告日志中的同一歌曲连续出现多个 `/songs/{id}/play` 请求，部分请求保持数十秒到 19 分钟，已传字节远少于声明长度。旧实现的本地 `http.ServeFile` 不登记播放活动，且鉴权写入的 typed `client_id` key 与播放活动读取的 string key 不相等，生产请求无法按客户端会话取消旧流。
+- 规则与修复：认证中间件和播放活动共用同一个 typed context key；正式播放登记 `CatPlay`，同会话切换歌曲时回收旧播放流；本地及缓存文件通过可观察 context 的 `ServeContent` 保留 Range/条件请求语义，并在下一次读写前结束已取消的流。同曲请求继续保留，以兼容同一客户端向多台音箱同步播放；预热和转码条目不受影响。
+- 验证：基线隔离副本运行新增鉴权和本地流回收回归均失败，修复后通过。`make check`、定向播放/鉴权/播放活动测试、`CGO_ENABLED=1 go test -race ./internal/services/playactivity ./internal/middleware ./internal/handlers -run 'TestGetSongPlay'` 通过。完整真实音箱发声、外接机械硬盘吞吐和 Docker 部署未验收。
+- 边界：完整 `go test -race` 运行在既有 `TestPlaylistCoverRemoteTimeoutStillServesLocalMember` 并行子测试中报告 goose 全局 `SetBaseFS` / `SetDialect` 数据竞争，日志见 `/tmp/songloft-584-race-full.log`，与本次播放代码无调用关系。
+- Seen 1× (2026-11-19)。状态：本地未提交实现，Issue 报告人的设备环境仍待复测。
+
 ### BUNDLE-ANDROID-001：在应用沙盒内验证内嵌 SQLite
 
 - 范围：Flutter 与 Lynx 的 Android x86_64 Bundle。比对后端提交 `8c014b342ea69683293fec729e9396a925b94e66` 和 `81204e279428db3565f4c33df176a76f7fbf4514`，两包的 modernc SQLite 和 libc 版本一致。
