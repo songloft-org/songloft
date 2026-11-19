@@ -8,7 +8,7 @@ Bundle mode installs the Go backend with the client, so users do not need to dep
 |---|---|---|---|
 | Flutter | Universal Android APK `songloft-bundled-android.apk` (ARM64, ARMv7, x86_64), iOS `songloft-bundled-ios-nosign.ipa`, Linux `songloft-bundled-linux-x64.tar.gz`, Windows `songloft-bundled-windows-x64.zip`, macOS `songloft-bundled-macos.zip` | [Stable](https://github.com/songloft-org/songloft-player/releases/latest) · [Dev](https://github.com/songloft-org/songloft-player/releases/tag/dev) | Latest root `main` commit at workflow startup |
 | Lynx | Android `songloft-lynx-android.apk`, iOS `songloft-lynx-ios-nosign.ipa` | [songloft-player-lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest) | Latest root `main` commit at workflow startup |
-| Lynx desktop | Candidate Windows/macOS packages | Separate desktop workflow in the Lynx repository, stable downloads pending acceptance | Latest root `main` commit at workflow startup |
+| Lynx desktop | Candidate Windows/macOS packages | [Stable](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [Dev](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev), shared with mobile when enabled | Latest root `main` commit at workflow startup |
 
 The Flutter and Lynx client repositories build and publish their own Bundles. Each workflow resolves the latest commit and version from the public root repository’s `main` at startup. All platforms and architectures in that run use the same SHA. The backend or package metadata records the version and commit used. Root Releases publish server, container, and server tool assets.
 

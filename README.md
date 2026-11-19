@@ -152,7 +152,7 @@ Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；�
 | Lynx · Android 6.0+ | ARM64 / ARMv7 / x86_64 / x86 | `songloft-lynx-android.apk` |
 | Lynx · iOS | ARM64（未签名，需自行重签） | `songloft-lynx-ios-nosign.ipa` |
 
-客户端流水线从打包启动时主仓库 `main` 的最新提交编译 Go 后端。请选择包含上述文件的 Release，并查看该版本是否提供本地模式。Windows/macOS Lynx 桌面候选包由 Lynx 仓库构建，正式下载待统一验收。详见[Bundle 模式说明](docs/bundle-mode.md)。
+客户端流水线从打包启动时主仓库 `main` 的最新提交编译 Go 后端。请选择包含上述文件的 Release，并查看该版本是否提供本地模式。Windows/macOS Lynx 桌面候选包由 Lynx 仓库构建，启用后与移动端共用开发版和正式版下载入口。详见[Bundle 模式说明](docs/bundle-mode.md)。
 
 ### 🐳 Docker 镜像
 
