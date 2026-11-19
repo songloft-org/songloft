@@ -367,7 +367,7 @@ func parseExcludePlaylistLabels(raw string) []string {
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
-// @Param type query string false "歌曲类型" Enums(local, remote, radio)
+// @Param type query string false "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单" Enums(local, remote, radio, music)
 // @Param keyword query string false "搜索关键词"
 // @Param path_prefix query string false "按 file_path 前缀过滤（如 music/Pop）"
 // @Param genre query string false "按流派精确过滤"
@@ -441,7 +441,7 @@ func (h *SongHandler) ListSongs(w http.ResponseWriter, r *http.Request) {
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
-// @Param type query string false "歌曲类型"
+// @Param type query string false "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单" Enums(local, remote, radio, music)
 // @Param keyword query string false "搜索关键词"
 // @Param path_prefix query string false "按 file_path 前缀过滤"
 // @Param genre query string false "按流派精确过滤"
@@ -489,7 +489,7 @@ func (h *SongHandler) ListRandomSongs(w http.ResponseWriter, r *http.Request) {
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
-// @Param type query string false "歌曲类型"
+// @Param type query string false "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单" Enums(local, remote, radio, music)
 // @Param keyword query string false "搜索关键词"
 // @Param path_prefix query string false "按 file_path 前缀过滤"
 // @Param genre query string false "按流派精确过滤"
@@ -588,6 +588,7 @@ var songFacetFields = map[string]struct{}{
 // @Tags 歌曲管理
 // @Produce json
 // @Param field query string true "聚合维度" Enums(genre, artist, album, language, style, year, decade, rating, tag)
+// @Param type query string false "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单" Enums(local, remote, radio, music)
 // @Param keyword query string false "对取值模糊搜索"
 // @Param limit query int false "分页大小，缺省 20，上限 100000"
 // @Param offset query int false "分页偏移，缺省 0"
@@ -611,6 +612,7 @@ func (h *SongHandler) ListSongFacets(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r, models.DefaultPaginationLimit, models.MaxPaginationLimit)
 
 	filter := &database.FacetFilter{
+		Type:    r.URL.Query().Get("type"),
 		Keyword: keyword,
 		OrderBy: r.URL.Query().Get("sort"),
 		Order:   r.URL.Query().Get("order"),
@@ -627,7 +629,7 @@ func (h *SongHandler) ListSongFacets(w http.ResponseWriter, r *http.Request) {
 		facets = []database.Facet{}
 	}
 
-	total, err := h.songService.CountFacet(ctx, field, keyword)
+	total, err := h.songService.CountFacetFiltered(ctx, field, filter)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "获取标签分类总数失败", err)
 		return

@@ -236,12 +236,12 @@ func (h *PlaylistHandler) UpdatePlaylist(w http.ResponseWriter, r *http.Request)
 	if req.Audiobook != nil && existing.Type == models.PlaylistTypeNormal {
 		labels := make([]string, 0, len(existing.Labels)+1)
 		for _, label := range existing.Labels {
-			if label != "audiobook" {
+			if label != models.PlaylistLabelAudiobook {
 				labels = append(labels, label)
 			}
 		}
 		if *req.Audiobook {
-			labels = append(labels, "audiobook")
+			labels = append(labels, models.PlaylistLabelAudiobook)
 		}
 		existing.Labels = labels
 	}

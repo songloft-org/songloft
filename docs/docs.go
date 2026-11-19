@@ -7763,10 +7763,11 @@ const docTemplate = `{
                         "enum": [
                             "local",
                             "remote",
-                            "radio"
+                            "radio",
+                            "music"
                         ],
                         "type": "string",
-                        "description": "歌曲类型",
+                        "description": "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单",
                         "name": "type",
                         "in": "query"
                     },
@@ -8122,6 +8123,18 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "enum": [
+                            "local",
+                            "remote",
+                            "radio",
+                            "music"
+                        ],
+                        "type": "string",
+                        "description": "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "对取值模糊搜索",
                         "name": "keyword",
@@ -8267,8 +8280,14 @@ const docTemplate = `{
                 "summary": "获取匹配歌曲的 ID 列表",
                 "parameters": [
                     {
+                        "enum": [
+                            "local",
+                            "remote",
+                            "radio",
+                            "music"
+                        ],
                         "type": "string",
-                        "description": "歌曲类型",
+                        "description": "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单",
                         "name": "type",
                         "in": "query"
                     },
@@ -8660,8 +8679,14 @@ const docTemplate = `{
                 "summary": "随机获取歌曲",
                 "parameters": [
                     {
+                        "enum": [
+                            "local",
+                            "remote",
+                            "radio",
+                            "music"
+                        ],
                         "type": "string",
-                        "description": "歌曲类型",
+                        "description": "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单",
                         "name": "type",
                         "in": "query"
                     },

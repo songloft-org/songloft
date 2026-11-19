@@ -51,7 +51,7 @@ This document is based on the following source files:
 
 The song management module is Songloft's core API, covering song CRUD, playback stream distribution, covers/lyrics, audio tag writing, file organization, and duplicate detection. All endpoints require JWT authentication (`BearerAuth`), with the base path `/api/v1`.
 
-**Song types**: `local` (local files), `remote` (external URL / plugin source), `radio` (online broadcast / live stream).
+**Song types**: `local` (local files), `remote` (external URL / plugin source), and `radio` (online broadcast / live stream). Query parameters also accept the virtual type `music`, which means local and remote songs outside radio and audiobook playlists. `music` is never written into a Song object.
 
 **Song JSON serialization rules** (handled uniformly by `MarshalJSON`):
 - `url` -- Unified to `/api/v1/songs/{id}/play` (HLS radio uses `.../play.m3u8`)
@@ -81,7 +81,7 @@ Gets the song list, supporting filtering by type, keyword search, path-prefix fi
 
 | Parameter | Type | Required | Default | Description |
 |------|------|------|--------|------|
-| `type` | string | No | -- | `local` / `remote` / `radio` |
+| `type` | string | No | -- | `local` / `remote` / `radio` / `music`; `music` excludes radio and audiobook-playlist songs |
 | `keyword` | string | No | -- | Search keyword (matches title, artist, album) |
 | `path_prefix` | string | No | -- | Filter by `file_path` prefix |
 | `limit` | int | No | `20` | Items per page, upper limit `100000` |
@@ -146,6 +146,7 @@ Aggregates the library by a specified dimension, returning the non-empty values 
 | Parameter | Type | Required | Default | Description |
 |------|------|------|--------|------|
 | `field` | string | Yes | -- | Aggregation dimension: `genre` / `artist` / `album` / `language` / `style` / `year` / `decade` (the value for `year`/`decade` is a numeric string; a decade such as `"1990"` means 1990-1999) |
+| `type` | string | No | -- | `local` / `remote` / `radio` / `music`; `music` excludes radio and audiobook-playlist songs |
 | `keyword` | string | No | -- | Fuzzy search over values |
 | `limit` | int | No | `20` | Page size, upper limit `100000` |
 | `offset` | int | No | `0` | Pagination offset |
@@ -670,6 +671,8 @@ Get random songs. Requires a Bearer token.
 | `decade` | query | `integer` | false |
 | `exclude_playlist_labels` | query | `string` | false |
 | `limit` | query | `integer` | false |
+
+`type=music` returns local and remote songs while excluding radio and audiobook-playlist songs.
 
 Request and response details are defined by the corresponding handler and Swagger.
 

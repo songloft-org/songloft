@@ -6795,11 +6795,12 @@ paths:
       description: 获取歌曲列表，支持按类型过滤、关键词搜索和分页。默认排除隐藏歌单里的歌，传 exclude_playlist_labels=none
         显示全部
       parameters:
-      - description: 歌曲类型
+      - description: 歌曲类型；music 表示本地和网络歌曲且排除有声书歌单
         enum:
         - local
         - remote
         - radio
+        - music
         in: query
         name: type
         type: string
@@ -8325,6 +8326,15 @@ paths:
         name: field
         required: true
         type: string
+      - description: 歌曲类型；music 表示本地和网络歌曲且排除有声书歌单
+        enum:
+        - local
+        - remote
+        - radio
+        - music
+        in: query
+        name: type
+        type: string
       - description: 对取值模糊搜索
         in: query
         name: keyword
@@ -8421,7 +8431,12 @@ paths:
       - application/json
       description: 与 /songs 共享过滤条件，仅返回 ID。用于「全选当前筛选范围」场景。
       parameters:
-      - description: 歌曲类型
+      - description: 歌曲类型；music 表示本地和网络歌曲且排除有声书歌单
+        enum:
+        - local
+        - remote
+        - radio
+        - music
         in: query
         name: type
         type: string
@@ -8686,7 +8701,12 @@ paths:
         与 /songs 共享过滤条件，随机返回 limit 首歌曲完整对象。用于「随机播放」场景。
         返回字段与 GET /songs 一致（数组包裹在 songs 字段中），total 为实际返回数量。
       parameters:
-      - description: 歌曲类型
+      - description: 歌曲类型；music 表示本地和网络歌曲且排除有声书歌单
+        enum:
+        - local
+        - remote
+        - radio
+        - music
         in: query
         name: type
         type: string

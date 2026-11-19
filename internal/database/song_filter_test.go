@@ -83,3 +83,69 @@ func TestListSongsExcludePlaylistLabels(t *testing.T) {
 		t.Fatalf("expected 0 songs after song joins a hidden playlist, got %d", len(got2))
 	}
 }
+
+func TestMusicQueryExcludesRadioAndAudiobookSongs(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	songs := []*models.Song{
+		{Type: models.TypeLocal, Title: "Music local", FilePath: "/music/local.mp3"},
+		{Type: models.TypeRemote, Title: "Music remote", URL: "https://example.com/remote.mp3"},
+		{Type: models.TypeRadio, Title: "Radio", URL: "https://example.com/radio.m3u8"},
+		{Type: models.TypeLocal, Title: "Audiobook", FilePath: "/music/book.m4b"},
+	}
+	if err := db.SongRepository().BatchCreate(ctx, songs); err != nil {
+		t.Fatalf("BatchCreate songs: %v", err)
+	}
+
+	book := &models.Playlist{
+		Type:   models.PlaylistTypeNormal,
+		Name:   "Book",
+		Labels: []string{models.PlaylistLabelAudiobook},
+	}
+	if err := db.PlaylistRepository().Create(ctx, book); err != nil {
+		t.Fatalf("create audiobook playlist: %v", err)
+	}
+	if err := db.PlaylistSongRepository().AddSong(ctx, book.ID, songs[3].ID, 0); err != nil {
+		t.Fatalf("add audiobook song: %v", err)
+	}
+
+	filter := &SongFilter{Type: models.TypeMusicQuery, Limit: 20}
+	list, err := db.SongRepository().List(ctx, filter)
+	if err != nil {
+		t.Fatalf("list music query: %v", err)
+	}
+	if len(list) != 2 || list[0].Type == models.TypeRadio || list[1].Type == models.TypeRadio {
+		t.Fatalf("music query returned unexpected songs: %+v", list)
+	}
+
+	count, err := db.SongRepository().Count(ctx, filter)
+	if err != nil {
+		t.Fatalf("count music query: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("music query count = %d, want 2", count)
+	}
+
+	random, err := db.SongRepository().ListRandom(ctx, &SongFilter{Type: models.TypeMusicQuery, Limit: 20})
+	if err != nil {
+		t.Fatalf("random music query: %v", err)
+	}
+	if len(random) != 2 {
+		t.Fatalf("random music query returned %d songs, want 2", len(random))
+	}
+	for _, song := range random {
+		if song.Type == models.TypeRadio || song.ID == songs[3].ID {
+			t.Fatalf("random music query returned excluded song: %+v", song)
+		}
+	}
+
+	ids, err := db.SongRepository().ListIDs(ctx, &SongFilter{Type: models.TypeMusicQuery})
+	if err != nil {
+		t.Fatalf("music query ids: %v", err)
+	}
+	if len(ids) != 2 {
+		t.Fatalf("music query ids = %d, want 2", len(ids))
+	}
+}

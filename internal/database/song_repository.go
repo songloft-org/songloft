@@ -688,7 +688,7 @@ func songSelectBuilder() sq.SelectBuilder {
 
 func applySongFilter(sb sq.SelectBuilder, filter *SongFilter) sq.SelectBuilder {
 	if filter.Type != "" {
-		sb = sb.Where(sq.Eq{"type": filter.Type})
+		sb = applySongTypeScope(sb, "type", "id", filter.Type)
 	}
 	if filter.Keyword != "" {
 		kw := "%" + filter.Keyword + "%"
@@ -755,6 +755,24 @@ func applySongFilter(sb sq.SelectBuilder, filter *SongFilter) sq.SelectBuilder {
 			WHERE EXISTS (SELECT 1 FROM json_each(p.labels) WHERE value = ?))`, label)
 	}
 	return sb
+}
+
+// applySongTypeScope applies the public song query type. "music" is a
+// virtual scope covering local and remote songs that do not belong to an
+// audiobook playlist. Other values continue to use exact stored types.
+func applySongTypeScope(sb sq.SelectBuilder, typeColumn, idColumn, songType string) sq.SelectBuilder {
+	if songType == models.TypeMusicQuery {
+		sb = sb.Where(sq.Or{
+			sq.Eq{typeColumn: models.TypeLocal},
+			sq.Eq{typeColumn: models.TypeRemote},
+		})
+		return sb.Where(sq.Expr(fmt.Sprintf(`%s NOT IN (
+			SELECT ps.song_id FROM playlist_songs ps
+			JOIN playlists p ON p.id = ps.playlist_id
+			WHERE EXISTS (SELECT 1 FROM json_each(p.labels) WHERE value = ?)
+			)`, idColumn), models.PlaylistLabelAudiobook))
+	}
+	return sb.Where(sq.Eq{typeColumn: songType})
 }
 
 // escapeLikeLiteral 转义 LIKE 表达式中的通配符 % _ \，用于把字符串当字面量匹配。
@@ -1209,6 +1227,9 @@ func buildFacetSelect(field string, f *FacetFilter) (sq.SelectBuilder, error) {
 		"COUNT(*) AS count",
 		"MAX(CASE WHEN cover_path != '' OR cover_url != '' THEN id END) AS cover_song_id",
 	).From("songs").Where(facetBaseCond(field, col))
+	if f != nil && f.Type != "" {
+		sb = applySongTypeScope(sb, "type", "id", f.Type)
+	}
 
 	if f != nil && f.Keyword != "" {
 		sb = sb.Where(sq.Expr("CAST("+col+" AS TEXT) LIKE ?", "%"+f.Keyword+"%"))
@@ -1239,6 +1260,9 @@ func buildTagFacetSelect(f *FacetFilter) sq.SelectBuilder {
 		// t.name 是固定列（非用户输入），用 sq.Like 防 SQL 注入同列维度范式。
 		sb = sb.Where(sq.Like{"t.name": "%" + f.Keyword + "%"})
 	}
+	if f != nil && f.Type != "" {
+		sb = applySongTypeScope(sb, "s.type", "s.id", f.Type)
+	}
 	sb = sb.GroupBy("t.id", "t.name")
 	sb = applyFacetOrder(sb, f)
 	if f != nil {
@@ -1262,6 +1286,9 @@ func buildArtistFacetSelect(f *FacetFilter) sq.SelectBuilder {
 		Where(sq.Eq{"sa.role": models.ArtistRoleArtist})
 	if f != nil && f.Keyword != "" {
 		sb = sb.Where(sq.Like{"a.name": "%" + f.Keyword + "%"})
+	}
+	if f != nil && f.Type != "" {
+		sb = applySongTypeScope(sb, "s.type", "s.id", f.Type)
 	}
 	sb = sb.GroupBy("a.id", "a.name")
 	sb = applyFacetOrder(sb, f)
@@ -1314,14 +1341,26 @@ func (r *SongRepository) ListFacet(ctx context.Context, field string, f *FacetFi
 
 // CountFacet 返回某维度去重取值的总数（用于前端分页判断），与 ListFacet 共享 keyword 过滤。
 func (r *SongRepository) CountFacet(ctx context.Context, field, keyword string) (int64, error) {
+	return r.CountFacetFiltered(ctx, field, &FacetFilter{Keyword: keyword})
+}
+
+// CountFacetFiltered returns the number of distinct facet values matching f.
+func (r *SongRepository) CountFacetFiltered(ctx context.Context, field string, f *FacetFilter) (int64, error) {
+	if f == nil {
+		f = &FacetFilter{}
+	}
 	var inner sq.SelectBuilder
 	if field == songFacetTagField {
 		// tag：去重标签数（仅计至少挂了一首歌的标签）。内连接排除空标签。
 		inner = sq.Select("1").
 			From("song_tags t").
 			Join("song_tag_links l ON t.id = l.tag_id")
-		if keyword != "" {
-			inner = inner.Where(sq.Like{"t.name": "%" + keyword + "%"})
+		if f.Type != "" {
+			inner = inner.Join("songs s ON s.id = l.song_id")
+			inner = applySongTypeScope(inner, "s.type", "s.id", f.Type)
+		}
+		if f.Keyword != "" {
+			inner = inner.Where(sq.Like{"t.name": "%" + f.Keyword + "%"})
 		}
 		inner = inner.GroupBy("t.id")
 	} else if field == songFacetArtistField {
@@ -1330,8 +1369,12 @@ func (r *SongRepository) CountFacet(ctx context.Context, field, keyword string) 
 			From("song_artists sa").
 			Join("artists a ON a.id = sa.artist_id").
 			Where(sq.Eq{"sa.role": models.ArtistRoleArtist})
-		if keyword != "" {
-			inner = inner.Where(sq.Like{"a.name": "%" + keyword + "%"})
+		if f.Type != "" {
+			inner = inner.Join("songs s ON s.id = sa.song_id")
+			inner = applySongTypeScope(inner, "s.type", "s.id", f.Type)
+		}
+		if f.Keyword != "" {
+			inner = inner.Where(sq.Like{"a.name": "%" + f.Keyword + "%"})
 		}
 		inner = inner.GroupBy("a.id")
 	} else {
@@ -1340,8 +1383,11 @@ func (r *SongRepository) CountFacet(ctx context.Context, field, keyword string) 
 			return 0, ErrNotFound
 		}
 		inner = sq.Select("1").From("songs").Where(facetBaseCond(field, col))
-		if keyword != "" {
-			inner = inner.Where(sq.Expr("CAST("+col+" AS TEXT) LIKE ?", "%"+keyword+"%"))
+		if f.Type != "" {
+			inner = applySongTypeScope(inner, "type", "id", f.Type)
+		}
+		if f.Keyword != "" {
+			inner = inner.Where(sq.Expr("CAST("+col+" AS TEXT) LIKE ?", "%"+f.Keyword+"%"))
 		}
 		inner = inner.GroupBy(col)
 	}

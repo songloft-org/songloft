@@ -16,6 +16,9 @@ const (
 	TypeLocal  = "local"  // 本地歌曲
 	TypeRemote = "remote" // 网络歌曲
 	TypeRadio  = "radio"  // 电台
+	// TypeMusicQuery is a virtual query-only type matching ordinary music.
+	// It is never stored in songs.type.
+	TypeMusicQuery = "music"
 )
 
 // 歌单类型常量
@@ -690,6 +693,7 @@ const (
 	PlaylistLabelAutoCreated = "auto_created" // 自动创建歌单标签
 	PlaylistLabelBuiltIn     = "built_in"     // 内置歌单标签（不可删除）
 	PlaylistLabelHidden      = "hidden"       // 隐藏歌单标签
+	PlaylistLabelAudiobook   = "audiobook"    // 有声书歌单标签
 
 	PlaylistModeDirectory = "directory" // 每个文件夹生成独立歌单
 	PlaylistModeTopLevel  = "top_level" // 按一级子目录合并歌单

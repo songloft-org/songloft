@@ -62,6 +62,7 @@ type SongRepository interface {
 	ListFailedFingerprints(ctx context.Context) ([]database.FailedFingerprintRow, error)
 	ListFacet(ctx context.Context, field string, f *database.FacetFilter) ([]database.Facet, error)
 	CountFacet(ctx context.Context, field, keyword string) (int64, error)
+	CountFacetFiltered(ctx context.Context, field string, f *database.FacetFilter) (int64, error)
 	ListDistinctNames(ctx context.Context, field string) ([]string, error)
 	GetLibraryStats(ctx context.Context) (*database.LibraryStats, error)
 	ListFolders(ctx context.Context, absPrefix, keyword string) ([]database.FolderInfo, error)
@@ -466,6 +467,15 @@ func (s *SongService) CountFacet(ctx context.Context, field, keyword string) (in
 			return 0, err
 		}
 		return 0, fmt.Errorf("failed to count facet %q: %w", field, err)
+	}
+	return total, nil
+}
+
+// CountFacetFiltered 返回匹配过滤条件的去重分类值数量。
+func (s *SongService) CountFacetFiltered(ctx context.Context, field string, f *database.FacetFilter) (int64, error) {
+	total, err := s.songs.CountFacetFiltered(ctx, field, f)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count filtered facet %q: %w", field, err)
 	}
 	return total, nil
 }

@@ -60,7 +60,7 @@
 
 歌曲管理模块是 Songloft 核心 API，覆盖歌曲增删改查、播放流分发、封面/歌词、音频标签写入、文件整理和重复检测。所有端点均需 JWT 认证（`BearerAuth`），基础路径 `/api/v1`。
 
-**歌曲类型**: `local`（本地文件）、`remote`（外部 URL / 插件音源）、`radio`（在线广播/直播流）。
+**歌曲类型**: `local`（本地文件）、`remote`（外部 URL / 插件音源）、`radio`（在线广播/直播流）。查询参数额外支持虚拟类型 `music`，表示本地和网络歌曲，并排除电台及属于有声书歌单的歌曲；`music` 不会写入 Song 对象。
 
 **Song JSON 序列化规则**（`MarshalJSON` 统一处理）:
 - `url` -- 统一为 `/api/v1/songs/{id}/play`（HLS 电台为 `.../play.m3u8`）
@@ -90,7 +90,7 @@
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `type` | string | 否 | -- | `local` / `remote` / `radio` |
+| `type` | string | 否 | -- | `local` / `remote` / `radio` / `music`；`music` 排除电台和有声书歌单 |
 | `keyword` | string | 否 | -- | 搜索关键词（匹配标题、艺术家、专辑） |
 | `path_prefix` | string | 否 | -- | 按 `file_path` 前缀过滤 |
 | `limit` | int | 否 | `20` | 每页数量，上限 `100000` |
@@ -155,6 +155,7 @@
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `field` | string | 是 | -- | 聚合维度：`genre` / `artist` / `album` / `language` / `style` / `year` / `decade`（`year`/`decade` 的 value 为数字字符串，年代如 `"1990"` 表示 1990-1999） |
+| `type` | string | 否 | -- | `local` / `remote` / `radio` / `music`；`music` 排除电台和有声书歌单 |
 | `keyword` | string | 否 | -- | 对取值模糊搜索 |
 | `limit` | int | 否 | `20` | 分页大小，上限 `100000` |
 | `offset` | int | 否 | `0` | 分页偏移 |
@@ -217,7 +218,7 @@
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `type` | string | 否 | -- | `local` / `remote` / `radio` |
+| `type` | string | 否 | -- | `local` / `remote` / `radio` / `music`；`music` 排除电台和有声书歌单 |
 | `keyword` | string | 否 | -- | 搜索关键词 |
 | `path_prefix` | string | 否 | -- | 按 `file_path` 前缀过滤 |
 | `exclude_playlist_labels` | string | 否 | -- | 排除带指定 label 的歌单内歌曲（逗号分隔） |

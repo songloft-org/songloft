@@ -269,6 +269,48 @@ func TestSongFilterByTag(t *testing.T) {
 	}
 }
 
+func TestMusicFacetExcludesRadioAndAudiobookSongs(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	songs := []*models.Song{
+		{Type: models.TypeLocal, Title: "Music", Genre: "Spoken", FilePath: "/music/music.mp3"},
+		{Type: models.TypeRadio, Title: "Radio", Genre: "Spoken", URL: "https://example.com/radio.m3u8"},
+		{Type: models.TypeLocal, Title: "Book", Genre: "Spoken", FilePath: "/music/book.m4b"},
+	}
+	if err := db.SongRepository().BatchCreate(ctx, songs); err != nil {
+		t.Fatalf("BatchCreate songs: %v", err)
+	}
+	book := &models.Playlist{
+		Type:   models.PlaylistTypeNormal,
+		Name:   "Book",
+		Labels: []string{models.PlaylistLabelAudiobook},
+	}
+	if err := db.PlaylistRepository().Create(ctx, book); err != nil {
+		t.Fatalf("create audiobook playlist: %v", err)
+	}
+	if err := db.PlaylistSongRepository().AddSong(ctx, book.ID, songs[2].ID, 0); err != nil {
+		t.Fatalf("add audiobook song: %v", err)
+	}
+
+	filter := &FacetFilter{Type: models.TypeMusicQuery}
+	facets, err := db.SongRepository().ListFacet(ctx, "genre", filter)
+	if err != nil {
+		t.Fatalf("list music facets: %v", err)
+	}
+	if len(facets) != 1 || facets[0].Count != 1 {
+		t.Fatalf("music facets = %+v, want one value with count 1", facets)
+	}
+	total, err := db.SongRepository().CountFacetFiltered(ctx, "genre", filter)
+	if err != nil {
+		t.Fatalf("count music facets: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("music facet total = %d, want 1", total)
+	}
+}
+
 // seedTagFacetSongs 造 5 首本地歌（A 带封面）并挂上自定义标签，供 tag facet 测试复用。
 // 返回 song 指针以便测试取用回填的 ID。
 func seedTagFacetSongs(t *testing.T, db DB) []*models.Song {
