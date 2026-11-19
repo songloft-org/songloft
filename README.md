@@ -144,7 +144,7 @@ Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；�
 
 | 客户端与平台 | 架构 | **Assets** 中的文件名 |
 | --- | --- | --- |
-| Flutter · Android | ARM64 / ARMv7 / x86_64 | `songloft-bundled-android-*.apk` |
+| Flutter · Android | ARM64 / ARMv7 / x86_64 | `songloft-bundled-android.apk` |
 | Flutter · iOS | ARM64（未签名，需自行重签） | `songloft-bundled-ios-nosign.ipa` |
 | Flutter · Linux | x86_64 | `songloft-bundled-linux-x64.tar.gz` |
 | Flutter · macOS | Intel / Apple Silicon | `songloft-bundled-macos.zip` |

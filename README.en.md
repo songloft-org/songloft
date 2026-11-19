@@ -144,7 +144,7 @@ The Flutter and Lynx client repositories build and publish their own Bundle pack
 
 | Client and platform | Architecture | Asset under **Assets** |
 | --- | --- | --- |
-| Flutter · Android | ARM64 / ARMv7 / x86_64 | `songloft-bundled-android-*.apk` |
+| Flutter · Android | ARM64 / ARMv7 / x86_64 | `songloft-bundled-android.apk` |
 | Flutter · iOS | ARM64 (unsigned; re-sign required) | `songloft-bundled-ios-nosign.ipa` |
 | Flutter · Linux | x86_64 | `songloft-bundled-linux-x64.tar.gz` |
 | Flutter · macOS | Intel / Apple Silicon | `songloft-bundled-macos.zip` |
