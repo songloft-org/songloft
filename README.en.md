@@ -178,7 +178,7 @@ Beyond the web interface, Songloft also offers a more powerful cross-platform Fl
 
 🔗 **GitHub repository**: [songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
 
-- **Standard edition** (requires connecting to a server): [songloft-player Releases](https://github.com/songloft-org/songloft-player/releases/latest)
+- **Standard edition** (requires a server). The universal Android package `songloft-android.apk` supports ARM64, ARMv7, and x86_64. [Flutter stable release](https://github.com/songloft-org/songloft-player/releases/latest) · [Dev release](https://github.com/songloft-org/songloft-player/releases/tag/dev)
 - **Bundle local mode**: look for the `songloft-bundled-*` files listed above under **Assets** on the [Flutter stable Release](https://github.com/songloft-org/songloft-player/releases/latest) or [dev Release](https://github.com/songloft-org/songloft-player/releases/tag/dev).
 
 > 🪟 **Windows users**: Install & update via [Scoop](https://scoop.sh). This bucket provides three apps, pick as needed:

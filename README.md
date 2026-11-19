@@ -178,7 +178,7 @@ Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；�
 
 🔗 **GitHub 仓库**：[songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
 
-- **标准版**（需连接服务器）：[songloft-player Releases](https://github.com/songloft-org/songloft-player/releases/latest)
+- **标准版**（需连接服务器）：Android 通用包 `songloft-android.apk` 支持 ARM64、ARMv7 和 x86_64。[Flutter 正式版](https://github.com/songloft-org/songloft-player/releases/latest) · [开发版](https://github.com/songloft-org/songloft-player/releases/tag/dev)
 - **Bundle 本地模式**：在 [Flutter 正式版](https://github.com/songloft-org/songloft-player/releases/latest)或 [开发版](https://github.com/songloft-org/songloft-player/releases/tag/dev)的 **Assets** 查找上表中的 `songloft-bundled-*` 文件。
 
 > 🪟 **Windows 用户**：可通过 [Scoop](https://scoop.sh) 一键安装与更新，该 Bucket 提供三个应用，可按需选择：

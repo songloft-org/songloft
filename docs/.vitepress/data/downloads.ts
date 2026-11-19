@@ -230,14 +230,18 @@ export const INSTALL: InstallMethod[] = [
     icon: 'package',
     kind: 'external',
     note: {
-      zh: 'Flutter 与 Lynx 各自在客户端仓库构建 Bundle 包，并固定 Go 后端源码版本。登录页或设置页切换本地/远程模式；Android 和桌面首次启用时选择音乐目录，iOS 使用应用 Documents 目录。',
-      en: 'Flutter and Lynx build Bundle packages in their own client repositories and pin the Go backend source. Switch modes on the login or settings screen; Android and desktop choose a music folder the first time, while iOS uses the app Documents directory.',
+      zh: 'Flutter Bundle 的 Android 通用 APK 支持 ARM64、ARMv7 和 x86_64。Flutter 与 Lynx 各自在客户端仓库构建 Bundle 包，并固定 Go 后端源码版本。登录页或设置页切换本地与远程模式。首次启用时，Android 和桌面选择音乐目录，iOS 使用应用 Documents 目录。',
+      en: 'The Flutter Bundle universal Android APK supports ARM64, ARMv7, and x86_64. Flutter and Lynx build Bundle packages in their own repositories and pin the Go backend source. Switch modes on the login or settings screen. On first use, Android and desktop let you choose a music folder, while iOS uses the app Documents directory.',
     },
     external: [
       {
         label: { zh: 'Flutter Bundle 下载', en: 'Flutter Bundle downloads' },
         url: 'https://github.com/songloft-org/songloft-player/releases/latest',
         primary: true,
+      },
+      {
+        label: { zh: 'Flutter Bundle Android APK（开发版）', en: 'Flutter Bundle Android APK (dev)' },
+        url: 'https://github.com/songloft-org/songloft-player/releases/download/dev/songloft-bundled-android.apk',
       },
       {
         label: { zh: 'Lynx Bundle 下载', en: 'Lynx Bundle downloads' },
@@ -256,14 +260,18 @@ export const INSTALL: InstallMethod[] = [
     icon: 'smartphone',
     kind: 'external',
     note: {
-      zh: 'Windows 用户也可用 Scoop 一键安装 / 更新，见下方命令。',
-      en: 'Windows users can install & update in one line via Scoop — see the commands below.',
+      zh: '标准版 Android 通用 APK 支持 ARM64、ARMv7 和 x86_64。Windows 用户可用下方命令通过 Scoop 安装和更新。',
+      en: 'The standard universal Android APK supports ARM64, ARMv7, and x86_64. Windows users can install and update with the Scoop commands below.',
     },
     external: [
       {
         label: { zh: '标准版 Releases', en: 'Standalone releases' },
         url: 'https://github.com/songloft-org/songloft-player/releases/latest',
         primary: true,
+      },
+      {
+        label: { zh: '标准版 Android APK（开发版）', en: 'Standard Android APK (dev)' },
+        url: 'https://github.com/songloft-org/songloft-player/releases/download/dev/songloft-android.apk',
       },
       {
         label: { zh: '源码仓库', en: 'Source repo' },

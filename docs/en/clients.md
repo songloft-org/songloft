@@ -16,6 +16,7 @@ Songloft offers Flutter, Lynx, Electron desktop, and TV clients connecting to th
 
 - [Standalone downloads](https://github.com/songloft-org/songloft-player/releases/latest): connect to a separate server.
 - [Bundle downloads](https://github.com/songloft-org/songloft-player/releases/latest): the repository releases both standard clients and `songloft-bundled-*` packages.
+- The standard `songloft-android.apk` and Bundle `songloft-bundled-android.apk` each support ARM64, ARMv7, and x86_64 in one APK. Universal packages appear first in the dev release. [Flutter dev release](https://github.com/songloft-org/songloft-player/releases/tag/dev)
 - [Architecture (Chinese)](../player/architecture.md) · [Build guide (Chinese)](../player/build_guide.md) · [Source](https://github.com/songloft-org/songloft-player).
 
 Full backend images/binaries embed Lynx Web by default. Native Flutter and standalone Web remain available; explicitly build legacy embedded Flutter Web with `make build-frontend-flutter-web-embedded`.
