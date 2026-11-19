@@ -17,6 +17,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 - Rule and example: Persist the playback mode the user selects and keep the original entry URL so its redirects continue to work. Emit a client playback path that reflects the final response format. Use the [live stream gateway](docs/en/pitfalls.md#hls-proxy) for audio extraction and destination validation.
 - Seen 1× (2026-11-18).
 
+### RADIO-002: Start live repackaging based on client playback capability
+
+- Scope: [songloft-org/songloft#579](https://github.com/songloft-org/songloft/issues/579), backend baseline `3184a8b745a4e834c4607ba34bc13caa45601aee` and Lynx baseline `debad6e80f422c9ed092fa3a5e4af21d34426a83`.
+- Evidence: The old FFmpeg allowlist rejected a local FLV before producing any bytes. Allowing FLV produced single-track MP3. The real Huya source worked through the backend with the existing radio user agent, yielding original FLV, H.264 and AAC HLS segments, and single-track MP3. See `/tmp/songloft-579-verify.IUctyN/actual-source.log`.
+- Rule and example: Persist the source container and publish a playback URL that identifies it. Create HLS sessions only for active clients that need compatible output and release them on cancellation. Retry ordinary interruptions on the original path. Use one browser media element for direct playback and fullscreen, and verify playback time, decoded frames, and the number of upstream requests.
+- Seen 1× (2026-11-19).
+
 ### LYNX-CACHE-001: Reference versioned host scripts directly from the fallback page
 
 - Scope: Lynx plugin fallback pages in Electron and system WebViews, [songloft-org/songloft-plugin-miot#143](https://github.com/songloft-org/songloft-plugin-miot/issues/143), server baseline `b6719811adbf56737ec08f45ec2bcfb636aa209a`.

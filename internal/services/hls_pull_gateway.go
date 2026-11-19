@@ -96,7 +96,7 @@ func (g *hlsPullGateway) URL(raw string) string {
 	suffix := "resource.ts"
 	if u, err := url.Parse(raw); err == nil {
 		switch ext := strings.ToLower(path.Ext(u.Path)); ext {
-		case ".m3u8", ".ts", ".mp4", ".m4s", ".aac", ".key":
+		case ".m3u8", ".ts", ".mp4", ".m4s", ".aac", ".key", ".flv":
 			suffix = "resource" + ext
 		}
 	}
@@ -240,7 +240,7 @@ func (g *hlsPullGateway) serve(w http.ResponseWriter, r *http.Request) {
 	first, _ := reader.Peek(512)
 	first = bytes.TrimSpace(bytes.TrimPrefix(first, []byte{0xef, 0xbb, 0xbf}))
 	declaredPlaylist := strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "mpegurl") || strings.HasSuffix(strings.ToLower(resp.Request.URL.Path), ".m3u8")
-	if bytes.HasPrefix(first, []byte("#EXTM3U")) || declaredPlaylist {
+	if bytes.HasPrefix(first, []byte("#EXTM3U")) || (declaredPlaylist && !bytes.HasPrefix(first, []byte("FLV"))) {
 		data, err := io.ReadAll(io.LimitReader(reader, (1<<20)+1))
 		if err != nil || len(data) > 1<<20 {
 			g.remember(hlsError(502, "直播播放列表过大或读取失败"))

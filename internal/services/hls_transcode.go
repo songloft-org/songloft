@@ -23,8 +23,8 @@ import (
 const HLSIdleTimeout = 120 * time.Second
 
 // FFmpeg 只连接回环网关，所有 HLS 网络引用由网关解析和校验。
-func hlsInputArgs() []string {
-	return []string{"-http_proxy", "", "-protocol_whitelist", "http,tcp,crypto", "-format_whitelist", "hls,mpegts,mov"}
+func hlsInputArgs(formats string) []string {
+	return []string{"-http_proxy", "", "-protocol_whitelist", "http,tcp,crypto", "-format_whitelist", formats}
 }
 
 // HLSTranscodeError 是可公开给客户端的错误，不包含上游地址、凭证或进程输出。
@@ -122,7 +122,7 @@ func (s *HLSTranscodeService) StreamAudio(ctx context.Context, w io.Writer, opts
 		return hlsError(500, "无法初始化直播拉流服务")
 	}
 	defer gateway.Close()
-	args := append([]string{"-nostdin", "-hide_banner", "-loglevel", "error"}, hlsInputArgs()...)
+	args := append([]string{"-nostdin", "-hide_banner", "-loglevel", "error"}, hlsInputArgs("hls,mpegts,mov,flv")...)
 	args = append(args, "-rw_timeout", "15000000", "-re", "-i", gateway.URL(opts.URL),
 		"-map", "0:a:0", "-vn", "-c:a", "libmp3lame", "-b:a", "128k",
 		"-write_xing", "0", "-id3v2_version", "0", "-f", "mp3", "pipe:1")
@@ -135,6 +135,15 @@ func (s *HLSTranscodeService) StreamAudio(ctx context.Context, w io.Writer, opts
 
 // Create 预留共享转码槽位；只有首个完整分片和播放列表就绪后才交付会话。
 func (s *HLSTranscodeService) Create(ctx context.Context, owner string, opts HLSTranscodeOptions) (string, error) {
+	return s.create(ctx, owner, opts, "hls,mpegts,mov")
+}
+
+// CreateFLV creates the compatibility stream for a saved HTTP-FLV station.
+func (s *HLSTranscodeService) CreateFLV(ctx context.Context, owner string, opts HLSTranscodeOptions) (string, error) {
+	return s.create(ctx, owner, opts, "flv")
+}
+
+func (s *HLSTranscodeService) create(ctx context.Context, owner string, opts HLSTranscodeOptions, inputFormats string) (string, error) {
 	if owner == "" {
 		return "", hlsError(401, "缺少客户端身份")
 	}
@@ -195,7 +204,7 @@ func (s *HLSTranscodeService) Create(ctx context.Context, owner string, opts HLS
 	s.sessions[id] = session
 	s.wg.Add(1)
 	s.mu.Unlock()
-	go s.run(session, opts)
+	go s.run(session, opts, inputFormats)
 	timer := time.NewTimer(s.startupTimeout)
 	defer timer.Stop()
 	select {
@@ -226,7 +235,7 @@ func (s *HLSTranscodeService) Create(ctx context.Context, owner string, opts HLS
 	}
 }
 
-func (s *HLSTranscodeService) run(session *hlsSession, opts HLSTranscodeOptions) {
+func (s *HLSTranscodeService) run(session *hlsSession, opts HLSTranscodeOptions, inputFormats string) {
 	defer s.wg.Done()
 	defer close(session.done)
 	defer s.remove(session)
@@ -255,9 +264,9 @@ func (s *HLSTranscodeService) run(session *hlsSession, opts HLSTranscodeOptions)
 	}
 	defer gateway.Close()
 	input := gateway.URL(opts.URL)
-	// 只接受 HLS / MPEG-TS / MP4 媒体；所有网络引用先经过受控网关。
+	// 只接受调用方指定的媒体格式；所有网络引用先经过受控网关。
 	// FFmpeg 只连接本机网关，不能继承环境 http_proxy 把能力 URL 发给外部代理。
-	inputArgs := hlsInputArgs()
+	inputArgs := hlsInputArgs(inputFormats)
 	probeCtx, probeCancel := context.WithTimeout(processCtx, s.startupTimeout)
 	probeArgs := append([]string{"-v", "error"}, inputArgs...)
 	probeArgs = append(probeArgs, "-analyzeduration", "2000000", "-probesize", "2097152", "-show_entries", "stream=codec_type,codec_name,field_order:stream_disposition=attached_pic", "-of", "json", input)

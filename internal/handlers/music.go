@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -995,7 +996,7 @@ func (h *SongHandler) BatchDeleteSongs(w http.ResponseWriter, r *http.Request) {
 
 // UpdateSong 更新歌曲信息
 // @Summary 更新歌曲信息
-// @Description 更新网络歌曲或电台。电台可将 radio_mode 设为 hls（保留原 HLS 流）或 audio_only（服务端输出 MP3），空字符串恢复按后缀自动识别，省略则保留原模式。纯音频模式清除 is_video。
+// @Description 更新网络歌曲或电台。电台可将 radio_mode 设为 hls、flv 或 audio_only（服务端输出 MP3），空字符串恢复按后缀自动识别，省略则保留原模式。纯音频模式清除 is_video。
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
@@ -1207,7 +1208,7 @@ func (h *SongHandler) waitForDownloadIdle() {
 
 // AddRadios 批量添加电台/广播
 // @Summary 批量添加电台/广播
-// @Description 批量添加电台。radio_mode 缺省时按 URL 后缀自动识别；hls 可用于无后缀的 HLS 入口，保留源流；audio_only 从 HTTP/HTTPS HLS、TS 或 MP4 源实时提取第一条音轨并输出 MP3，需 FFmpeg。
+// @Description 批量添加电台。radio_mode 缺省时按 URL 后缀自动识别；hls 和 flv 可显式标记无后缀的直播入口；audio_only 从 HTTP/HTTPS HLS、TS、MP4 或 FLV 源实时提取第一条音轨并输出 MP3，需 FFmpeg。
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
@@ -1458,7 +1459,7 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // 不需要判断 song.type/source — 所有分发逻辑都集中在这里。
 //
 // @Summary 流式播放歌曲
-// @Description 按 song.ID 流式播放。内部根据 song.type 分发到本地文件、网络歌曲或电台。HLS 电台返回播放列表或 302；配置为 audio_only 的电台返回首条音轨转码得到的 MP3。
+// @Description 按 song.ID 流式播放。内部根据 song.type 分发到本地文件、网络歌曲或电台。HLS 电台返回播放列表或 302；HTTP-FLV 电台通过 play.flv 返回原始 FLV；配置为 audio_only 的电台返回首条音轨转码得到的 MP3。
 // @Tags 歌曲管理
 // @Produce application/octet-stream
 // @Param id path int true "歌曲 ID"
@@ -1483,6 +1484,7 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // @Security BearerAuth
 // @Router /songs/{id}/play [get]
 // @Router /songs/{id}/play.m3u8 [get]
+// @Router /songs/{id}/play.flv [get]
 func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	songID, err := strconv.ParseInt(idStr, 10, 64)
@@ -1503,6 +1505,10 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	song, err := h.songService.GetByID(ctx, songID)
 	if err != nil || song == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/play.flv") && !song.IsFLVStream() {
 		http.NotFound(w, r)
 		return
 	}
@@ -2412,6 +2418,13 @@ func (h *SongHandler) serveRadio(w http.ResponseWriter, r *http.Request, song *m
 		return
 	}
 
+	isFLV := song.IsFLVStream()
+	if isFLV && r.Method == http.MethodHead {
+		w.Header().Set("Content-Type", "video/x-flv")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	upstreamReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, song.URL, nil)
 	if err != nil {
 		slog.Warn("radio stream request failed", "url", song.URL, "error", err)
@@ -2427,7 +2440,7 @@ func (h *SongHandler) serveRadio(w http.ResponseWriter, r *http.Request, song *m
 	// 上游会按 icy-metaint 每隔 N 字节插入一段元数据,这些字节被浏览器当作音频解码,
 	// 播放约 1 秒(16000 字节 ≈ 1.4s@88kbps)后即崩断(#275)。
 	// 原生播放器(mpv/ExoPlayer 等)需要元数据时会自带此头,由下面的 icy-* 头透传闭环。
-	clientWantsMeta := r.Header.Get("Icy-MetaData") != ""
+	clientWantsMeta := !isFLV && r.Header.Get("Icy-MetaData") != ""
 	if clientWantsMeta {
 		upstreamReq.Header.Set("Icy-MetaData", r.Header.Get("Icy-MetaData"))
 	}
@@ -2446,6 +2459,21 @@ func (h *SongHandler) serveRadio(w http.ResponseWriter, r *http.Request, song *m
 		return
 	}
 	defer resp.Body.Close()
+
+	if isFLV && resp.StatusCode == http.StatusOK {
+		body := bufio.NewReader(resp.Body)
+		if magic, _ := body.Peek(3); string(magic) != "FLV" {
+			respondError(w, http.StatusBadGateway, "电台未返回 FLV 直播流", nil)
+			return
+		}
+		w.Header().Set("Content-Type", "video/x-flv")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+		if _, err := io.Copy(w, body); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Debug("FLV radio stream copy failed", "error", err)
+		}
+		return
+	}
 
 	if ct := resp.Header.Get("Content-Type"); ct != "" {
 		w.Header().Set("Content-Type", normalizeAudioContentType(ct))
@@ -2492,14 +2520,7 @@ func (h *SongHandler) serveRadioAudio(w http.ResponseWriter, r *http.Request, so
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	u, _ := url.Parse(song.URL) // 已在保存电台时校验
-	var referer string
-	if u != nil {
-		referer = u.Scheme + "://" + u.Host + "/"
-	}
-	err := h.hlsTranscode.StreamAudio(r.Context(), w, services.HLSTranscodeOptions{
-		URL: song.URL, UserAgent: radioStreamUserAgent, Referer: referer,
-	})
+	err := h.hlsTranscode.StreamAudio(r.Context(), w, radioPullOptions(song.URL))
 	var transcodeErr *services.HLSTranscodeError
 	if errors.As(err, &transcodeErr) && r.Context().Err() == nil {
 		w.Header().Del("Content-Type")

@@ -326,6 +326,9 @@ func (a *App) setupAPIV1Router() {
 			// 仅作字面后缀变体存在,handler 内部按 song.Type 走同一分发逻辑。
 			r.Get("/songs/{id}/play.m3u8", songHandler.GetSongPlay)
 			r.Head("/songs/{id}/play.m3u8", songHandler.GetSongPlay)
+			r.Get("/songs/{id}/play.flv", songHandler.GetSongPlay)
+			r.Head("/songs/{id}/play.flv", songHandler.GetSongPlay)
+			r.Post("/songs/{id}/hls/sessions", hlsTranscodeHandler.CreateRadio(a.songService))
 
 			// HLS 反向代理端点（hls_proxy_mode=proxy 时启用，由 serveRadio 改写后的 m3u8 内回链触发）
 			r.Get("/songs/{id}/hls/playlist", hlsHandler.HandlePlaylist)

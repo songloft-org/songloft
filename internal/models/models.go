@@ -156,6 +156,7 @@ type RadioMode string
 const (
 	RadioModeAuto      RadioMode = ""
 	RadioModeHLS       RadioMode = "hls"
+	RadioModeFLV       RadioMode = "flv"
 	RadioModeAudioOnly RadioMode = "audio_only"
 )
 
@@ -164,10 +165,10 @@ func (m RadioMode) ValidForSource(rawURL string) bool {
 	switch m {
 	case RadioModeAuto:
 		return true
-	case RadioModeHLS, RadioModeAudioOnly:
+	case RadioModeHLS, RadioModeFLV, RadioModeAudioOnly:
 		u, err := url.Parse(rawURL)
 		return err == nil && u.Hostname() != "" && (u.Scheme == "http" || u.Scheme == "https") &&
-			(m != RadioModeAudioOnly || (u.User == nil && u.Fragment == "" && len(rawURL) <= 8192))
+			(m == RadioModeHLS || (u.User == nil && u.Fragment == "" && len(rawURL) <= 8192))
 	default:
 		return false
 	}
@@ -175,11 +176,11 @@ func (m RadioMode) ValidForSource(rawURL string) bool {
 
 // IsHLSStream 判断电台是否向客户端提供 HLS 播放列表。
 func (s *Song) IsHLSStream() bool {
-	if s.Type != TypeRadio || s.URL == "" || s.RadioMode == RadioModeAudioOnly {
+	if s.Type != TypeRadio || s.URL == "" {
 		return false
 	}
-	if s.RadioMode == RadioModeHLS {
-		return true
+	if s.RadioMode != RadioModeAuto {
+		return s.RadioMode == RadioModeHLS
 	}
 	u, err := url.Parse(s.URL)
 	if err != nil {
@@ -187,6 +188,18 @@ func (s *Song) IsHLSStream() bool {
 	}
 	ext := strings.ToLower(path.Ext(u.Path))
 	return ext == ".m3u8" || ext == ".m3u"
+}
+
+// IsFLVStream identifies an HTTP-FLV station by its saved mode or source path.
+func (s *Song) IsFLVStream() bool {
+	if s.Type != TypeRadio || s.URL == "" {
+		return false
+	}
+	if s.RadioMode != RadioModeAuto {
+		return s.RadioMode == RadioModeFLV
+	}
+	u, err := url.Parse(s.URL)
+	return err == nil && RadioModeFLV.ValidForSource(s.URL) && strings.EqualFold(path.Ext(u.Path), ".flv")
 }
 
 // PlaybackURL 返回客户端用的统一播放 URL(所有 type 都用同一形态)。
@@ -204,6 +217,9 @@ func (s *Song) PlaybackURL() string {
 	}
 	if s.IsHLSStream() {
 		return fmt.Sprintf("/api/v1/songs/%d/play.m3u8", s.ID)
+	}
+	if s.IsFLVStream() {
+		return fmt.Sprintf("/api/v1/songs/%d/play.flv", s.ID)
 	}
 	return fmt.Sprintf("/api/v1/songs/%d/play", s.ID)
 }

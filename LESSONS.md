@@ -17,6 +17,13 @@
 - 规则与示例：在电台数据中保存用户声明的播放模式，原始入口地址保留重定向行为。向客户端输出与最终响应类型一致的播放路径。音频提取复用有地址校验的[直播拉流网关](docs/pitfalls.md#hls-proxy)。
 - Seen 1× (2026-11-18)。
 
+### RADIO-002：按客户端播放能力启动直播转封装
+
+- 范围：[songloft-org/songloft#579](https://github.com/songloft-org/songloft/issues/579)，后端基线 `3184a8b745a4e834c4607ba34bc13caa45601aee`，Lynx 基线 `debad6e80f422c9ed092fa3a5e4af21d34426a83`。
+- 证据：本地 FLV 在旧 FFmpeg 白名单下以零输出拒绝，放行后产生单轨 MP3。虎牙报告源用现有电台 UA 经实际后端得到原始 FLV、H.264 + AAC 的 HLS 分片和单轨 MP3。日志见 `/tmp/songloft-579-verify.IUctyN/actual-source.log`。
+- 规则与示例：保存源封装并返回明确的播放路径。仅由正在播放且需要兼容输出的客户端创建 HLS 会话，播放取消时回收，普通断流保留原路径重试。浏览器直放时同一个媒体元素负责普通播放和全屏，验证同时检查播放时间、解码帧数及上游请求次数。
+- Seen 1× (2026-11-19)。
+
 ### LYNX-CACHE-001：回退页必须直接引用带版本的宿主脚本
 
 - 范围：Electron 与系统 WebView 的 Lynx 插件回退页，[songloft-org/songloft-plugin-miot#143](https://github.com/songloft-org/songloft-plugin-miot/issues/143)，服务端基线 `b6719811adbf56737ec08f45ec2bcfb636aa209a`。

@@ -223,6 +223,27 @@ func TestSongPlaybackURL_HLSRadioGetsM3U8Suffix(t *testing.T) {
 	}
 }
 
+func TestSongPlaybackURL_FLVRadio(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		mode RadioMode
+		url  string
+		want string
+	}{
+		{"automatic path", RadioModeAuto, "https://cdn.example/live.FLV?token=x", "play.flv"},
+		{"query is not a file extension", RadioModeAuto, "https://cdn.example/live?next=x.flv", "play"},
+		{"explicit redirect", RadioModeFLV, "https://cdn.example/watch", "play.flv"},
+		{"explicit audio", RadioModeAudioOnly, "https://cdn.example/live.flv", "play"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			song := Song{ID: 42, Type: TypeRadio, RadioMode: test.mode, URL: test.url}
+			if got := song.PlaybackURL(); got != "/api/v1/songs/42/"+test.want {
+				t.Fatalf("PlaybackURL = %q, want suffix %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestLyricURLPath(t *testing.T) {
 	cases := []struct {
 		name string

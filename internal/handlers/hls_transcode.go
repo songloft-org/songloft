@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -70,6 +71,60 @@ func (h *HLSTranscodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		opts.UserAgent = defaultProxyUserAgent
 	}
 	id, err := h.service.Create(r.Context(), middleware.ClientIDFromContext(r.Context()), opts)
+	h.respondCreated(w, id, err)
+}
+
+// CreateRadio creates a compatibility stream for a saved HTTP-FLV station.
+// @Summary 为 HTTP-FLV 电台创建 HLS 播放会话
+// @Description 从该电台保存的入口拉取 FLV，复制逐行 H.264 视频并输出 AAC-LC 音频及滚动 MPEG-TS 分片。首片就绪后返回会话。会话绑定 JWT ClientID，播放列表包含部署前缀，分片继承播放列表地址的 access_token。共用直播转码的资源上限和删除接口。
+// @Tags 电台与 HLS
+// @Produce json
+// @Param id path int true "HTTP-FLV 电台 ID"
+// @Success 201 {object} hlsTranscodeSessionResponse "首个分片已就绪的会话"
+// @Failure 400 {object} map[string]string "电台 ID 无效"
+// @Failure 401 {object} map[string]string "未认证"
+// @Failure 403 {object} map[string]string "源地址不在允许范围内"
+// @Failure 404 {object} map[string]string "电台不存在"
+// @Failure 422 {object} map[string]string "电台类型或源媒体不支持"
+// @Failure 502 {object} map[string]string "上游或转码失败"
+// @Failure 503 {object} map[string]string "转码工具不可用或并发已满"
+// @Failure 504 {object} map[string]string "启动超时"
+// @Security BearerAuth
+// @Router /songs/{id}/hls/sessions [post]
+func (h *HLSTranscodeHandler) CreateRadio(songs *services.SongService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		songID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+		if err != nil || songID <= 0 {
+			respondError(w, http.StatusBadRequest, "无效的电台 ID", nil)
+			return
+		}
+		song, err := songs.GetByID(r.Context(), songID)
+		if err != nil || song == nil {
+			respondError(w, http.StatusNotFound, "电台不存在", nil)
+			return
+		}
+		if !song.IsFLVStream() {
+			respondError(w, http.StatusUnprocessableEntity, "仅 HTTP-FLV 电台可创建 HLS 播放会话", nil)
+			return
+		}
+		if h.service == nil {
+			respondError(w, http.StatusServiceUnavailable, "直播转码不可用", nil)
+			return
+		}
+		id, err := h.service.CreateFLV(r.Context(), middleware.ClientIDFromContext(r.Context()), radioPullOptions(song.URL))
+		h.respondCreated(w, id, err)
+	}
+}
+
+func radioPullOptions(source string) services.HLSTranscodeOptions {
+	opts := services.HLSTranscodeOptions{URL: source, UserAgent: radioStreamUserAgent}
+	if u, err := url.Parse(source); err == nil {
+		opts.Referer = u.Scheme + "://" + u.Host + "/"
+	}
+	return opts
+}
+
+func (h *HLSTranscodeHandler) respondCreated(w http.ResponseWriter, id string, err error) {
 	if err != nil {
 		respondHLSTranscodeError(w, err)
 		return

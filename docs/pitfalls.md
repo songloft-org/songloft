@@ -248,7 +248,8 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 - 反代端点：`/api/v1/songs/{id}/hls/playlist?u=<base64url>` 和 `/api/v1/songs/{id}/hls/segment?u=<base64url>`
 - HLS 电台 song.url 强制带 `.m3u8` 后缀（`/api/v1/songs/{id}/play.m3u8`）：ExoPlayer/AVPlayer 按 URL 后缀选 MediaSource，无后缀会落到 ProgressiveMediaSource 导致直播无法播
 - 电台 `radio_mode=hls` 显式声明无后缀的 HLS 入口（含直播取流跳转）；客户端播放路径仍带 `.m3u8`，源地址按原值保存。空值按后缀识别。H.265 等源编码由支持该编码的播放器解码。
-- `radio_mode=audio_only` 的电台使用 `/play` 并清除 `is_video`。服务端经直播转码网关拉取 HLS、TS 或 MP4，复用转码私网白名单和共享的 4 个转码槽位，抽取首条音轨输出 MP3。请求结束时回收进程；启动失败返回 HTTP 错误。`HEAD` 只返回音频响应头。
+- `radio_mode=flv` 显式声明 HTTP-FLV 电台，包括无后缀的跳转入口。自动模式识别 URL 路径上的 `.flv`。服务端保留入口 URL，通过 `/play.flv` 流式转发原始字节，Web 在支持时本地解封装。
+- `radio_mode=audio_only` 的电台使用 `/play` 并清除 `is_video`。服务端经直播转码网关拉取 HLS、TS、MP4 或 FLV，复用转码私网白名单和共享的 4 个转码槽位，抽取首条音轨输出 MP3。请求结束时回收进程；启动失败返回 HTTP 错误。`HEAD` 只返回音频响应头。
 - 改写规则：经典 HLS + LL-HLS 全集（PART/PRELOAD-HINT/RENDITION-REPORT）+ `EXT-X-DATERANGE:X-ASSET-URI`（HLS Interstitials 单 URI）。`X-ASSET-LIST`（JSON 子代理）暂未实现，遇到时原样透传
 - 安全：无签名请求保留同源校验（scheme+host+port 与 `song.URL` 严格相等）；跨源 HTTP(S) 资源从实际播放列表中改写为带 `sig` 的代理链接。HMAC-SHA256 签名绑定歌曲 ID、当前源 URL、端点类型及完整资源 URL，不能篡改或跨歌曲/端点复用。入口及每次重定向均用 `services.IsHostnameAllowed` 拦截私网；私网白名单仍不作用于 HLS。密钥仅在当前进程有效，重启后须重新获取播放列表。
 - player 跨域：改写后的 URL 全部是相对路径（`playlist?u=...` / `segment?u=...`），规避 BASE_PATH 子路径部署问题
@@ -298,6 +299,7 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 ## 远程视频 HLS 转码会话（#541）
 
 - 入口：`POST /api/v1/proxy/transcode/hls/sessions`，JSON `{url, audio_bitrate?, user_agent?, referer?}`。`url` 为 HTTP/HTTPS TS、MP4 或普通 HLS 源；不接受 URL 用户凭证。码率为 64/96/128/192/256 kbps，默认 128。需配置的 ffmpeg 及其同目录或 PATH 中的 ffprobe。
+- 无法直放 FLV 的客户端可调用 `POST /api/v1/songs/{id}/hls/sessions`。服务端从该 HTTP-FLV 电台记录读取源，跟随经过校验的重定向并仅接受 FLV 输入。使用下述会话与输出契约。直接播放 `/play.flv` 不创建转码会话。
 - 工具构建必须同时启用 **HLS 输入 demuxer** 和 **crypto 输入协议**；有 HLS 输出 muxer 不代表能读取 m3u8。`ffprobe -hide_banner -demuxers` 应有 `hls`，`ffprobe -hide_banner -protocols` 的 Input 应有 `crypto`（AES-128 HLS）。Docker 基础工具来自 `tools/ffmpeg-builder`；其产物测试覆盖 TS、普通及加密 HLS。Songloft 二进制在线升级不会替换容器内工具，工具修复后需重新构建 Songloft 镜像并拉取、重建容器。
 - 首版固定复制第一条**逐行 H.264** 视频轨、第一条音频转 **AAC-LC / 双声道 / 48kHz**，输出 MPEG-TS HLS。HEVC、隔行视频、缺少音视频轨返回 422；不自动重新编码视频。源的 H.264 profile/level、分辨率及关键帧仍需适合实际播放器，不承诺所有 IPTV 源均可在 Safari 播放。
 - 创建等待首个完整分片就绪，最长 30 秒；成功返回 201 `{id, playlist_url, idle_timeout_seconds:120}`，并设置 `Location`。`playlist_url` 包含部署 `BASE_PATH`、不包含 token。Safari 的 `<video>` 使用该地址时追加 `?access_token=<URL编码的访问token>`；服务端将其透传给相对分片链接。访问 token 到期仍会返回 401；调用方需刷新 token 并更新播放地址，同一 ClientID 可继续使用原会话。若播放器使用 Authorization 头，需自行给每条子请求发送该头。
