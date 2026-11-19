@@ -19,6 +19,21 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+func TestManagerSetPortUpdatesExistingBridgeHandlers(t *testing.T) {
+	manager := &Manager{port: "0"}
+	service := &JSService{bridgeHandler: &BridgeHandler{port: "0"}}
+	manager.services.Store("speaker", service)
+
+	manager.SetPort("33807")
+
+	if got := manager.getPort(); got != "33807" {
+		t.Fatalf("manager port = %q, want actual listener port", got)
+	}
+	if got := service.bridgeHandler.hostPort(); got != "33807" {
+		t.Fatalf("existing bridge port = %q, want actual listener port", got)
+	}
+}
+
 // --- Test Helpers ---
 
 // createTestPluginZip creates an in-memory .jsplugin.zip containing plugin.json and main.js

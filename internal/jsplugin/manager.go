@@ -60,6 +60,7 @@ type Manager struct {
 	cacheService      *services.CacheService      // 缓存服务（serveFile seek 流）
 	pluginToken       string                      // 插件专用的永久 JWT Token（启动时生成一次）
 	port              string                      // 服务器监听端口
+	portMu            sync.RWMutex
 	healthChecker     *HealthChecker
 	hotReloader       *HotReloader
 	autoUpdater       *AutoUpdater
@@ -156,7 +157,7 @@ func detectIconInDir(dir string) string {
 // SetAuthService 设置认证服务和端口，并生成插件专用的永久 JWT Token（参考 WASM 插件的做法，启动时只生成一次）
 func (m *Manager) SetAuthService(authService *services.AuthService, port string) {
 	m.authService = authService
-	m.port = port
+	m.SetPort(port)
 
 	// 生成插件专用的永久 JWT Token
 	if authService != nil {
@@ -168,6 +169,22 @@ func (m *Manager) SetAuthService(authService *services.AuthService, port string)
 		m.pluginToken = token
 		slog.Info("JS 插件 JWT Token 已生成")
 	}
+}
+
+// SetPort updates the listener port exposed to plugins. Bundle mode starts on
+// port 0 and only learns the actual port after net.Listen succeeds. Existing
+// bridge handlers are updated as well because they keep the port they were
+// created with.
+func (m *Manager) SetPort(port string) {
+	m.portMu.Lock()
+	m.port = port
+	m.services.Range(func(_, value any) bool {
+		if service, ok := value.(*JSService); ok && service.bridgeHandler != nil {
+			service.bridgeHandler.setPort(port)
+		}
+		return true
+	})
+	m.portMu.Unlock()
 }
 
 // SetSongDownloader 注入歌曲下载服务（bridge songs.download 调用）。
@@ -925,8 +942,11 @@ func (m *Manager) logPluginStaticURLs(plugins []*JSPlugin) {
 
 // getPort 返回服务器监听端口，未配置时使用默认端口
 func (m *Manager) getPort() string {
-	if m.port != "" {
-		return m.port
+	m.portMu.RLock()
+	port := m.port
+	m.portMu.RUnlock()
+	if port != "" {
+		return port
 	}
 	return "58091"
 }

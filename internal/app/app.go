@@ -616,6 +616,25 @@ func (a *App) BuildHandler() http.Handler {
 	return handler
 }
 
+// SetListenerPort publishes the port selected by the HTTP listener to every
+// component that creates a local URL. Mobile Bundle mode owns the listener in
+// the mobile package, so it cannot rely on StartWithReady to do this.
+func (a *App) SetListenerPort(port int) {
+	actualPort := strconv.Itoa(port)
+	a.config.Port = actualPort
+	if a.configService != nil {
+		if err := a.configService.Set("server_port", actualPort); err != nil {
+			slog.Warn("回写监听端口配置失败", "error", err)
+		}
+	}
+	if a.urlResolver != nil {
+		a.urlResolver.SetServerPort(port)
+	}
+	if a.jsPluginManager != nil {
+		a.jsPluginManager.SetPort(actualPort)
+	}
+}
+
 // Start 启动应用程序（阻塞监听）
 func (a *App) Start() error {
 	return a.StartWithReady(nil)
@@ -636,16 +655,10 @@ func (a *App) StartWithReady(ready func()) error {
 	if err != nil {
 		return err
 	}
-	actualPort := strconv.Itoa(ln.Addr().(*net.TCPAddr).Port)
-	if actualPort != a.config.Port {
-		a.config.Port = actualPort
-		// 回写真实端口（server_port 供插件/调试读取；Init 阶段写的是请求值，可能为 0）
-		if a.configService != nil {
-			if err := a.configService.Set("server_port", actualPort); err != nil {
-				slog.Warn("回写监听端口配置失败", "error", err)
-			}
-		}
-	}
+	actualPortNumber := ln.Addr().(*net.TCPAddr).Port
+	// Keep the runtime URL generators in sync even when the configured port was
+	// already the same as the listener's port.
+	a.SetListenerPort(actualPortNumber)
 
 	// 该行会被桌面端 DesktopBackendService 解析以获取实际端口，格式勿轻易变更
 	slog.Info(fmt.Sprintf("HTTP 访问地址: http://localhost:%s%s/", a.config.Port, a.config.BasePath))

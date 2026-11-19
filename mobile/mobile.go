@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -88,22 +89,31 @@ func Start(dataDir, musicDir string, port int) (int, error) {
 	cfg := config.NewAppConfig(portStr, dbPath, "admin", adminPassword, "")
 	cfg.MusicDir = musicDir
 
+	// Reserve the listener before App.Init starts the asynchronous plugin
+	// manager. Bundle mode uses port 0, so components initialized first could
+	// otherwise capture localhost:0 before the real listener exists.
+	listenPort := port
+	if listenPort < 0 {
+		listenPort = 0
+	}
+	addr := fmt.Sprintf(":%d", listenPort)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return -1, fmt.Errorf("监听端口失败: %w", err)
+	}
+	actualPort := ln.Addr().(*net.TCPAddr).Port
+	cfg.Port = strconv.Itoa(actualPort)
+
 	var emptyFS embed.FS
 	a := app.NewApp(cfg, emptyFS)
 	if err := a.Init(); err != nil {
+		_ = ln.Close()
 		return -1, fmt.Errorf("后端初始化失败: %w", err)
 	}
 
 	// 监听所有网卡（而非 127.0.0.1）：DLNA 投屏等场景需要局域网设备（如小爱音箱）
 	// 能直接拉取播放流，否则投屏 URL 只能解析到设备自身的回环地址。
-	addr := fmt.Sprintf(":%d", port)
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		a.Close()
-		return -1, fmt.Errorf("监听端口失败: %w", err)
-	}
-
-	actualPort := ln.Addr().(*net.TCPAddr).Port
+	a.SetListenerPort(actualPort)
 	srv := &http.Server{Handler: a.BuildHandler()}
 
 	instance = &mobileServer{

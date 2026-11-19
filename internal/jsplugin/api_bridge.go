@@ -716,10 +716,11 @@ type BridgeHandler struct {
 	metadataRefresher               *services.MetadataRefresher // 元数据刷新服务（songs.refreshMetadata bridge 调用）
 	pluginToken                     string                      // 插件专用的永久 JWT Token
 	port                            string                      // 服务器监听端口（用于构造宿主 URL）
-	processes                       sync.Map                    // map[name]*managedProcess — 后台进程跟踪
-	udpSockets                      sync.Map                    // map[socketID]*managedUDPSocket — UDP socket 跟踪
-	tcpSockets                      sync.Map                    // map[socketID]*managedTCPSocket — 出站 TCP 连接跟踪
-	socketIDSeq                     atomic.Uint64               // UDP/TCP socket ID 共享的递增序号
+	portMu                          sync.RWMutex
+	processes                       sync.Map      // map[name]*managedProcess — 后台进程跟踪
+	udpSockets                      sync.Map      // map[socketID]*managedUDPSocket — UDP socket 跟踪
+	tcpSockets                      sync.Map      // map[socketID]*managedTCPSocket — 出站 TCP 连接跟踪
+	socketIDSeq                     atomic.Uint64 // UDP/TCP socket ID 共享的递增序号
 	httpMu                          sync.Mutex
 	httpStreams                     map[string]*managedHTTPStream
 	httpClosed                      bool
@@ -733,6 +734,22 @@ type BridgeHandler struct {
 	onLyricProviderUnregister       func(entryPath string) // 歌词提供者取消注册回调
 	onCoverProviderRegister         func(entryPath string) // 封面提供者注册回调
 	onCoverProviderUnregister       func(entryPath string) // 封面提供者取消注册回调
+}
+
+func (h *BridgeHandler) setPort(port string) {
+	h.portMu.Lock()
+	h.port = port
+	h.portMu.Unlock()
+}
+
+func (h *BridgeHandler) hostPort() string {
+	h.portMu.RLock()
+	port := h.port
+	h.portMu.RUnlock()
+	if port == "" {
+		return "58091"
+	}
+	return port
 }
 
 // NewBridgeHandler 创建桥接处理器
@@ -1848,17 +1865,11 @@ func (h *BridgeHandler) handlePlugin(action, data string) (string, error) {
 		return h.pluginToken, nil
 
 	case "plugin.getHostUrl":
-		port := h.port
-		if port == "" {
-			port = "58091"
-		}
+		port := h.hostPort()
 		return fmt.Sprintf("http://localhost:%s", port), nil
 
 	case "plugin.getNetworkAddresses":
-		port := h.port
-		if port == "" {
-			port = "58091"
-		}
+		port := h.hostPort()
 		return getNetworkAddresses(port)
 
 	case "plugin.getFileUrl":

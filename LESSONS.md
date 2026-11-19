@@ -10,6 +10,14 @@
 
 ## 条目
 
+### BUNDLE-PORT-001：动态端口必须在监听后同步到所有 URL 生成器
+
+- 范围：Bundle 移动后端、JS 插件宿主地址和内部插件代理 URL；[songloft-org/songloft-player-lynx#16](https://github.com/songloft-org/songloft-player-lynx/issues/16)，父仓库基线 `dff636c`，Lynx 基线 `c403ea0`。
+- 失败证据：报告日志显示后端以请求端口 `0` 初始化，实际 listener 使用 `33807`，但音箱插件的宿主桥仍生成 `localhost:0`。同一日志中的普通本地播放使用实际的 `127.0.0.1/play`，说明问题集中在启动前捕获端口的 URL 生成器。
+- 规则与修复：`net.Listen` 返回后，将真实端口同步到 `InternalURLResolver`、JS 插件管理器及已存在的桥接处理器，再开始接受请求。Bundle 的动态端口不能只写入配置或返回给客户端，任何缓存监听端口的地址生成器都必须更新。
+- 验证：新增解析器端口更新、管理器更新既有桥接处理器、宿主地址及移动 listener 入口回归；`make check` 与 `go test ./internal/app ./internal/services ./internal/jsplugin ./mobile` 通过。Lynx Android 真机和音箱复测待用户环境验收。
+- Seen 1× (2026-11-20)。状态：父仓库本地未提交修复。
+
 ### PLAY-STREAM-001：音箱播放流必须登记并按会话切换回收
 
 - 范围：本地歌曲播放、播放活动会话和鉴权 context；[songloft-org/songloft#584](https://github.com/songloft-org/songloft/issues/584)，基线 `7dede0c`。

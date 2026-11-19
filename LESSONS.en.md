@@ -10,6 +10,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### BUNDLE-PORT-001: Synchronize dynamic ports to every URL generator after listening
+
+- Scope: Bundle mobile backends, JS plugin host addresses and internal plugin proxy URLs; [songloft-org/songloft-player-lynx#16](https://github.com/songloft-org/songloft-player-lynx/issues/16), parent baseline `dff636c`, Lynx baseline `c403ea0`.
+- Failure evidence: the report logs show the backend initialized with requested port `0`, the actual listener used `33807`, and the speaker plugin's host bridge still generated `localhost:0`. Ordinary local playback in the same log used the actual `127.0.0.1/play`, isolating the defect to URL generators that captured the port before startup.
+- Rule and fix: after `net.Listen` returns, propagate the actual port to `InternalURLResolver`, the JS plugin manager, and existing bridge handlers before accepting requests. Returning the dynamic port to the client or writing it to configuration is insufficient when another address generator cached the startup value.
+- Validation: added regressions for resolver port updates, manager updates to existing bridge handlers, the host URL, and the mobile listener entry. `make check` and `go test ./internal/app ./internal/services ./internal/jsplugin ./mobile` pass. Lynx Android device and speaker retest remain for the reporter's environment.
+- Seen 1× (2026-11-20). Status: local uncommitted parent-repository fix.
+
 ### PLAY-STREAM-001: Register speaker playback streams and reclaim them on session switches
 
 - Scope: local-song playback, playback-activity sessions, and authentication context; [songloft-org/songloft#584](https://github.com/songloft-org/songloft/issues/584), baseline `7dede0c`.
