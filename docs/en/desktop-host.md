@@ -12,6 +12,6 @@ If the selected music folder is unavailable, the client keeps the local mode and
 
 Parent-pipe monitoring starts before application initialization. If the host exits while the backend initializes or binds, the backend waits until the HTTP server has registered its listener before graceful shutdown, avoiding a shutdown-before-server race that could leave an orphan.
 
-The client pins the backend commit and the `pkg/tag` Go replacement gitlink instead of following latest during packaging. Whole-app updates stop the backend and back up SQLite plus remaining WAL/SHM. After a failed new-backend migration, old backends may run only after explicitly restoring the matching backup, retaining failure evidence.
+Desktop CI resolves the latest root `main` commit at startup. All three architectures use that SHA and its `pkg/tag` Go replacement gitlink. Whole-app updates stop the backend and back up SQLite plus remaining WAL/SHM. After a failed new-backend migration, old backends may run only after explicitly restoring the matching backup, retaining failure evidence.
 
 Regression: `go test ./internal/parentwatch ./internal/app ./internal/config`. Client integration additionally checks real scanning, Range, persistence across restart and shutdown. This does not replace clean target-device installation/upgrade acceptance.

@@ -4,7 +4,7 @@
 
 本文描述 Flutter 客户端自身的架构与本地模式实现。Flutter 和 Lynx 客户端仓库分别构建并发布各自的 Bundle 包；主仓库 Release 不打包客户端应用。Lynx Android/iOS 的本地模式入口位于登录页和设置页，详见 [Bundle 模式说明](bundle-mode.md)及 [Lynx 指南](player-lynx/index.md)。Windows/macOS Lynx 桌面候选实现仍待统一验收。
 
-Songloft Flutter 客户端支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。完整版服务器默认嵌入独立的 Lynx Web（`clients/player-lynx`）；旧 Flutter Web 嵌入版仍可显式选择。Flutter 仓库保留并独立发布 **Bundle 本地模式**客户端；Lynx 仓库也独立发布 Android/iOS Bundle 客户端。Go 后端源码由两个客户端仓库各自的锁文件固定。
+Songloft Flutter 客户端支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。完整版服务器默认嵌入独立的 Lynx Web（`clients/player-lynx`）；旧 Flutter Web 嵌入版仍可显式选择。Flutter 仓库保留并独立发布 **Bundle 本地模式**客户端；Lynx 仓库也独立发布 Android/iOS Bundle 客户端。各客户端流水线在启动时选择主仓库 `main` 的最新 Go 后端提交。
 
 ## 技术栈
 
@@ -530,7 +530,7 @@ flutter build windows --dart-define=HAS_BACKEND=true  # Windows
 - **移动端临时目录**：`mobile.Start` 在服务初始化前创建 `<dataDir>/tmp` 并设置 Go 进程的 `TMPDIR`，供直播转码、下载和封面等临时文件使用；Android 默认 `/data/local/tmp` 对普通应用不可写。`Stop` 保留该环境配置，HLS 服务关闭时清理自己的会话目录。
 - **原生桥接**：Android 用 `Class.forName("mobile.Mobile")` 反射调用 gomobile 生成类，未打包 `.aar` 时 `isAvailable()` 返回 false（优雅降级）；iOS 用 Swift 调用 `MobileStart` 等 Objective-C 函数
 - **桌面子进程**：`DesktopBackendService` 在 Flutter 可执行文件同目录查找 `songloft-server`，macOS 另兼容 `Contents/Resources/`，从 stdout 解析实际监听端口
-- **Flutter 发版边界**：本节描述 Flutter 客户端的源码能力。Flutter `build-and-release.yml` 在客户端仓库内固定并构建后端，随 Flutter Release 发布 Android/iOS/macOS/Windows/Linux Bundle 包；Lynx 仓库独立发布 Android/iOS Bundle 包。主仓库 `release.yml` 只处理服务端与容器资产，不构建客户端应用。
+- **Flutter 发版边界**：本节描述 Flutter 客户端的源码能力。Flutter `build-and-release.yml` 在启动时解析主仓库 `main` 的最新 SHA 并构建后端，随 Flutter Release 发布 Android/iOS/macOS/Windows/Linux Bundle 包；Lynx 仓库独立发布 Android/iOS Bundle 包。主仓库 `release.yml` 只处理服务端与容器资产，不构建客户端应用。
 
 ## 歌单标签与续播
 

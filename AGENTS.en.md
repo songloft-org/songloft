@@ -65,7 +65,7 @@ make build-frontend-web            # Standalone Flutter Web
 make build-frontend-flutter-web-embedded # Legacy embedded Flutter Web (overwrites shared output)
 make build-frontend-{linux,windows,macos,android,ios,all}
 
-# Go mobile binding reference targets (client repositories pin the backend SHA and package apps)
+# Go mobile binding reference targets (client workflows select the latest root main SHA when packaging starts)
 make build-go-mobile-android       # Android .aar (gomobile bind, arm64 + arm + x86_64)
 make build-go-mobile-ios           # iOS .xcframework (gomobile bind, arm64, macOS only)
 make build-go-desktop-linux        # Linux executable

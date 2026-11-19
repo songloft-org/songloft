@@ -4,13 +4,13 @@ Bundle mode installs the Go backend with the client, so users do not need to dep
 
 ## Clients and package sources
 
-| Client | Bundle packages | Release repository | Backend source pin |
+| Client | Bundle packages | Release repository | Backend source |
 |---|---|---|---|
-| Flutter | Android `songloft-bundled-android-*.apk`, iOS `songloft-bundled-ios-nosign.ipa`, Linux `songloft-bundled-linux-x64.tar.gz`, Windows `songloft-bundled-windows-x64.zip`, macOS `songloft-bundled-macos.zip` | [songloft-player Releases](https://github.com/songloft-org/songloft-player/releases/latest) | Root SHA pinned in `clients/player/mobile-backend.lock.json` |
-| Lynx | Android `songloft-lynx-android.apk`, iOS `songloft-lynx-ios-nosign.ipa` | [songloft-player-lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest) | Root SHA pinned in `clients/player-lynx/mobile-backend.lock.json` |
-| Lynx desktop | Candidate Windows/macOS packages | Separate desktop workflow in the Lynx repository, stable downloads pending acceptance | Root SHA pinned in `clients/player-lynx/desktop/backend.lock.json` |
+| Flutter | Android `songloft-bundled-android-*.apk`, iOS `songloft-bundled-ios-nosign.ipa`, Linux `songloft-bundled-linux-x64.tar.gz`, Windows `songloft-bundled-windows-x64.zip`, macOS `songloft-bundled-macos.zip` | [songloft-player Releases](https://github.com/songloft-org/songloft-player/releases/latest) | Latest root `main` commit at workflow startup |
+| Lynx | Android `songloft-lynx-android.apk`, iOS `songloft-lynx-ios-nosign.ipa` | [songloft-player-lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest) | Latest root `main` commit at workflow startup |
+| Lynx desktop | Candidate Windows/macOS packages | Separate desktop workflow in the Lynx repository, stable downloads pending acceptance | Latest root `main` commit at workflow startup |
 
-The Flutter and Lynx repositories each check out a fixed SHA from the public root repository, compile the Go backend, build the client, and publish its packages. Root Releases publish the server, containers, and server tools; they do not package client apps. Lock changes require explicit review of backend API compatibility and must never follow `latest` during packaging.
+The Flutter and Lynx client repositories build and publish their own Bundles. Each workflow resolves the latest commit and version from the public root repository’s `main` at startup. All platforms and architectures in that run use the same SHA. The backend or package metadata records the version and commit used. Root Releases publish server, container, and server tool assets.
 
 The root repository and its `pkg/tag` dependency are public, so client GitHub Actions can check them out by fixed SHA without a personal access token or root-repository write permission. Client Release write permission is used only to publish to each client's own repository.
 

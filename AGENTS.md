@@ -65,7 +65,7 @@ make build-frontend-web            # 独立部署 Flutter Web
 make build-frontend-flutter-web-embedded # 旧 Flutter 嵌入版（覆盖同目录产物）
 make build-frontend-{linux,windows,macos,android,ios,all}
 
-# Go 移动绑定参考目标（客户端仓库的 Release 自行固定后端 SHA 并打包）
+# Go 移动绑定参考目标（客户端流水线开始打包时解析主仓库 main 的最新 SHA）
 make build-go-mobile-android       # Android .aar（gomobile bind，arm64 + arm + x86_64）
 make build-go-mobile-ios           # iOS .xcframework（gomobile bind，arm64，仅 macOS）
 make build-go-desktop-linux        # Linux 可执行文件

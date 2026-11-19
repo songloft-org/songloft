@@ -12,6 +12,6 @@ Windows/macOS Lynx 实现在 [客户端子仓库](https://github.com/songloft-or
 
 父管道在应用初始化前开始监听。若宿主在后端初始化或绑定期间退出，后端会先完成 HTTP Server 的监听器注册，再执行优雅关闭，避免关闭先于 Server 创建而留下孤儿服务。
 
-客户端固定后端提交及 Go 本地替代模块 `pkg/tag` 的 gitlink，禁止打包时跟随 latest。完整应用更新应停止后端，备份 SQLite 主文件及残留 WAL/SHM；新后端迁移失败时只能在明确恢复对应备份后运行旧后端，保留失败现场。
+桌面 CI 启动时解析主仓库 `main` 的最新提交，三个架构复用该 SHA 及其 Go 本地替代模块 `pkg/tag` 的 gitlink。完整应用更新应停止后端，备份 SQLite 主文件及残留 WAL/SHM；新后端迁移失败时只能在明确恢复对应备份后运行旧后端，保留失败现场。
 
 回归：`go test ./internal/parentwatch ./internal/app ./internal/config`。客户端另有真实后端扫描、Range、重启持久化与退出检查；它不代替干净目标设备的安装/升级验收。

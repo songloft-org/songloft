@@ -152,7 +152,7 @@ The Flutter and Lynx client repositories build and publish their own Bundle pack
 | Lynx · Android 6.0+ | ARM64 / ARMv7 / x86_64 / x86 | `songloft-lynx-android.apk` |
 | Lynx · iOS | ARM64 (unsigned; re-sign required) | `songloft-lynx-ios-nosign.ipa` |
 
-Client repositories compile the Go backend from a pinned root SHA. Choose a release with the asset listed above and check that its version offers local mode. The Lynx repository builds Windows/macOS desktop candidates, with stable downloads pending consolidated acceptance. See [Bundle Mode](docs/en/bundle-mode.md).
+The client workflows build the Go backend from the latest commit on the root repository’s `main` at startup. Choose a release with the asset listed above and check that its version offers local mode. The Lynx repository builds Windows/macOS desktop candidates, with stable downloads pending consolidated acceptance. See [Bundle Mode](docs/en/bundle-mode.md).
 
 ### 🐳 Docker Images
 

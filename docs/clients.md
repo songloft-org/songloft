@@ -67,4 +67,4 @@ Web standalone 显示服务器地址输入；embedded 使用同源服务器并�
 
 Lynx 在自己的仓库使用 `pnpm run release patch --dry-run` 审核发版计划，实际发版同步版本并原子推送 main 与版本 tag。无需为客户端发版同步修改服务端版本。
 
-本站的 Lynx 公共指南从 `clients/player-lynx` 子模块自动同步，中文在 `/player-lynx/`、英文在 `/en/player-lynx/`。编辑源仓库、提交推送后，在主工程更新子模块指针；不要手改生成的文档站页面。Flutter 与 Lynx 客户端仓库都从各自锁定的主仓库 SHA 构建 Go 后端并发布自己的客户端 Bundle 包；主仓库 Release 只发布服务端与容器资产，不发布客户端安装包。
+本站的 Lynx 公共指南从 `clients/player-lynx` 子模块自动同步，中文在 `/player-lynx/`、英文在 `/en/player-lynx/`。编辑源仓库、提交推送后，在主工程更新子模块指针；不要手改生成的文档站页面。Flutter 与 Lynx 客户端仓库都从打包启动时主仓库 `main` 的最新提交构建 Go 后端并发布自己的客户端 Bundle 包；主仓库 Release 只发布服务端与容器资产，不发布客户端安装包。

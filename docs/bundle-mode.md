@@ -6,11 +6,11 @@ Bundle 将 Go 后端与客户端一起安装，用户不必另外部署服务器
 
 | 客户端 | Bundle 包 | 发布仓库 | 后端源码固定方式 |
 |---|---|---|---|
-| Flutter | Android `songloft-bundled-android-*.apk`、iOS `songloft-bundled-ios-nosign.ipa`、Linux `songloft-bundled-linux-x64.tar.gz`、Windows `songloft-bundled-windows-x64.zip`、macOS `songloft-bundled-macos.zip` | [songloft-player Releases](https://github.com/songloft-org/songloft-player/releases/latest) | `clients/player/mobile-backend.lock.json` 固定的主仓库 SHA |
-| Lynx | Android `songloft-lynx-android.apk`、iOS `songloft-lynx-ios-nosign.ipa` | [songloft-player-lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest) | `clients/player-lynx/mobile-backend.lock.json` 固定的主仓库 SHA |
-| Lynx 桌面 | Windows/macOS 候选包 | Lynx 仓库独立桌面流水线，正式下载待验收 | `clients/player-lynx/desktop/backend.lock.json` 固定的主仓库 SHA |
+| Flutter | Android `songloft-bundled-android-*.apk`、iOS `songloft-bundled-ios-nosign.ipa`、Linux `songloft-bundled-linux-x64.tar.gz`、Windows `songloft-bundled-windows-x64.zip`、macOS `songloft-bundled-macos.zip` | [songloft-player Releases](https://github.com/songloft-org/songloft-player/releases/latest) | 打包启动时主仓库 `main` 的最新提交 |
+| Lynx | Android `songloft-lynx-android.apk`、iOS `songloft-lynx-ios-nosign.ipa` | [songloft-player-lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest) | 打包启动时主仓库 `main` 的最新提交 |
+| Lynx 桌面 | Windows/macOS 候选包 | Lynx 仓库独立桌面流水线，正式下载待验收 | 打包启动时主仓库 `main` 的最新提交 |
 
-Flutter 与 Lynx 客户端仓库各自检出公开主仓库中的固定 SHA、编译 Go 后端、构建并发布客户端包。主仓库 Release 只发布服务端、容器和服务端工具，不打包客户端应用。锁文件必须随相关后端接口变更显式审查，不能在打包时跟随 `latest`。
+Flutter 与 Lynx 各自在客户端仓库编译并发布 Bundle。每次流水线启动时解析一次公开主仓库 `main` 的最新 SHA 和版本。该次运行的所有平台和架构使用同一 SHA，并在后端或安装包元数据中记录实际版本及提交。主仓库 Release 只发布服务端、容器和服务端工具。
 
 主仓库和 `pkg/tag` 依赖仓库目前均为公开仓库，客户端 GitHub Actions 可按固定 SHA 直接检出，不需要个人访问令牌或主仓库写权限。客户端 Release 的写权限只用于发布到各自客户端仓库。
 
