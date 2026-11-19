@@ -1,23 +1,16 @@
 package database
 
 import (
-	"database/sql/driver"
 	"strings"
 
 	"github.com/mozillazg/go-pinyin"
-	"modernc.org/sqlite"
 )
 
-func init() {
-	// Register before Open so every pooled connection, including transaction
-	// connections, can sort before LIMIT/OFFSET. No schema or stored titles change.
-	sqlite.MustRegisterDeterministicScalarFunction("songloft_text_sort_key", 1,
-		func(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
-			if args[0] == nil {
-				return nil, nil
-			}
-			return textSortKey(args[0].(string)), nil
-		})
+func nullableTextSortKey(value any) any {
+	if text, ok := value.(string); ok {
+		return textSortKey(text)
+	}
+	return nil
 }
 
 // textSortKey interleaves Chinese pinyin with Latin titles, ignoring case and

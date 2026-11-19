@@ -11,6 +11,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hanxi/tag v0.0.0-20260827075244-2ddf27d1e3b6
 	github.com/hanxi/tracely/sdk/go/tracely v1.1.3
+	github.com/mattn/go-sqlite3 v1.14.53
 	github.com/mozillazg/go-pinyin v0.21.0
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d

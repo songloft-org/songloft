@@ -8,10 +8,11 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"syscall"
 	"time"
 
 	"songloft/internal/app"
-	"syscall"
+	"songloft/internal/parentwatch"
 )
 
 func init() {
@@ -55,6 +56,16 @@ func main() {
 		return
 	}
 
+	// Start observing the host pipe before potentially slow initialization.
+	var parentDone <-chan struct{}
+	if cfg.ParentWatchStdin {
+		parentDone = parentwatch.Done(os.Stdin)
+	}
+	shutdownDone := make(chan struct{})
+	serverReady := make(chan struct{})
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	// 创建应用实例并启动
 	a := app.NewApp(cfg, WebDist)
 	err = a.Init()
@@ -63,12 +74,14 @@ func main() {
 		return
 	}
 
-	// 设置信号处理，确保程序优雅退出
-	shutdownDone := make(chan struct{})
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	// 设置信号处理，确保程序优雅退出。父进程退出可早于 HTTP Server
+	// 就绪，因此必须等 StartWithReady 创建服务器后再调用 Shutdown。
 	go func() {
-		<-sigChan
+		select {
+		case <-sigChan:
+		case <-parentDone:
+		}
+		<-serverReady
 		slog.Info("收到退出信号，正在关闭...")
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
@@ -78,7 +91,7 @@ func main() {
 		close(shutdownDone)
 	}()
 
-	if err := a.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := a.StartWithReady(func() { close(serverReady) }); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("应用启动失败", "error", err)
 		a.Close()
 		return

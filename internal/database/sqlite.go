@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/pressly/goose/v3"
-	_ "modernc.org/sqlite"
 
 	"songloft/internal/database/sqlc"
 )
@@ -27,15 +26,7 @@ type SQLiteDB struct {
 // Open 打开 SQLite，执行 goose Up，返回 *SQLiteDB。
 // dataSourceName 是文件路径或 ":memory:"。
 func Open(dataSourceName string) (*SQLiteDB, error) {
-	// 通过 DSN 参数开启 WAL 模式、busy_timeout 等优化配置。
-	// 注意 modernc.org/sqlite 只识别 _pragma=... 形式。
-	//   journal_mode(WAL)    : WAL 模式允许读写并发，读不被写阻塞
-	//   busy_timeout(10000)  : 遇到锁时最多等待 10s，避免并发写直接 SQLITE_BUSY
-	//   synchronous(NORMAL)  : WAL 模式下 NORMAL 已足够安全
-	//   cache_size(10000)    : 页缓存 ~40MB
-	//   foreign_keys(1)      : 启用外键
-	dsn := dataSourceName + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(10000)&_pragma=synchronous(NORMAL)&_pragma=cache_size(10000)&_pragma=foreign_keys(1)"
-	db, err := sql.Open("sqlite", dsn)
+	db, err := openSQLite(dataSourceName)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
@@ -74,6 +65,14 @@ func Open(dataSourceName string) (*SQLiteDB, error) {
 		db:      db,
 		queries: sqlc.New(db),
 	}, nil
+}
+
+func sqliteDSN(dataSourceName, options string) string {
+	separator := "?"
+	if strings.Contains(dataSourceName, "?") {
+		separator = "&"
+	}
+	return dataSourceName + separator + options
 }
 
 // isMemoryDSN 判断 DSN 指向的是内存库。

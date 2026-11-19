@@ -6,16 +6,7 @@ import (
 	"strings"
 
 	sq "github.com/Masterminds/squirrel"
-	"modernc.org/sqlite"
 )
-
-func init() {
-	sqlite.MustRegisterDeterministicScalarFunction("songloft_tag_number", 1,
-		func(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
-			value, _ := args[0].(string)
-			return tagNumber(value), nil
-		})
-}
 
 // tagNumber reads the positive number in tags such as "02/12". Invalid or
 // missing values return NULL so sorting can give them an explicit fallback.

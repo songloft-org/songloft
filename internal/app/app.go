@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"songloft/internal/config"
@@ -67,6 +68,17 @@ type App struct {
 	logLevelVar         *slog.LevelVar        // 全局 slog 等级动态切换；由 /settings/log-level 即时 Set
 	logWriter           *logging.RotateWriter // 日志落盘 writer（<data_dir>/logs/），供 /logs/export 读取；stdout 采集不受影响
 	server              *http.Server
+}
+
+type readyListener struct {
+	net.Listener
+	ready func()
+	once  sync.Once
+}
+
+func (listener *readyListener) Accept() (net.Conn, error) {
+	listener.once.Do(listener.ready)
+	return listener.Listener.Accept()
 }
 
 // NewApp 创建新的应用程序实例
@@ -606,6 +618,12 @@ func (a *App) BuildHandler() http.Handler {
 
 // Start 启动应用程序（阻塞监听）
 func (a *App) Start() error {
+	return a.StartWithReady(nil)
+}
+
+// StartWithReady 启动应用程序，并在监听器和 HTTP Server 均就绪后调用 ready。
+// 桌面宿主用它协调父进程退出监测，避免 Shutdown 先于 Server 创建。
+func (a *App) StartWithReady(ready func()) error {
 	if a.config.UsingDefaultCredentials {
 		// 不打印密码明文：日志可能被导出提交到 issue，凭证不应落盘。
 		// 使用默认凭证时账号/密码均为 admin，用户已知；此处仅提示。
@@ -640,6 +658,9 @@ func (a *App) Start() error {
 
 	a.server = &http.Server{
 		Handler: a.BuildHandler(),
+	}
+	if ready != nil {
+		ln = &readyListener{Listener: ln, ready: ready}
 	}
 	return a.server.Serve(ln)
 }
@@ -710,14 +731,15 @@ func normalizeBasePath(raw string) (string, error) {
 func ParseConfig() (*config.AppConfig, error) {
 	// 定义命令行参数
 	var (
-		port     = flag.String("port", "58091", "监听端口")
-		dbPath   = flag.String("db", "data/songloft.db", "数据库文件路径")
-		musicDir = flag.String("music", "", "音乐目录（Bundle 桌面模式由客户端传入，非空时覆盖 DB 中的 music_path）")
-		username = flag.String("username", "", "管理员用户名")
-		password = flag.String("password", "", "管理员密码")
-		basePath = flag.String("base-path", "", "URL 基础路径，用于反向代理子路径部署（如 /songloft）")
-		help     = flag.Bool("help", false, "显示帮助信息")
-		showVer  = flag.Bool("version", false, "显示版本信息")
+		port        = flag.String("port", "58091", "监听端口")
+		dbPath      = flag.String("db", "data/songloft.db", "数据库文件路径")
+		musicDir    = flag.String("music", "", "音乐目录（Bundle 桌面模式由客户端传入，非空时覆盖 DB 中的 music_path）")
+		username    = flag.String("username", "", "管理员用户名")
+		password    = flag.String("password", "", "管理员密码")
+		basePath    = flag.String("base-path", "", "URL 基础路径，用于反向代理子路径部署（如 /songloft）")
+		help        = flag.Bool("help", false, "显示帮助信息")
+		showVer     = flag.Bool("version", false, "显示版本信息")
+		parentWatch = flag.Bool("parent-watch-stdin", false, "stdin 管道关闭时退出（桌面宿主专用，默认关闭）")
 	)
 
 	// 解析命令行参数
@@ -807,5 +829,6 @@ func ParseConfig() (*config.AppConfig, error) {
 		BasePath:                normalizedBasePath,
 		UsingDefaultCredentials: usingDefaultCredentials,
 		MusicDir:                finalMusicDir,
+		ParentWatchStdin:        *parentWatch,
 	}, nil
 }
