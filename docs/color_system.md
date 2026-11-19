@@ -19,7 +19,7 @@ Songloft Flutter 前端使用 **Material 3** 设计系统，通过 `ColorScheme.
 ### 核心配置
 
 ```dart
-// clients/player/lib/core/theme/app_theme.dart
+// clients/player-flutter/lib/core/theme/app_theme.dart
 class AppTheme {
   static const Color _defaultSeedColor = Color(0xFF415F91); // M3 Blue baseline
 
@@ -273,7 +273,7 @@ Text('文本', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVa
 Songloft 使用 `palette_generator` 库从歌曲封面图片中提取主色调，用于播放器界面的动态配色：
 
 ```dart
-// clients/player/lib/core/utils/color_extraction.dart
+// clients/player-flutter/lib/core/utils/color_extraction.dart
 // 从封面图片提取主色调，应用到播放器背景渐变等场景
 ```
 

@@ -62,7 +62,7 @@ SL_URL=http://localhost:58091 SL_USER=admin SL_PASS=admin npm run screenshots
 
 1. **坐标 + 键盘登录**：等 Flutter 首帧渲染后，按登录页布局点击用户名 / 密码框并用键盘输入，再点登录按钮。坐标集中在脚本顶部的 `LOGIN` 常量里，登录页若改版需相应微调。
 2. **复用登录态**：登录成功后用 `context.storageState()` 把登录信息（`localStorage` 里的 `flutter.access_token` 等）保存下来，注入到桌面 / 移动多个视口的新上下文，**无需为每种视口分别对齐登录坐标**。
-3. **hash 路由直达**：各页面按 `#/library`、`#/playlists/1` 等路由直接导航截图（路由取自 `songloft-player` 的 `AppRoutes`）。
+3. **hash 路由直达**：各页面按 `#/library`、`#/playlists/1` 等路由直接导航截图（路由取自 `songloft-player-flutter` 的 `AppRoutes`）。
 4. **亮 / 暗两套**：先更新服务端 `theme_mode`，再复制登录态并同步 `flutter.theme_mode`，把所有页面再抓一遍（暗色文件带 `-dark` 后缀）。
 5. **沉浸式播放器**：移动端进入歌单详情、点第一首开始播放，再点底部迷你播放器展开全屏后截图。
 

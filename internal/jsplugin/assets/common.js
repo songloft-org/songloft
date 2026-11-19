@@ -51,7 +51,7 @@
     // 随 `songloft-theme` 消息把**真实的** ColorScheme 推来（含用户自定义 ThemePack），
     // 这里写成 documentElement 的**内联**自定义属性覆盖兜底值 —— 内联优先级最高，
     // 连插件自己在 `:root` 里重定义的同名变量也压得住。Dart 侧见
-    // `clients/player/lib/features/home/presentation/render/plugin_color_scheme.dart`。
+    // `clients/player-flutter/lib/features/home/presentation/render/plugin_color_scheme.dart`。
     //
     // **为什么颜色挂在 `songloft-theme` 上而不单开一条消息**：亮暗标记（`data-theme`）
     // 与色值必须**同时**生效。分两条消息就会有一帧「`data-theme=dark` 但变量还是

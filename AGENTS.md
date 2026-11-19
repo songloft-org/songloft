@@ -25,7 +25,7 @@ Songloft 是自托管本地音乐服务器，支持**服务器部署**和 **Bund
 |------|------|------|
 | `/` | Go 1.26 + Chi v5 + SQLite | 后端 API 服务（默认端口 58091，账号 admin/admin） |
 | `/mobile` | Go + gomobile | Go 后端的移动端绑定入口（gomobile bind，导出 Start/Stop/IsRunning/GetPort） |
-| `/clients/player` ([独立仓库](https://github.com/songloft-org/songloft-player)) | Flutter 3.41+ / Dart 3.7+ | 跨平台前端（6 平台）；由 Flutter 仓库构建自己的 Bundle 客户端包 |
+| `/clients/player-flutter` ([独立仓库](https://github.com/songloft-org/songloft-player-flutter)) | Flutter 3.41+ / Dart 3.7+ | 跨平台前端（6 平台）；由 Flutter 仓库构建自己的 Bundle 客户端包 |
 | `/clients/player-lynx` ([独立仓库](https://github.com/songloft-org/songloft-player-lynx)) | TS + ReactLynx | Android/iOS/HarmonyOS/Web 客户端；由 Lynx 仓库构建 Android/iOS Bundle，Windows/macOS 候选待统一验收；独立 main dev 构建与 v* 发版（子模块） |
 | `/clients/tv` ([独立仓库](https://github.com/songloft-org/songloft-tv)) | Kotlin | Android TV 客户端（子模块） |
 | `/plugins/toolchain` ([独立仓库](https://github.com/songloft-org/plugin-toolchain)) | TS + pnpm | JS 插件开发工具链（SDK / Builder / 脚手架） |
@@ -74,8 +74,8 @@ make build-go-desktop-macos        # macOS x86_64
 make build-go-desktop-macos-arm64  # macOS ARM64
 
 # 前端开发
-cd clients/player && flutter run -d chrome          # standalone
-cd clients/player && flutter run -d chrome --dart-define=DEPLOY_MODE=embedded
+cd clients/player-flutter && flutter run -d chrome          # standalone
+cd clients/player-flutter && flutter run -d chrome --dart-define=DEPLOY_MODE=embedded
 ```
 
 ## 代码格式化（铁律）
@@ -83,7 +83,7 @@ cd clients/player && flutter run -d chrome --dart-define=DEPLOY_MODE=embedded
 每次修改代码后**必须**格式化，提交前确认无格式差异：
 
 - **Go**：项目根目录执行 `gofmt -w .`
-- **Dart**：`clients/player/` 下执行 `dart format lib/ test/`
+- **Dart**：`clients/player-flutter/` 下执行 `dart format lib/ test/`
 
 ## 数据库规范（铁律）
 

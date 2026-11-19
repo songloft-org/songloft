@@ -62,7 +62,7 @@ The frontend is **Flutter Web (canvas-rendered)**. There are no regular DOM form
 
 1. **Coordinate + keyboard login**: After Flutter's first frame renders, it clicks the username / password fields according to the login page layout and types with the keyboard, then clicks the login button. The coordinates are consolidated in the `LOGIN` constant at the top of the script; if the login page is redesigned, they need corresponding fine-tuning.
 2. **Reusing the login state**: After a successful login, `context.storageState()` saves the login info (the `flutter.access_token` etc. in `localStorage`) and injects it into new contexts for the multiple desktop / mobile viewports, **so there's no need to align login coordinates separately for each viewport**.
-3. **Direct hash-route navigation**: Each page is navigated directly by routes like `#/library`, `#/playlists/1` for the screenshot (routes taken from `songloft-player`'s `AppRoutes`).
+3. **Direct hash-route navigation**: Each page is navigated directly by routes like `#/library`, `#/playlists/1` for the screenshot (routes taken from `songloft-player-flutter`'s `AppRoutes`).
 4. **Light / dark sets**: Update the server `theme_mode`, copy the login state with a matching `flutter.theme_mode`, and capture all pages again (the dark files carry the `-dark` suffix).
 5. **Immersive player**: On mobile, it enters the playlist detail, taps the first song to start playing, then taps the bottom mini-player to expand to full screen and takes the screenshot.
 

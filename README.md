@@ -139,7 +139,7 @@ Songloft 提供三种版本，满足不同使用场景：
 
 Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；主仓库只维护 Go 后端和移动绑定接口，不打包客户端应用。两个客户端都在登录页和设置页切换本地/远程模式；Android/桌面首次启用时选择音乐目录，iOS 使用应用 Documents 目录：
 
-- Flutter 下载见 [正式版](https://github.com/songloft-org/songloft-player/releases/latest)或 [开发版](https://github.com/songloft-org/songloft-player/releases/tag/dev)。
+- Flutter 下载见 [正式版](https://github.com/songloft-org/songloft-player-flutter/releases/latest)或 [开发版](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)。
 - Lynx 下载见 [正式版](https://github.com/songloft-org/songloft-player-lynx/releases/latest)或 [开发版](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)。
 
 | 客户端与平台 | 架构 | **Assets** 中的文件名 |
@@ -176,10 +176,10 @@ Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；�
 
 除了 Web 界面，Songloft 还提供功能更强大的跨平台 Flutter 客户端，支持后台播放、本地缓存、媒体控制（耳机/锁屏/通知栏）等服务端 Web 界面无法实现的能力，覆盖 iOS、Android、macOS、Windows、Linux 和 Web 六端。
 
-🔗 **GitHub 仓库**：[songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
+🔗 **GitHub 仓库**：[songloft-org/songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter)
 
-- **标准版**（需连接服务器）：Android 通用包 `songloft-android.apk` 支持 ARM64、ARMv7 和 x86_64。[Flutter 正式版](https://github.com/songloft-org/songloft-player/releases/latest) · [开发版](https://github.com/songloft-org/songloft-player/releases/tag/dev)
-- **Bundle 本地模式**：在 [Flutter 正式版](https://github.com/songloft-org/songloft-player/releases/latest)或 [开发版](https://github.com/songloft-org/songloft-player/releases/tag/dev)的 **Assets** 查找上表中的 `songloft-bundled-*` 文件。
+- **标准版**（需连接服务器）：Android 通用包 `songloft-android.apk` 支持 ARM64、ARMv7 和 x86_64。[Flutter 正式版](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · [开发版](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)
+- **Bundle 本地模式**：在 [Flutter 正式版](https://github.com/songloft-org/songloft-player-flutter/releases/latest)或 [开发版](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)的 **Assets** 查找上表中的 `songloft-bundled-*` 文件。
 
 > 🪟 **Windows 用户**：可通过 [Scoop](https://scoop.sh) 一键安装与更新，该 Bucket 提供三个应用，可按需选择：
 > ```powershell
@@ -191,7 +191,7 @@ Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；�
 > ```
 > `songloft-server` 与 `songloft-player` 可以共存。
 
-> 💡 使用 **精简版（-lite）** 服务端时，推荐直接搭配 Flutter 客户端使用（无需额外部署 Web 前端）；如确实需要独立 Web 前端，可参考 [songloft-player](https://github.com/songloft-org/songloft-player) 仓库的 `flutter build web` 流程自行构建并由 Nginx 等反向代理静态托管。
+> 💡 使用 **精简版（-lite）** 服务端时，推荐直接搭配 Flutter 客户端使用（无需额外部署 Web 前端）；如确实需要独立 Web 前端，可参考 [songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter) 仓库的 `flutter build web` 流程自行构建并由 Nginx 等反向代理静态托管。
 
 ### 📱 Lynx 客户端
 

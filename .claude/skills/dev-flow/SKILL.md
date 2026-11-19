@@ -90,7 +90,7 @@ description: Songloft 的分阶段开发流程助手。用于处理 GitHub Issue
 2. 按确认的文件和模块实施，保持改动最小；不要顺手重构无关代码。
 3. 按仓库规则执行必要的生成和格式化：
    - Go：执行 `gofmt -w .`；必要时运行 `go vet`。
-   - Dart：在 `songloft-player/` 执行 `dart format lib/ test/`。
+   - Dart：在 `clients/player-flutter/` 执行 `dart format lib/ test/`。
    - 修改 `database/queries/*.sql`：执行 `make sqlc`，检查生成文件。
    - 修改 handler 的 swag 注释或新增 handler：执行 `make swagger`，检查 `docs/swagger.json`、`docs/swagger.yaml`、`docs/docs.go`。
    - 修改文档：同步对应的中英文版本；自动生成页改源文件，不直接改生成物。

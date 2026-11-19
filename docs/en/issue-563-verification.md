@@ -65,7 +65,7 @@ The initial race run exceeded a 10-second queued HTTP read because the fixture r
 
 The user subsequently authorized main/submodule commits, pushes, SDK version publication and an Issue reply. Formal client version bumps and Issue closure are outside this authorization.
 
-- Flutter: [`c0cfa70`](https://github.com/songloft-org/songloft-player/commit/c0cfa70d4f5d85edc969dc71b258dc56308fb9e9); main triggers dev builds.
+- Flutter: [`c0cfa70`](https://github.com/songloft-org/songloft-player-flutter/commit/c0cfa70d4f5d85edc969dc71b258dc56308fb9e9); main triggers dev builds.
 - Lynx: [`84a1f56`](https://github.com/songloft-org/songloft-player-lynx/commit/84a1f5601382c4d17c0c50c97f134d9198c03a60); main triggers dev builds.
 - SDK: feature commit `82b58c8`, release commit [`bc58da6`](https://github.com/songloft-org/plugin-toolchain/commit/bc58da63333521f2cb7192c44fcfffcf61656616). `node scripts/release.mjs minor --yes` advances `2.18.0` to `2.19.0` and pushes [`v2.19.0`](https://github.com/songloft-org/plugin-toolchain/releases/tag/v2.19.0), updating linked publication packages as the script specifies. Actual npm availability is determined by that Release workflow and npm.
 - Child repositories are committed/pushed first; the parent commit updates all three gitlinks. `Ref #563` avoids automatically closing the Issue without separate authorization.

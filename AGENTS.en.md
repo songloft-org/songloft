@@ -25,7 +25,7 @@ Songloft is a self-hosted local music server that supports both **server deploym
 |------|------|------|
 | `/` | Go 1.26 + Chi v5 + SQLite | Backend API service (default port 58091, account admin/admin) |
 | `/mobile` | Go + gomobile | Mobile binding entry point for the Go backend (gomobile bind; exports Start/Stop/IsRunning/GetPort) |
-| `/clients/player` ([separate repo](https://github.com/songloft-org/songloft-player)) | Flutter 3.41+ / Dart 3.7+ | Cross-platform frontend (6 platforms); its repository builds its own Bundle client packages |
+| `/clients/player-flutter` ([separate repo](https://github.com/songloft-org/songloft-player-flutter)) | Flutter 3.41+ / Dart 3.7+ | Cross-platform frontend (6 platforms); its repository builds its own Bundle client packages |
 | `/clients/player-lynx` ([separate repo](https://github.com/songloft-org/songloft-player-lynx)) | TS + ReactLynx | Android/iOS/HarmonyOS/Web client; its repository builds Android/iOS Bundle packages; Windows/macOS candidates are pending consolidated acceptance; separate main dev builds and v* releases (submodule) |
 | `/clients/tv` ([separate repo](https://github.com/songloft-org/songloft-tv)) | Kotlin | Android TV client (submodule) |
 | `/plugins/toolchain` ([separate repo](https://github.com/songloft-org/plugin-toolchain)) | TS + pnpm | JS plugin development toolchain (SDK / Builder / scaffolding) |
@@ -74,8 +74,8 @@ make build-go-desktop-macos        # macOS x86_64
 make build-go-desktop-macos-arm64  # macOS ARM64
 
 # Frontend development
-cd clients/player && flutter run -d chrome          # standalone
-cd clients/player && flutter run -d chrome --dart-define=DEPLOY_MODE=embedded
+cd clients/player-flutter && flutter run -d chrome          # standalone
+cd clients/player-flutter && flutter run -d chrome --dart-define=DEPLOY_MODE=embedded
 ```
 
 ## Code Formatting (Hard Rule)
@@ -83,7 +83,7 @@ cd clients/player && flutter run -d chrome --dart-define=DEPLOY_MODE=embedded
 After every code change, you **must** format the code before committing:
 
 - **Go**: run `gofmt -w .` from the project root
-- **Dart**: run `dart format lib/ test/` from `clients/player/`
+- **Dart**: run `dart format lib/ test/` from `clients/player-flutter/`
 
 ## Database Conventions (Hard Rules)
 

@@ -6,7 +6,7 @@ Bundle mode installs the Go backend with the client, so users do not need to dep
 
 | Client | Bundle packages | Release repository | Backend source |
 |---|---|---|---|
-| Flutter | Universal Android APK `songloft-bundled-android.apk` (ARM64, ARMv7, x86_64), iOS `songloft-bundled-ios-nosign.ipa`, Linux `songloft-bundled-linux-x64.tar.gz`, Windows `songloft-bundled-windows-x64.zip`, macOS `songloft-bundled-macos.zip` | [Stable](https://github.com/songloft-org/songloft-player/releases/latest) · [Dev](https://github.com/songloft-org/songloft-player/releases/tag/dev) | Latest root `main` commit at workflow startup |
+| Flutter | Universal Android APK `songloft-bundled-android.apk` (ARM64, ARMv7, x86_64), iOS `songloft-bundled-ios-nosign.ipa`, Linux `songloft-bundled-linux-x64.tar.gz`, Windows `songloft-bundled-windows-x64.zip`, macOS `songloft-bundled-macos.zip` | [Stable](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · [Dev](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev) | Latest root `main` commit at workflow startup |
 | Lynx | Android `songloft-lynx-android.apk`, iOS `songloft-lynx-ios-nosign.ipa` | [songloft-player-lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest) | Latest root `main` commit at workflow startup |
 | Lynx desktop | Windows `*.exe`, macOS arm64/x64 `*.dmg` and update `*.zip` | [Stable](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [Dev](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev), published in the shared workflow with mobile and Web packages | Latest root `main` commit at workflow startup |
 

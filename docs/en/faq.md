@@ -16,7 +16,7 @@ A: **No, it is free, and it does not accept any sponsorship or donations.** Song
 
 A:
 - **Backend server**: Download the build for your system from [GitHub Releases](https://github.com/songloft-org/songloft/releases). Linux, macOS, and Windows are supported, with both binary and Docker image deployment options.
-- **Flutter client**: Download the prebuilt installers from [Flutter client Releases](https://github.com/songloft-org/songloft-player/releases). Android, iOS, macOS, Windows, Linux, and Web are supported.
+- **Flutter client**: Download the prebuilt installers from [Flutter client Releases](https://github.com/songloft-org/songloft-player-flutter/releases). Android, iOS, macOS, Windows, Linux, and Web are supported.
 
 - **Electron desktop client**: [Songloft Desktop Releases](https://github.com/songloft-org/songloft-desktop/releases/latest), connecting to an existing server.
 - **TV client**: [Songloft TV Releases](https://github.com/songloft-org/songloft-tv/releases/latest), for Android 5.0+ large-screen devices.
@@ -434,4 +434,4 @@ A:
 
 - **GitHub Issues**: [https://github.com/songloft-org/songloft/issues](https://github.com/songloft-org/songloft/issues)
 - **Project homepage**: [https://github.com/songloft-org/songloft](https://github.com/songloft-org/songloft)
-- **Flutter client**: [https://github.com/songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
+- **Flutter client**: [https://github.com/songloft-org/songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter)

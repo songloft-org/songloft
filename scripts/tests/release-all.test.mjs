@@ -87,13 +87,13 @@ function fixture(t, { dirtyParent = false, dirtySubmodule = false } = {}) {
   chmodSync(join(parent, "scripts/bump-version.sh"), 0o755);
   git(parent, "add", ".");
   git(parent, "commit", "-q", "-m", "test: parent baseline");
-  git(parent, "-c", "protocol.file.allow=always", "submodule", "add", "-q", join(directory, "src-player"), "clients/player");
+  git(parent, "-c", "protocol.file.allow=always", "submodule", "add", "-q", join(directory, "src-player"), "clients/player-flutter");
   git(parent, "-c", "protocol.file.allow=always", "submodule", "add", "-q", join(directory, "src-player-lynx"), "clients/player-lynx");
   git(parent, "commit", "-q", "-m", "test: add client submodules");
   git(parent, "remote", "add", "origin", join(remotes, "parent.git"));
   git(parent, "push", "-q", "-u", "origin", "main");
 
-  if (dirtySubmodule) writeFileSync(join(parent, "clients/player/dirty.txt"), "other task\n");
+  if (dirtySubmodule) writeFileSync(join(parent, "clients/player-flutter/dirty.txt"), "other task\n");
   if (dirtyParent) writeFileSync(join(parent, "unrelated.txt"), "other task\n");
 
   const run = (args, env = {}) =>
@@ -134,8 +134,8 @@ test("one-command release runs flutter, lynx, gitlink commit, then parent in ord
     "test: add client submodules",
   ]);
   const gitlinkFiles = f.git("show", "--name-only", "--format=", "HEAD~1").split("\n").filter(Boolean);
-  assert.deepEqual([...gitlinkFiles].sort(), ["clients/player", "clients/player-lynx"]);
-  assert.equal(f.git("rev-parse", "HEAD:clients/player"), git(join(f.parent, "clients/player"), "rev-parse", "HEAD"));
+  assert.deepEqual([...gitlinkFiles].sort(), ["clients/player-flutter", "clients/player-lynx"]);
+  assert.equal(f.git("rev-parse", "HEAD:clients/player-flutter"), git(join(f.parent, "clients/player-flutter"), "rev-parse", "HEAD"));
   assert.equal(f.git("status", "--porcelain"), "");
 });
 

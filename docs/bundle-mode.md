@@ -6,7 +6,7 @@ Bundle 将 Go 后端与客户端一起安装，用户不必另外部署服务器
 
 | 客户端 | Bundle 包 | 发布仓库 | 后端源码固定方式 |
 |---|---|---|---|
-| Flutter | Android 通用 APK `songloft-bundled-android.apk`（ARM64、ARMv7、x86_64）、iOS `songloft-bundled-ios-nosign.ipa`、Linux `songloft-bundled-linux-x64.tar.gz`、Windows `songloft-bundled-windows-x64.zip`、macOS `songloft-bundled-macos.zip` | [正式版](https://github.com/songloft-org/songloft-player/releases/latest) · [开发版](https://github.com/songloft-org/songloft-player/releases/tag/dev) | 打包启动时主仓库 `main` 的最新提交 |
+| Flutter | Android 通用 APK `songloft-bundled-android.apk`（ARM64、ARMv7、x86_64）、iOS `songloft-bundled-ios-nosign.ipa`、Linux `songloft-bundled-linux-x64.tar.gz`、Windows `songloft-bundled-windows-x64.zip`、macOS `songloft-bundled-macos.zip` | [正式版](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · [开发版](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev) | 打包启动时主仓库 `main` 的最新提交 |
 | Lynx | Android `songloft-lynx-android.apk`、iOS `songloft-lynx-ios-nosign.ipa` | [songloft-player-lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest) | 打包启动时主仓库 `main` 的最新提交 |
 | Lynx 桌面 | Windows `*.exe`、macOS arm64/x64 `*.dmg` 与更新 `*.zip` | [正式版](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [开发版](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)，与移动端和 Web 同一工作流发布 | 打包启动时主仓库 `main` 的最新提交 |
 

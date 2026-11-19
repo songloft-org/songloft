@@ -93,7 +93,7 @@
 - 证据：[失败 Linux job](https://github.com/songloft-org/songloft/actions/runs/43882625312/job/133353770838) 的 `ubuntu-latest` 已切换到 Ubuntu 26.04，安装 `libayatana-appindicator3-dev 0.5.94-1build1` 后，`tray_manager_plugin.cc:118` 的 `app_indicator_new` 因 `-Werror,-Wdeprecated-declarations` 编译失败。此前成功发布使用 Ubuntu 24.04。
 - 规则与 Done right：两个 Linux 发布 job 同时固定 `ubuntu-24.04`，保留现有编译告警策略和发行版兼容基线；不能只修标准版而让 Bundle 继续跟随 latest 漂移。本次仅修改 runner 选择。
 - 验证：actionlint v1.7.12 检查两个工作流通过；原始日志 `/tmp/songloft-release-2.13.11-20261116/linux-baseline.log`。正式版本的实际 Linux 构建另行验收；Not run：桌面安装和托盘交互，运行时代码未修改。
-- 远端验收：`v2.13.11` 的 [Flutter Linux job](https://github.com/songloft-org/songloft-player/actions/runs/43887627188/job/133369948089)（源码 `7fc5a04`）与 [Linux Bundle job](https://github.com/songloft-org/songloft/actions/runs/43892661200/job/133389054723)（源码 `da5d0da`）均实际使用 Ubuntu 24.04 并成功构建；标准版 tar.gz/DEB/RPM/AppImage 四项产物齐全。两端完整正式发布 CI 通过，版本、提交标识及资产清单回读正确；日志 `/tmp/songloft-release-2.13.11-20261116/{flutter,backend}-linux-fixed.log`。
+- 远端验收：`v2.13.11` 的 [Flutter Linux job](https://github.com/songloft-org/songloft-player-flutter/actions/runs/43887627188/job/133369948089)（源码 `7fc5a04`）与 [Linux Bundle job](https://github.com/songloft-org/songloft/actions/runs/43892661200/job/133389054723)（源码 `da5d0da`）均实际使用 Ubuntu 24.04 并成功构建；标准版 tar.gz/DEB/RPM/AppImage 四项产物齐全。两端完整正式发布 CI 通过，版本、提交标识及资产清单回读正确；日志 `/tmp/songloft-release-2.13.11-20261116/{flutter,backend}-linux-fixed.log`。
 - Seen 1× (2026-11-16)。状态：固定基线的实际构建及正式版本发布已验收；桌面实际安装和托盘交互仍 Not run。
 
 ### LYNX-FOCUS-001：scroll-view 委托焦点会改变长表单点击目标
@@ -230,7 +230,7 @@
 - 范围：首页收藏展示、客户端菜单及服务端歌单可见性，songloft-org/songloft#532。
 - 失败证据：2026-10-21，[初次回复](https://github.com/songloft-org/songloft/issues/532#issuecomment-6308512268)将普通歌单的隐藏操作套用于内置「收藏／电台收藏」。实际 Web 截图显示内置「收藏」菜单只有置顶；Flutter/Lynx 菜单与后端 `/playlists/{id}/visibility` 均明确限制内置歌单。[更正及截图](https://github.com/songloft-org/songloft/issues/532#issuecomment-6309354674)已发布。
 - 规则：解释操作前核对目标对象的身份条件、实际菜单和后端限制，不能仅从普通对象的调用链推断内置对象可用。设计首页展示时同时追踪 `hidden` 标签的消费者：歌曲列表默认排除隐藏歌单内的歌曲，因此首页卡片显示偏好必须独立保存。
-- Done right：本次经用户确认，在两客户端新增独立、按服务器与账号保存在本机的首页显示开关；按内置 ID 与 `built_in` 识别，不改收藏成员或标签。测试、实际浏览器及未跑项分别记录在 [Flutter](clients/player/docs/cn/issue-532.md) 与 [Lynx](clients/player-lynx/docs/project/issue-532.md)，最终结果绑定各自工作树，不外推为原生设备或已发布版本。
+- Done right：本次经用户确认，在两客户端新增独立、按服务器与账号保存在本机的首页显示开关；按内置 ID 与 `built_in` 识别，不改收藏成员或标签。测试、实际浏览器及未跑项分别记录在 [Flutter](clients/player-flutter/docs/cn/issue-532.md) 与 [Lynx](clients/player-lynx/docs/project/issue-532.md)，最终结果绑定各自工作树，不外推为原生设备或已发布版本。
 - Seen 1× (2026-10-21)。状态：经验；实现与验证完成，提交、CI 与版本状态以 #532 后续回复及交付验证记录为准。
 
 ### JSPLUG-002：客户端 SDK 的方法存在不等于宿主传输可用
@@ -332,7 +332,7 @@
 ### RELEASE-001：跨仓库发布必须按「子仓库 tag 先推送、gitlink 后落地、父仓库最后」的顺序
 
 - 范围：`scripts/release-all.sh`、三个仓库的 `bump-version.sh` 统一契约、父仓库 gitlink 提交。
-- 规则：父仓库 bump 脚本要求干净工作树，因此两个子模块指针必须先用独立 commit 落地；gitlink commit 必须用 pathspec 限定（`git commit -m ... -- clients/player clients/player-lynx`），否则 staged/无关改动会被裹带。链式解析依赖「stdout 末行 = v<版本>、日志走 stderr」的固定契约。
+- 规则：父仓库 bump 脚本要求干净工作树，因此两个子模块指针必须先用独立 commit 落地；gitlink commit 必须用 pathspec 限定（`git commit -m ... -- clients/player-flutter clients/player-lynx`），否则 staged/无关改动会被裹带。链式解析依赖「stdout 末行 = v<版本>、日志走 stderr」的固定契约。
 - 证据：2026-10-15，基线 `9d008b8`。旧版三个脚本参数与行为各异（Flutter tag 冲突可覆盖、父仓库无预检），无法安全编排；统一为 Lynx 严格契约后由 `scripts/tests/release-all.test.mjs` 夹具（本地 bare remote + stub）锁定顺序、脏树中止、失败即停、dry-run 零写入与 gitlink 隔离；`scripts/tests/bump-version.test.mjs` 覆盖预检与 `--no-push` 本地路径。Lynx 既有 `pnpm run test:release` 77 项通过。
 - Done right：真实仓库 `--dry-run` 验证三脚本计划输出与预检（脏子模块在调用任何发布脚本前被拦截）。推送 tag 触发各 CI 属发布动作，另行授权；本条不证明真实发布链路。
 - 同日交互补证：`190c32c1768a88678edea3de5b1b94c40108c95d` 编排捕获 stdout，而 Lynx `0de993ff272ee29df96c8401b46df56256646438` 将计划/提示写到 stdout，空回车取消还退出 0，导致误跳过继续。旧实现下新增的 5 项 Lynx 流/取消回归和 9 项编排版本输出回归均失败；本次修复把 Lynx 提示移至 stderr、取消退出 1，并在编排端校验三个版本结果。主仓库 31 项脚本测试与 Lynx 81 项发布工具测试通过，PTY 在真实命令替换下验证回车中止与 yes 本地发布。日志 `/tmp/songloft-release-{all-before,lynx-before,parent-suite,lynx-suite}.log`、终端证据 `/tmp/songloft-release-terminal-result.json`；不增加同日 Seen。本次未运行真实发布。

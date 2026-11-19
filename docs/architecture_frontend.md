@@ -1,6 +1,6 @@
 # Songloft Flutter 前端架构说明
 
-> **独立仓库**: [https://github.com/songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
+> **独立仓库**: [https://github.com/songloft-org/songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter)
 
 本文描述 Flutter 客户端自身的架构与本地模式实现。Flutter 和 Lynx 客户端仓库分别构建并发布各自的 Bundle 包；主仓库 Release 不打包客户端应用。Lynx Android/iOS/Windows/macOS 的本地模式入口位于登录页和设置页，详见 [Bundle 模式说明](bundle-mode.md)及 [Lynx 指南](player-lynx/index.md)。Windows/macOS 桌面包已接入客户端共享发布流程，最终设备验收仍在进行。
 
@@ -32,7 +32,7 @@ Songloft Flutter 客户端支持 **Android、iOS、macOS、Windows、Linux、Web
 ## 目录结构
 
 ```
-clients/player/lib/
+clients/player-flutter/lib/
 ├── config/                          # 应用配置
 │   ├── app_config.dart              # API 配置、部署模式、版本号
 │   └── constants.dart               # 应用常量
@@ -561,7 +561,7 @@ SongloftAudioHandler (extends BaseAudioHandler)
 ## 开发命令
 
 ```bash
-cd clients/player
+cd clients/player-flutter
 flutter pub get                    # 安装依赖
 flutter run -d chrome              # Web 调试（standalone 模式）
 flutter run -d chrome --dart-define=DEPLOY_MODE=embedded  # 模拟嵌入模式
@@ -597,16 +597,16 @@ make build-frontend-all
 
 # Flutter 源码本地模式构建参考（不是主仓库 Release 流程）
 # 1. 编译 Go 后端为移动端库 / 桌面端可执行文件
-make build-go-mobile-android       # → clients/player/android/app/libs/songloft.aar
-make build-go-mobile-ios           # → clients/player/ios/Songloft.xcframework（仅 macOS）
-make build-go-desktop-linux        # → clients/player/linux/songloft-server
-make build-go-desktop-windows      # → clients/player/windows/songloft-server.exe
-make build-go-desktop-macos-arm64  # → clients/player/macos/Runner/songloft-server
+make build-go-mobile-android       # → clients/player-flutter/android/app/libs/songloft.aar
+make build-go-mobile-ios           # → clients/player-flutter/ios/Songloft.xcframework（仅 macOS）
+make build-go-desktop-linux        # → clients/player-flutter/linux/songloft-server
+make build-go-desktop-windows      # → clients/player-flutter/windows/songloft-server.exe
+make build-go-desktop-macos-arm64  # → clients/player-flutter/macos/Runner/songloft-server
 
 # 2. 构建 Flutter 客户端（需加 --dart-define=HAS_BACKEND=true）
 # Bundle Release 构建由各客户端仓库的 workflow 完成；具体配置见客户端仓库
 ```
 
 预编译安装包下载:
-- 标准版（需连接服务器）: [https://github.com/songloft-org/songloft-player/releases](https://github.com/songloft-org/songloft-player/releases)
-- Flutter Bundle 版（内嵌后端）：[Flutter 仓库 Releases](https://github.com/songloft-org/songloft-player/releases/latest) · Lynx Bundle 版（Android/iOS）：[Lynx 仓库 Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest)
+- 标准版（需连接服务器）: [https://github.com/songloft-org/songloft-player-flutter/releases](https://github.com/songloft-org/songloft-player-flutter/releases)
+- Flutter Bundle 版（内嵌后端）：[Flutter 仓库 Releases](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · Lynx Bundle 版（Android/iOS）：[Lynx 仓库 Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest)

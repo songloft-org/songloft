@@ -16,7 +16,7 @@ A: **不收费，也不接受任何赞助或捐款。** Songloft 是纯粹出于
 
 A: 
 - **后端服务器**：从 [GitHub Releases](https://github.com/songloft-org/songloft/releases) 下载适合您系统的版本，支持 Linux、macOS 和 Windows 平台，提供二进制文件和 Docker 镜像两种部署方式。
-- **Flutter 客户端**：从 [Flutter 客户端 Releases](https://github.com/songloft-org/songloft-player/releases) 下载预编译安装包，支持 Android、iOS、macOS、Windows、Linux 和 Web。
+- **Flutter 客户端**：从 [Flutter 客户端 Releases](https://github.com/songloft-org/songloft-player-flutter/releases) 下载预编译安装包，支持 Android、iOS、macOS、Windows、Linux 和 Web。
 
 - **Electron 桌面客户端**：[Songloft Desktop Releases](https://github.com/songloft-org/songloft-desktop/releases/latest)，连接已有服务器。
 - **TV 客户端**：[Songloft TV Releases](https://github.com/songloft-org/songloft-tv/releases/latest)，支持 Android 5.0+ 大屏设备。
@@ -434,4 +434,4 @@ A:
 
 - **GitHub Issues**: [https://github.com/songloft-org/songloft/issues](https://github.com/songloft-org/songloft/issues)
 - **项目主页**: [https://github.com/songloft-org/songloft](https://github.com/songloft-org/songloft)
-- **Flutter 客户端**: [https://github.com/songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
+- **Flutter 客户端**: [https://github.com/songloft-org/songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter)

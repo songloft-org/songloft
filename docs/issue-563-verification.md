@@ -65,7 +65,7 @@ CGO_ENABLED=1 go test -race -tags dev,lite ./internal/jsplugin ./internal/servic
 
 本会话随后获得主仓库／子仓库提交、推送、SDK 版本升级和回复 `songloft-org/songloft#563` 的明确授权。客户端正式版本升级与关闭 Issue 未在本次授权范围内。
 
-- Flutter：[`c0cfa70`](https://github.com/songloft-org/songloft-player/commit/c0cfa70d4f5d85edc969dc71b258dc56308fb9e9)，主分支自动构建 dev 包。
+- Flutter：[`c0cfa70`](https://github.com/songloft-org/songloft-player-flutter/commit/c0cfa70d4f5d85edc969dc71b258dc56308fb9e9)，主分支自动构建 dev 包。
 - Lynx：[`84a1f56`](https://github.com/songloft-org/songloft-player-lynx/commit/84a1f5601382c4d17c0c50c97f134d9198c03a60)，主分支自动构建 dev 包。
 - SDK：功能提交 `82b58c8`，发布提交 [`bc58da6`](https://github.com/songloft-org/plugin-toolchain/commit/bc58da63333521f2cb7192c44fcfffcf61656616)。执行 `node scripts/release.mjs minor --yes`，由 `2.18.0` 升为 `2.19.0` 并推送 [`v2.19.0`](https://github.com/songloft-org/plugin-toolchain/releases/tag/v2.19.0)。脚本同步升级其关联发布包；npm 可用状态以该版本 Release 工作流与 npm 为准。
 - 以上子仓库先提交／推送，父仓库本次提交同步三个 gitlink；父提交使用 `Ref #563`，避免未经单独授权自动关闭 Issue。

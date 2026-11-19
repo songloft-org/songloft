@@ -1,6 +1,6 @@
 # Songloft 前端踩坑与铁律（Frontend Gotchas）
 
-本文沉淀 Flutter 客户端（`songloft-player`）里**已定位并修复、但根因具有普适性**的坑，主要集中在 Flutter Web（CanvasKit）渲染、平台视图（插件 iframe）、音频后端。这些坑反复消耗过大量排查回合，归档在此避免重蹈。
+本文沉淀 Flutter 客户端（`songloft-player-flutter`）里**已定位并修复、但根因具有普适性**的坑，主要集中在 Flutter Web（CanvasKit）渲染、平台视图（插件 iframe）、音频后端。这些坑反复消耗过大量排查回合，归档在此避免重蹈。
 
 > 后端/业务侧踩坑见[业务约束与踩坑](pitfalls.md)；入口导航见项目根 `AGENTS.md`。
 
@@ -61,7 +61,7 @@ CSS 改对了用户却仍抖——真凶是缓存头。`jsplugin-assets/*`（当
 第 2 层只修了插件 iframe 的**文档**，同一条回路在 **Flutter 宿主页**上也成立——表现是首页 / 曲库 / 插件商店 / 插件页**全都抖**，与插件无关。
 
 - **机制**：引擎的 `FullPageEmbeddingStrategy` 只给 `<body>` 设 `position:fixed; inset:0; overflow:hidden`，**`<html>` 保持默认 `overflow:visible`**。只要有任何东西把文档撑破几像素（浏览器扩展注入到 `<html>` 的浮层等，我们自己的 DOM 全在 fixed 的 body 里、不参与），经典滚动条一出现就吃掉 15px 视口 → 跟着视口定尺寸的 body 变窄 → Flutter 整页按新尺寸重排 → 不再溢出 → 滚动条消失 → 每帧翻转，肉眼 ~15Hz 抖动。
-- **修复**：`clients/player/web/index.html` 加 `html { overflow: hidden; scrollbar-width: none }` + `html::-webkit-scrollbar { display: none }`。宿主页永远不需要文档级滚动（Flutter 视图是 fixed 全屏、滚动全在应用内），禁掉即让回路结构上不成立，且不依赖「查出谁撑破了文档」。
+- **修复**：`clients/player-flutter/web/index.html` 加 `html { overflow: hidden; scrollbar-width: none }` + `html::-webkit-scrollbar { display: none }`。宿主页永远不需要文档级滚动（Flutter 视图是 fixed 全屏、滚动全在应用内），禁掉即让回路结构上不成立，且不依赖「查出谁撑破了文档」。
 - **诊断口径**（视觉抖动无法在覆盖式滚动条环境复现，但机制可量化）：
   - 录屏逐帧差分：抖动帧对里左侧大片像素**完全一致**（左对齐内容不动），只有右对齐元素整体平移一个滚动条宽度（经典滚动条约 15px），同时右 / 下边缘各出现一条滚动条滑块（溢出只有几像素时滑块几乎占满轨道）——这组合是「视口被滚动条吃掉一截」的指纹，区别于应用自身动画（后者不会让左侧像素逐位相同）；
   - 页面里直接测 `innerWidth - document.documentElement.clientWidth`（>0 即滚动条占了宽度）与 `scrollWidth/scrollHeight` 是否超出 client 尺寸。
@@ -78,7 +78,7 @@ Web 端播放栏出现后，`flt-semantics` 节点（`pointer-events:auto`）盖
 
 ### 常驻语义树只在桌面 Web（移动浏览器会让软键盘弹不出来）
 
-iOS Safari 打开 Web 端，点登录页用户名/密码框**不弹输入法**；切到桌面再切回 Safari 才能输入，且此时页面被放大只能盲输（songloft-org/songloft-player#26）。
+iOS Safari 打开 Web 端，点登录页用户名/密码框**不弹输入法**；切到桌面再切回 Safari 才能输入，且此时页面被放大只能盲输（songloft-org/songloft-player-flutter#26）。
 
 - **根因**：引擎 `HybridTextEditing.strategy` 是 `late final`，**首次用到文本输入时**按当时的 `semanticsEnabled` 一次性定型。启动即 `ensureSemantics()` 会把整个会话钉死在 `SemanticsTextEditingStrategy`，从此绕开 `IOSTextEditingStrategy` —— 后者才带 iOS 的全部绕法（聚焦前先移出屏外、100ms 后再定位、tap 监听），以及 iOS 26「自动填充前先 blur 输入框」的补救（该补救只监听 `flt-text-editing-host` 的 focusin，语义模式下输入框在 `flt-semantics-host` 里，够不着）。上游长期未修：[flutter/flutter#129324]（open，3.41 仍可复现）、[#123338]、[#141975]、[#154741]，症状均为「语义模式 + 移动浏览器 → 键盘不弹或弹起立刻收起」，且与 `InputDecoration`（label/hint/suffixIcon）+ 滚动容器组合相关，正是登录页的形状。
 - **修复**：`WebSemanticsController.enableByDefault()` 在移动端浏览器（`defaultTargetPlatform` 为 iOS / Android）直接跳过，只有桌面 Web 常驻。移动端回落到引擎默认的按需启用（`MobileSemanticsEnabler` 检测读屏器手势后自动开语义树），AT 用户仍可用。

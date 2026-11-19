@@ -21,7 +21,7 @@ import { resolve } from 'path';
 import sharp from 'sharp';
 
 const root = '${ROOT}';
-const playerDir = resolve(root, 'clients/player');
+const playerDir = resolve(root, 'clients/player-flutter');
 const buildDir = resolve(root, 'clients/player-build/web-embedded');
 
 const svgBuffer = readFileSync(resolve(playerDir, 'web/favicon.svg'));
@@ -80,7 +80,7 @@ const appIcon = { size: 1024, out: resolve(playerDir, 'assets/icons/app_icon.png
 
 console.log('Generating icons from favicon.svg...\\n');
 
-// Web PWA （clients/player/web + clients/player-build/web-embedded）+ 1024 主图
+// Web PWA （clients/player-flutter/web + clients/player-build/web-embedded）+ 1024 主图
 for (const { size, out } of [...webTasks, appIcon]) {
   ensureDir(out.substring(0, out.lastIndexOf('/')));
   writeFileSync(out, await renderPng(size));
@@ -91,7 +91,7 @@ for (const { size, out } of [...webTasks, appIcon]) {
 const icoOut = resolve(playerDir, 'windows/runner/resources/app_icon.ico');
 ensureDir(icoOut.substring(0, icoOut.lastIndexOf('/')));
 writeFileSync(icoOut, await renderIco([16, 32, 48, 64, 128, 256]));
-console.log('  ✓ ICO (16-256) → clients/player/windows/runner/resources/app_icon.ico');
+console.log('  ✓ ICO (16-256) → clients/player-flutter/windows/runner/resources/app_icon.ico');
 
 console.log('\\nDone!');
 SCRIPT
@@ -102,15 +102,15 @@ node "$WORKDIR/gen.mjs"
 #   - Android：mipmap launcher + adaptive icon + Android 13+ themed icon
 #   - iOS：Assets.xcassets/AppIcon.appiconset/*
 #   - macOS：Assets.xcassets/AppIcon.appiconset/app_icon_*.png
-# 输入源是 clients/player/assets/icons/app_icon.png（上面 node 脚本以 1024 生成）。
+# 输入源是 clients/player-flutter/assets/icons/app_icon.png（上面 node 脚本以 1024 生成）。
 if command -v flutter >/dev/null 2>&1; then
   echo
   echo "Generating Android / iOS / macOS launcher icons via flutter_launcher_icons..."
-  cd "$ROOT/clients/player"
+  cd "$ROOT/clients/player-flutter"
   flutter pub get >/dev/null
   dart run flutter_launcher_icons
 else
   echo
   echo "⚠  flutter 未安装，Android/iOS/macOS launcher icons 未生成。请在装好 Flutter 后手动运行："
-  echo "   cd clients/player && flutter pub get && dart run flutter_launcher_icons"
+  echo "   cd clients/player-flutter && flutter pub get && dart run flutter_launcher_icons"
 fi

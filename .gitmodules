@@ -1,9 +1,9 @@
 [submodule "pkg/tag"]
 	path = pkg/tag
 	url = https://github.com/hanxi/tag.git
-[submodule "clients/player"]
-	path = clients/player
-	url = https://github.com/songloft-org/songloft-player.git
+[submodule "clients/player-flutter"]
+	path = clients/player-flutter
+	url = https://github.com/songloft-org/songloft-player-flutter.git
 [submodule "plugins/toolchain"]
 	path = plugins/toolchain
 	url = https://github.com/songloft-org/plugin-toolchain.git

@@ -236,12 +236,12 @@ export const INSTALL: InstallMethod[] = [
     external: [
       {
         label: { zh: 'Flutter Bundle 下载', en: 'Flutter Bundle downloads' },
-        url: 'https://github.com/songloft-org/songloft-player/releases/latest',
+        url: 'https://github.com/songloft-org/songloft-player-flutter/releases/latest',
         primary: true,
       },
       {
         label: { zh: 'Flutter Bundle Android APK（开发版）', en: 'Flutter Bundle Android APK (dev)' },
-        url: 'https://github.com/songloft-org/songloft-player/releases/download/dev/songloft-bundled-android.apk',
+        url: 'https://github.com/songloft-org/songloft-player-flutter/releases/download/dev/songloft-bundled-android.apk',
       },
       {
         label: { zh: 'Lynx Bundle 下载', en: 'Lynx Bundle downloads' },
@@ -266,16 +266,16 @@ export const INSTALL: InstallMethod[] = [
     external: [
       {
         label: { zh: '标准版 Releases', en: 'Standalone releases' },
-        url: 'https://github.com/songloft-org/songloft-player/releases/latest',
+        url: 'https://github.com/songloft-org/songloft-player-flutter/releases/latest',
         primary: true,
       },
       {
         label: { zh: '标准版 Android APK（开发版）', en: 'Standard Android APK (dev)' },
-        url: 'https://github.com/songloft-org/songloft-player/releases/download/dev/songloft-android.apk',
+        url: 'https://github.com/songloft-org/songloft-player-flutter/releases/download/dev/songloft-android.apk',
       },
       {
         label: { zh: '源码仓库', en: 'Source repo' },
-        url: 'https://github.com/songloft-org/songloft-player',
+        url: 'https://github.com/songloft-org/songloft-player-flutter',
       },
     ],
     commands: [

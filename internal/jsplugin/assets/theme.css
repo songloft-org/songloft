@@ -59,7 +59,7 @@
  * 插件只要写 `var(--md-*)` 就自动跟随主程序主题。
  *
  * 兜底值由 `ColorScheme.fromSeed(seedColor: Color(0xFF415F91))` 导出，seed 取自
- * `clients/player/lib/core/theme/app_theme.dart` 的 `_defaultSeedColor`，
+ * `clients/player-flutter/lib/core/theme/app_theme.dart` 的 `_defaultSeedColor`，
  * 即便下推没到（消息丢失）观感也与主程序默认主题一致。
  * **改这里的值请重新从 Flutter 导出，不要手调** —— 手调必然与 M3 色调板脱节。
  *

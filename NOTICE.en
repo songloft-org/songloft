@@ -64,7 +64,7 @@ distributed under BSD-3-Clause. The Android x86_64 Bundle driver
 github.com/mattn/go-sqlite3 is distributed under MIT.
 
 --------------------------------------------------------------------------------
-5. Flutter Client  (songloft-org/songloft-player, separate repository)
+5. Flutter Client  (songloft-org/songloft-player-flutter, separate repository)
 --------------------------------------------------------------------------------
 The client embeds `just_audio_media_kit`, which in turn depends on
 libmpv / FFmpeg. libmpv is distributed under LGPL-2.1+ and FFmpeg is

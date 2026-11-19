@@ -33,10 +33,10 @@ log_err()  { echo -e "${RED}错误：$1${NC}" >&2; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
-FLUTTER_SCRIPT="$ROOT_DIR/clients/player/scripts/bump-version.sh"
+FLUTTER_SCRIPT="$ROOT_DIR/clients/player-flutter/scripts/bump-version.sh"
 LYNX_SCRIPT="$ROOT_DIR/clients/player-lynx/scripts/bump-version.sh"
 PARENT_SCRIPT="$ROOT_DIR/scripts/bump-version.sh"
-FLUTTER_DIR="$ROOT_DIR/clients/player"
+FLUTTER_DIR="$ROOT_DIR/clients/player-flutter"
 LYNX_DIR="$ROOT_DIR/clients/player-lynx"
 
 usage() {
@@ -99,7 +99,7 @@ for d in "$FLUTTER_DIR" "$LYNX_DIR"; do
     fi
 done
 # 父仓库除两个 gitlink 外必须干净（无 staged、无其他未提交改动）
-parent_dirty=$(git status --porcelain | grep -v '^.. clients/player$' | grep -v '^.. clients/player-lynx$' || true)
+parent_dirty=$(git status --porcelain | grep -v '^.. clients/player-flutter$' | grep -v '^.. clients/player-lynx$' || true)
 if [ -n "$(git diff --cached --name-only)" ]; then
     log_err "父仓库暂存区不干净，请先处理："; git diff --cached --name-only | sed 's/^/    /' >&2; exit 1
 fi
@@ -139,15 +139,15 @@ log_ok "Lynx 客户端: ${lynx_ver}"
 
 # gitlink 提交（pathspec 限定，绝不裹带其他改动）
 if [ "$DRY_RUN" = true ]; then
-    echo -e "${YELLOW}[dry-run]${NC} git commit -m 'chore(clients): 同步 Flutter 与 Lynx 客户端发布版本' -- clients/player clients/player-lynx" >&2
-elif git diff --quiet HEAD -- clients/player clients/player-lynx; then
+    echo -e "${YELLOW}[dry-run]${NC} git commit -m 'chore(clients): 同步 Flutter 与 Lynx 客户端发布版本' -- clients/player-flutter clients/player-lynx" >&2
+elif git diff --quiet HEAD -- clients/player-flutter clients/player-lynx; then
     log_warn "两个子模块引用均无变化，跳过 gitlink 提交"
 else
     log_info ""
     log_info "=== 提交子模块引用 ==="
-    git diff HEAD --submodule=short -- clients/player clients/player-lynx | grep -E '^(diff|Subproject)' | sed 's/^/    /' >&2 || true
-    git commit -m "chore(clients): 同步 Flutter 与 Lynx 客户端发布版本" -- clients/player clients/player-lynx
-    log_ok "gitlink 已提交（仅 clients/player、clients/player-lynx）"
+    git diff HEAD --submodule=short -- clients/player-flutter clients/player-lynx | grep -E '^(diff|Subproject)' | sed 's/^/    /' >&2 || true
+    git commit -m "chore(clients): 同步 Flutter 与 Lynx 客户端发布版本" -- clients/player-flutter clients/player-lynx
+    log_ok "gitlink 已提交（仅 clients/player-flutter、clients/player-lynx）"
 fi
 
 parent_out=$("$PARENT_SCRIPT" "$@")
@@ -156,7 +156,7 @@ log_ok "父仓库后端: ${parent_ver}"
 
 log_info ""
 log_info "=== 发布完成 ===" >&2
-echo "Flutter: ${flutter_ver}  https://github.com/songloft-org/songloft-player/releases/tag/${flutter_ver}" >&2
+echo "Flutter: ${flutter_ver}  https://github.com/songloft-org/songloft-player-flutter/releases/tag/${flutter_ver}" >&2
 echo "Lynx:    ${lynx_ver}  https://github.com/songloft-org/songloft-player-lynx/releases/tag/${lynx_ver}" >&2
 echo "后端:    ${parent_ver}  https://github.com/songloft-org/songloft/releases/tag/${parent_ver}" >&2
 

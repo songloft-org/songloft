@@ -19,7 +19,7 @@ Server Mode supports Flutter, ReactLynx, official Electron Desktop, and Android 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Flutter Cross-Platform Frontend                             │
-│  /clients/player (standalone repo: github.com/songloft-org/songloft-player) │
+│  /clients/player-flutter (standalone repo: github.com/songloft-org/songloft-player-flutter) │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
 │  │ Android  │ │   iOS    │ │  macOS   │ │ Windows  │       │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
@@ -155,7 +155,7 @@ songloft/
 ### Build Parameters and Embedding
 
 - `VERSION` and `BUILD_TYPE` are orthogonal: `VERSION=dev` automatically enables `-tags dev` (Swagger + pprof), while releases use `X.Y.Z`; `BUILD_TYPE=lite` embeds no frontend, and empty means full. **Do not** use mixed values such as `BUILD_TYPE=dev`
-- The frontend embed path is always `clients/player-build/web-embedded` (**not** `clients/player/build/web-embedded`)
+- The frontend embed path is always `clients/player-build/web-embedded` (**not** `clients/player-flutter/build/web-embedded`)
 - SPA fallback returns `index.html` only for missing paths whose final segment contains no `.`; missing static assets must return 404, never HTML masquerading as JS/JSON
 - Sub-path deployment: pass `-base-path /xxx` or `BASE_PATH=/xxx` at startup; the entry point strips the prefix with `http.StripPrefix`, `embed.go` replaces `<base href="/">` with `<base href="/xxx/">` at runtime, and the Lynx host injects its deployment directory through `webBaseUrl` for API, Worker, and static URLs
 - Full builds use Node.js 22 + pnpm 11.15.1 for Lynx Web, apply engine patches explicitly, and precompress assets; `embedded-build.json` records client and server identities separately

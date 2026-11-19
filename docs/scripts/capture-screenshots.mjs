@@ -9,7 +9,7 @@
 //   1. 先在一个上下文里用「坐标 + 键盘」完成 UI 登录；
 //   2. 用 ctx.storageState() 把登录态（localStorage 里的 flutter.access_token 等）
 //      复用到桌面 / 移动多个视口，避免为每种视口分别对齐登录坐标；
-//   3. 按 hash 路由（取自 songloft-player 的 AppRoutes）直达各页面截图；
+//   3. 按 hash 路由（取自 songloft-player-flutter 的 AppRoutes）直达各页面截图；
 //   4. 移动端额外点歌 + 展开迷你播放器，抓「沉浸式全屏播放器」；
 //   5. 复制一份把 flutter.theme_mode 改为 dark 的登录态，再抓一套暗色图（-dark 后缀）。
 import { chromium } from 'playwright'

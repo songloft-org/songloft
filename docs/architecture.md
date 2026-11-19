@@ -19,7 +19,7 @@ Songloft 是一个自托管的本地音乐服务器，采用前后端分离架�
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Flutter 跨平台前端                                          │
-│  /clients/player (独立仓库: github.com/songloft-org/songloft-player) │
+│  /clients/player-flutter (独立仓库: github.com/songloft-org/songloft-player-flutter) │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
 │  │ Android  │ │   iOS    │ │  macOS   │ │ Windows  │       │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
@@ -156,7 +156,7 @@ songloft/
 ### 构建参数与嵌入
 
 - `VERSION` 与 `BUILD_TYPE` 正交：`VERSION=dev` 自动启用 `-tags dev`（含 Swagger + pprof），正式版为 `X.Y.Z`；`BUILD_TYPE=lite` 不嵌入前端，留空即完整版。**禁止** `BUILD_TYPE=dev` 之类的混合值
-- 前端嵌入路径固定为 `clients/player-build/web-embedded`（**不是** `clients/player/build/web-embedded`）
+- 前端嵌入路径固定为 `clients/player-build/web-embedded`（**不是** `clients/player-flutter/build/web-embedded`）
 - SPA 回退只对不存在且末段不含 `.` 的路径返回 `index.html`；缺失静态资源必须返回 404，不能返回 HTML 冒充 JS/JSON
 - 子路径部署：启动时传 `-base-path /xxx` 或 `BASE_PATH=/xxx`；入口用 `http.StripPrefix` 剥离前缀，`embed.go` 运行时把 `<base href="/">` 替换为 `<base href="/xxx/">`；Lynx 宿主页通过 `webBaseUrl` 注入部署目录，供 API、Worker 和静态资源使用
 - 完整版用 Node.js 22 + pnpm 11.15.1 构建 Lynx Web，显式应用引擎补丁并预压缩；`embedded-build.json` 分别记录客户端与服务器身份

@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | `.` | `22cd87edf308b53ad6301e0b8a418bd8a6e784a2` | `22b06392a880a41b75de04ef89efbe284d0fd755cb55c671667b39836708ed2e` |
 | `clients/player-lynx` | `2a18bb57819886a2c9b2c0476bdf51a127f09ae1` | `6cbe92b0516e9ab5c7383be751bb78609485262f8baa703414216054b8bf3716` |
-| `clients/player` | `59bc9c7def13e73ced81df045cf77e3ce32f0426` | `3930d76bc9d5aba547d6d6981e70cbf7efbd9136d0f52c9e0a95b7ef97b62920` |
+| `clients/player-flutter` | `59bc9c7def13e73ced81df045cf77e3ce32f0426` | `3930d76bc9d5aba547d6d6981e70cbf7efbd9136d0f52c9e0a95b7ef97b62920` |
 | `plugins/src/songloft-plugin-navidrome` | `04d87b0d79c880d1e648d056375a680e97d78802` | `0d75bf56ef73feedc160d9dda9c396653aea3355a064634ab398701c5ff1cec9` |
 | `plugins/toolchain` | `0380621b2a7072b7d2b9c931c37f418d1ab77668` | `33b88431a426ea604bb8de4ecfd337d7eb80398f946ec889042a639e67cc5d51` |
 
@@ -76,7 +76,7 @@ Not run：报告人的荣耀 30 Pro / HarmonyOS 4 Bundle 真机、本地 Android
 | --- | --- |
 | SDK | [75d22c4](https://github.com/songloft-org/plugin-toolchain/commit/75d22c4c655bf86f2c2417b0ae2fac4ed3953b69) |
 | Navidrome | 源码 [a34e0b6](https://github.com/songloft-org/songloft-plugin-navidrome/commit/a34e0b6acebf20acdcb75ad6e69bc2a76570372c)，自动发布元数据／父指针 [f271903](https://github.com/songloft-org/songloft-plugin-navidrome/commit/f271903dd3cd5b688c627f61d4e7824673ff9230) |
-| Flutter | [87a7699](https://github.com/songloft-org/songloft-player/commit/87a7699d2580b8c4463fa43e159d7bff18f6df29) |
+| Flutter | [87a7699](https://github.com/songloft-org/songloft-player-flutter/commit/87a7699d2580b8c4463fa43e159d7bff18f6df29) |
 | Lynx | [bc692c1](https://github.com/songloft-org/songloft-player-lynx/commit/bc692c14be23190aef4d3468e428dc292fd456af) |
 
 提交前重新按测试基线计算源码指纹，全部与上表验证对象一致。Flutter main 额外保留 `65b7145` 的既有纯 CHANGELOG 提交，业务源码与测试对象一致。子仓库记录中的「未提交」描述验证时快照，当前交付以本节和 GitHub 为准。

@@ -1172,7 +1172,7 @@ const { apiGet, apiPost } = SongloftPlugin;
 
 在 Songloft 客户端中打开的插件页面，可通过 `window.SongloftPlugin.host` / `.player` 调用宿主客户端能力——最常见的是改写宿主的「正在播放队列」。
 
-> - 生效范围：**native 客户端**（Android/iOS/macOS/Windows）的 webview 插件页；**Web 端插件页**（Tab 内嵌页与首页/全屏页均在宿主 iframe 内打开，走 postMessage 桥接）。**Linux 桌面当前没有 WebView 渲染引擎**：客户端不挂载插件页、改展示降级视图，用户需走「在浏览器中打开」（songloft-org/songloft-player#47）。
+> - 生效范围：**native 客户端**（Android/iOS/macOS/Windows）的 webview 插件页；**Web 端插件页**（Tab 内嵌页与首页/全屏页均在宿主 iframe 内打开，走 postMessage 桥接）。**Linux 桌面当前没有 WebView 渲染引擎**：客户端不挂载插件页、改展示降级视图，用户需走「在浏览器中打开」（songloft-org/songloft-player-flutter#47）。
 > - 不生效：仅当用户通过「在浏览器中打开」把插件页在独立新浏览器标签打开时（无宿主父窗口）——此时 `host.isAvailable()` 返回 `false`，调用会抛错，务必先 feature-detect。
 > - 能力由宿主客户端注入，跟随客户端版本。请在 `plugin.json` 设置合适的 `minHostVersion`，并用 `host.getInfo().capabilities` 做能力协商。
 

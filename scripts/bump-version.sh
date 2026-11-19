@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# 自动升版号脚本（统一发布契约：与 clients/player、clients/player-lynx 的 bump-version 完全一致）
+# 自动升版号脚本（统一发布契约：与 clients/player-flutter、clients/player-lynx 的 bump-version 完全一致）
 #
 # 用法: ./scripts/bump-version.sh [major|minor|patch|release|X.Y.Z[-prerelease]] [--dry-run] [--yes] [--no-push]
 # 示例:

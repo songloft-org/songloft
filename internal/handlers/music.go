@@ -1542,7 +1542,7 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// normalize：启用 EBU R128 音量均衡（songloft-org/songloft#315, songloft-org/songloft-player#33）。
+	// normalize：启用 EBU R128 音量均衡（songloft-org/songloft#315, songloft-org/songloft-player-flutter#33）。
 	// 需要转码，若未指定 format 则默认使用 mp3。
 	//
 	// 优先级：?normalize=1 显式开启；?normalize=0 显式关闭；
@@ -2064,7 +2064,7 @@ func speedRequested(speed float64) bool {
 // ctx 驱动 ffmpeg 生命周期，可能被 playActivity.Activate 提前取消；connCtx 是真正的
 // HTTP 请求/连接 ctx（seek 流直接用 r.Context() 传两次，均衡流的 ctx 是 trackedCtx、
 // connCtx 是 r.Context()），只在客户端真的断开时才会 Done——两者的区分详见
-// services.StreamSeekedMP3 注释与 songloft-org/songloft-player#35。
+// services.StreamSeekedMP3 注释与 songloft-org/songloft-player-flutter#35。
 //
 // plan 非 nil 时按 Range 语义应答（`Content-Length` + `Accept-Ranges`，206 时另加
 // `Content-Range`），让客户端能真正拖动进度条，见 cbrRangePlan。为 nil 时保持
@@ -2108,7 +2108,7 @@ func (h *SongHandler) streamPipedMP3(ctx, connCtx context.Context, w http.Respon
 	if errors.Is(err, services.ErrSeekStreamAborted) {
 		// ffmpeg 被 playActivity.Activate 提前掐掉，但连接仍存活：绝不能让 chunked 响应
 		// 优雅收尾（客户端会把截断的音频误判为下载成功并永久缓存）。强制切断底层连接，
-		// 让客户端的 HTTP 层感知为读取失败（songloft-org/songloft-player#35）。
+		// 让客户端的 HTTP 层感知为读取失败（songloft-org/songloft-player-flutter#35）。
 		if hj, ok := w.(http.Hijacker); ok {
 			if conn, _, herr := hj.Hijack(); herr == nil {
 				_ = conn.Close()

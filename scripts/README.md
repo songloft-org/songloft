@@ -36,7 +36,7 @@ Issues 完整分页、排除 PR、保留负责人，按仓库去重。未初始�
 
 ### 统一发布契约
 
-父仓库 `scripts/bump-version.sh`、`clients/player/scripts/bump-version.sh`、`clients/player-lynx/scripts/bump-version.sh` 三者参数与行为完全一致：
+父仓库 `scripts/bump-version.sh`、`clients/player-flutter/scripts/bump-version.sh`、`clients/player-lynx/scripts/bump-version.sh` 三者参数与行为完全一致：
 
 ```bash
 ./scripts/bump-version.sh [major|minor|patch|release|X.Y.Z[-prerelease]] [--dry-run] [--yes] [--no-push]
@@ -76,7 +76,7 @@ push tag 后，[`release.yml`](../.github/workflows/release.yml) 会自动：
 
 ## 🔁 submodule-update.sh
 
-批量同步所有子模块（`clients/player` / `plugins/toolchain` / `pkg/tag` / `plugins/src/*` / `jsplugins` 等）到各自的 main：
+批量同步所有子模块（`clients/player-flutter` / `plugins/toolchain` / `pkg/tag` / `plugins/src/*` / `jsplugins` 等）到各自的 main：
 
 ```bash
 ./scripts/submodule-update.sh

@@ -120,7 +120,7 @@ const litePageHTML = `<!DOCTYPE html>
   <p>当前构建未嵌入 Web 前端，仅提供 API 服务。请使用 Songloft 客户端连接本服务器。</p>
   <p>客户端配置服务器地址：<code id="server-addr"></code></p>
   <div class="links">
-    <a href="https://github.com/songloft-org/songloft-player/releases" target="_blank" rel="noopener">下载客户端</a>
+    <a href="https://github.com/songloft-org/songloft-player-flutter/releases" target="_blank" rel="noopener">下载客户端</a>
     <a href="https://github.com/songloft-org/songloft" target="_blank" rel="noopener">项目主页</a>
   </div>
   <script>

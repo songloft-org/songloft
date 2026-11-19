@@ -36,7 +36,7 @@ Issues are fully paginated, exclude PRs, retain assignees, and deduplicate repos
 
 ### Unified release contract
 
-The parent `scripts/bump-version.sh`, `clients/player/scripts/bump-version.sh`, and `clients/player-lynx/scripts/bump-version.sh` share identical parameters and behavior:
+The parent `scripts/bump-version.sh`, `clients/player-flutter/scripts/bump-version.sh`, and `clients/player-lynx/scripts/bump-version.sh` share identical parameters and behavior:
 
 ```bash
 ./scripts/bump-version.sh [major|minor|patch|release|X.Y.Z[-prerelease]] [--dry-run] [--yes] [--no-push]
@@ -76,7 +76,7 @@ Once the tag is pushed, [`release.yml`](../.github/workflows/release.yml) automa
 
 ## 🔁 submodule-update.sh
 
-Batch-syncs all submodules (`clients/player` / `plugins/toolchain` / `pkg/tag` / `plugins/src/*` / `jsplugins`, etc.) to their respective main branches:
+Batch-syncs all submodules (`clients/player-flutter` / `plugins/toolchain` / `pkg/tag` / `plugins/src/*` / `jsplugins`, etc.) to their respective main branches:
 
 ```bash
 ./scripts/submodule-update.sh

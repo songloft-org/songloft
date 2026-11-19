@@ -23,7 +23,7 @@ const REPO_BLOB_BASE = 'https://github.com/songloft-org/songloft/blob/main';
 // 并【剥掉前缀】——子模块内部路径不含它。
 const SUBMODULE_BLOB_BASES = [
   { prefix: 'integrations/home-assistant/', base: 'https://github.com/songloft-org/home-assistant-addon/blob/main' },
-  { prefix: 'clients/player/', base: 'https://github.com/songloft-org/songloft-player/blob/main' },
+  { prefix: 'clients/player-flutter/', base: 'https://github.com/songloft-org/songloft-player-flutter/blob/main' },
   { prefix: 'clients/player-lynx/', base: 'https://github.com/songloft-org/songloft-player-lynx/blob/main' },
   { prefix: 'plugins/toolchain/', base: 'https://github.com/songloft-org/plugin-toolchain/blob/main' },
 ];
@@ -56,13 +56,13 @@ const syncItems = [
   { from: 'PRIVACY.en.md', to: 'docs/en/PRIVACY.md',     en: true },
   { from: 'TERMS.en.md',   to: 'docs/en/TERMS.md',       en: true },
 
-  // ── songloft-player 客户端文档 → docs/player/ ──
-  { from: 'clients/player/docs/cn/architecture.md',    to: 'docs/player/architecture.md',    subdir: 'clients/player/docs/cn' },
-  { from: 'clients/player/docs/cn/build_guide.md',     to: 'docs/player/build_guide.md',     subdir: 'clients/player/docs/cn' },
-  { from: 'clients/player/docs/cn/development.md',     to: 'docs/player/development.md',     subdir: 'clients/player/docs/cn' },
-  { from: 'clients/player/docs/cn/platform-notes.md',  to: 'docs/player/platform-notes.md',  subdir: 'clients/player/docs/cn' },
-  { from: 'clients/player/docs/cn/flutter_patcher_hotupdate.md',  to: 'docs/player/flutter_patcher_hotupdate.md',  subdir: 'clients/player/docs/cn' },
-  { from: 'clients/player/docs/cn/backend_hotupdate.md',  to: 'docs/player/backend_hotupdate.md',  subdir: 'clients/player/docs/cn' },
+  // ── songloft-player-flutter 客户端文档 → docs/player/ ──
+  { from: 'clients/player-flutter/docs/cn/architecture.md',    to: 'docs/player/architecture.md',    subdir: 'clients/player-flutter/docs/cn' },
+  { from: 'clients/player-flutter/docs/cn/build_guide.md',     to: 'docs/player/build_guide.md',     subdir: 'clients/player-flutter/docs/cn' },
+  { from: 'clients/player-flutter/docs/cn/development.md',     to: 'docs/player/development.md',     subdir: 'clients/player-flutter/docs/cn' },
+  { from: 'clients/player-flutter/docs/cn/platform-notes.md',  to: 'docs/player/platform-notes.md',  subdir: 'clients/player-flutter/docs/cn' },
+  { from: 'clients/player-flutter/docs/cn/flutter_patcher_hotupdate.md',  to: 'docs/player/flutter_patcher_hotupdate.md',  subdir: 'clients/player-flutter/docs/cn' },
+  { from: 'clients/player-flutter/docs/cn/backend_hotupdate.md',  to: 'docs/player/backend_hotupdate.md',  subdir: 'clients/player-flutter/docs/cn' },
 
   // Lynx 公共指南保持中英对应；内部审计和历史进展继续链接源仓库。
   ...['zh', 'en'].flatMap((lang) => {
@@ -149,7 +149,7 @@ function buildLinkMap() {
 
 function rewriteSubdirLinks(content, { srcFile, subdir }) {
   const linkMap = buildLinkMap();
-  const srcDir = dirname(srcFile);         // e.g. 'integrations/home-assistant' or 'clients/player/docs/cn'
+  const srcDir = dirname(srcFile);         // e.g. 'integrations/home-assistant' or 'clients/player-flutter/docs/cn'
   const dstFile = linkMap.get(srcFile);    // e.g. 'docs/addon/index.md'
   const dstDir = dirname(dstFile);         // e.g. 'docs/addon'
 

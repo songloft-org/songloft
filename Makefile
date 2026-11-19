@@ -64,31 +64,31 @@ build-frontend-web-embedded: ## 构建 Lynx Web（嵌入模式）：隐藏 API �
 
 .PHONY: build-frontend-flutter-web-embedded
 build-frontend-flutter-web-embedded: ## 构建旧 Flutter Web 嵌入版（会覆盖同目录的 Lynx 产物）
-	@$(FRONTEND_ENV) bash clients/player/scripts/build-frontend.sh web-embedded $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
+	@$(FRONTEND_ENV) bash clients/player-flutter/scripts/build-frontend.sh web-embedded $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
 
 .PHONY: build-frontend-web-embedded-debug
 build-frontend-web-embedded-debug: ## 构建旧 Flutter Web 嵌入调试版（含 source map，非默认完整版前端）
-	@$(FRONTEND_ENV) DEBUG=1 bash clients/player/scripts/build-frontend.sh web-embedded $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
+	@$(FRONTEND_ENV) DEBUG=1 bash clients/player-flutter/scripts/build-frontend.sh web-embedded $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
 
 .PHONY: build-frontend-web
 build-frontend-web: ## 构建 Flutter Web 独立部署版（standalone）
-	@$(FRONTEND_ENV) bash clients/player/scripts/build-frontend.sh web $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
+	@$(FRONTEND_ENV) bash clients/player-flutter/scripts/build-frontend.sh web $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
 
 .PHONY: build-frontend-web-debug
 build-frontend-web-debug: ## 构建 Flutter Web 独立部署版（含 source map）：仅本地调试用
-	@$(FRONTEND_ENV) DEBUG=1 bash clients/player/scripts/build-frontend.sh web $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
+	@$(FRONTEND_ENV) DEBUG=1 bash clients/player-flutter/scripts/build-frontend.sh web $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
 
 .PHONY: build-frontend-linux
 build-frontend-linux: ## 构建 Flutter Linux 桌面版
-	@$(FRONTEND_ENV) bash clients/player/scripts/build-frontend.sh linux $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
+	@$(FRONTEND_ENV) bash clients/player-flutter/scripts/build-frontend.sh linux $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
 
 .PHONY: build-frontend-windows
 build-frontend-windows: ## 构建 Flutter Windows 桌面版
-	@$(FRONTEND_ENV) bash clients/player/scripts/build-frontend.sh windows $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
+	@$(FRONTEND_ENV) bash clients/player-flutter/scripts/build-frontend.sh windows $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
 
 .PHONY: build-frontend-macos
 build-frontend-macos: ## 构建 Flutter macOS 桌面版
-	@$(FRONTEND_ENV) bash clients/player/scripts/build-frontend.sh macos $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
+	@$(FRONTEND_ENV) bash clients/player-flutter/scripts/build-frontend.sh macos $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
 
 .PHONY: build-go-mobile-android
 build-go-mobile-android: ## 编译 Go 后端为 Android .aar（gomobile bind）
@@ -97,7 +97,7 @@ build-go-mobile-android: ## 编译 Go 后端为 Android .aar（gomobile bind）
 	gomobile bind -v -target=android/arm64,android/arm,android/amd64 -androidapi 23 \
 		-tags lite \
 		-ldflags="$(LDFLAGS)" \
-		-o clients/player/android/app/libs/songloft.aar ./mobile
+		-o clients/player-flutter/android/app/libs/songloft.aar ./mobile
 	@echo "$(GREEN)✓ Go Android .aar 编译完成$(NC)"
 
 .PHONY: build-go-mobile-ios
@@ -107,51 +107,51 @@ build-go-mobile-ios: ## 编译 Go 后端为 iOS .xcframework（gomobile bind，�
 	gomobile bind -v -target=ios/arm64 \
 		-tags lite \
 		-ldflags="$(LDFLAGS)" \
-		-o clients/player/ios/Songloft.xcframework ./mobile
+		-o clients/player-flutter/ios/Songloft.xcframework ./mobile
 	@printf '%s\n' \
 		'SWIFT_ACTIVE_COMPILATION_CONDITIONS = $$(inherited) HAS_SONGLOFT_BACKEND' \
 		'FRAMEWORK_SEARCH_PATHS = $$(inherited) "$$(SRCROOT)/Songloft.xcframework/ios-arm64"' \
 		'OTHER_LDFLAGS = $$(inherited) -framework Songloft' \
-		> clients/player/ios/Flutter/SongloftBackend.xcconfig
+		> clients/player-flutter/ios/Flutter/SongloftBackend.xcconfig
 	@echo "$(GREEN)✓ Go iOS .xcframework 编译完成$(NC)"
 
 # 桌面端 Go 后端编译（编译为独立可执行文件，与 Flutter 桌面应用打包在一起）
-# 产物输出到 clients/player/{platform}/Runner/ 或同级目录，Flutter build 时自动包含
+# 产物输出到 clients/player-flutter/{platform}/Runner/ 或同级目录，Flutter build 时自动包含
 .PHONY: build-go-desktop-macos
 build-go-desktop-macos: ## 编译 Go 后端为 macOS 可执行文件（嵌入桌面客户端用）
 	@echo "$(BLUE)正在编译 Go 后端 macOS 版本...$(NC)"
-	GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) -tags lite -ldflags="$(LDFLAGS)" -o clients/player/macos/Runner/songloft-server .
+	GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) -tags lite -ldflags="$(LDFLAGS)" -o clients/player-flutter/macos/Runner/songloft-server .
 	@echo "$(GREEN)✓ Go macOS 版本编译完成$(NC)"
 
 .PHONY: build-go-desktop-macos-arm64
 build-go-desktop-macos-arm64: ## 编译 Go 后端为 macOS ARM64 可执行文件
 	@echo "$(BLUE)正在编译 Go 后端 macOS ARM64 版本...$(NC)"
-	GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) -tags lite -ldflags="$(LDFLAGS)" -o clients/player/macos/Runner/songloft-server .
+	GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) -tags lite -ldflags="$(LDFLAGS)" -o clients/player-flutter/macos/Runner/songloft-server .
 	@echo "$(GREEN)✓ Go macOS ARM64 版本编译完成$(NC)"
 
 .PHONY: build-go-desktop-windows
 build-go-desktop-windows: ## 编译 Go 后端为 Windows 可执行文件（嵌入桌面客户端用）
 	@echo "$(BLUE)正在编译 Go 后端 Windows 版本...$(NC)"
-	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -tags lite -ldflags="$(LDFLAGS)" -o clients/player/windows/runner/songloft-server.exe .
+	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -tags lite -ldflags="$(LDFLAGS)" -o clients/player-flutter/windows/runner/songloft-server.exe .
 	@echo "$(GREEN)✓ Go Windows 版本编译完成$(NC)"
 
 .PHONY: build-go-desktop-linux
 build-go-desktop-linux: ## 编译 Go 后端为 Linux 可执行文件（嵌入桌面客户端用）
 	@echo "$(BLUE)正在编译 Go 后端 Linux 版本...$(NC)"
-	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -tags lite -ldflags="$(LDFLAGS)" -o clients/player/linux/runner/songloft-server .
+	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -tags lite -ldflags="$(LDFLAGS)" -o clients/player-flutter/linux/runner/songloft-server .
 	@echo "$(GREEN)✓ Go Linux 版本编译完成$(NC)"
 
 .PHONY: build-frontend-android
 build-frontend-android: ## 构建 Flutter Android 版（APK + AAB）
-	@$(FRONTEND_ENV) bash clients/player/scripts/build-frontend.sh android $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
+	@$(FRONTEND_ENV) bash clients/player-flutter/scripts/build-frontend.sh android $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
 
 .PHONY: build-frontend-ios
 build-frontend-ios: ## 构建 Flutter iOS 版（仅 macOS）
-	@$(FRONTEND_ENV) bash clients/player/scripts/build-frontend.sh ios $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
+	@$(FRONTEND_ENV) bash clients/player-flutter/scripts/build-frontend.sh ios $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
 
 .PHONY: build-frontend-all
 build-frontend-all: ## 构建 Flutter 前端当前系统支持的所有平台
-	@$(FRONTEND_ENV) bash clients/player/scripts/build-frontend.sh all $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
+	@$(FRONTEND_ENV) bash clients/player-flutter/scripts/build-frontend.sh all $(if $(OUTPUT_DIR),$(OUTPUT_DIR),clients/player-build)
 
 .PHONY: build
 build: swagger ## 编译项目（开发环境，完整版本，嵌入前端）

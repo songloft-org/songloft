@@ -14,10 +14,10 @@ Songloft 提供 Flutter、Lynx、Electron 桌面与 TV 客户端，均连接同�
 
 ## Flutter
 
-- [标准版下载](https://github.com/songloft-org/songloft-player/releases/latest)：连接独立服务器。
-- [Bundle 下载](https://github.com/songloft-org/songloft-player/releases/latest)：该仓库 Release 同时发布标准客户端和 `songloft-bundled-*` 包。
-- Android 标准版 `songloft-android.apk` 与 Bundle 版 `songloft-bundled-android.apk` 各用一个通用 APK，均支持 ARM64、ARMv7 和 x86_64。通用包从开发版开始提供。[Flutter 开发版](https://github.com/songloft-org/songloft-player/releases/tag/dev)
-- [架构](player/architecture.md) · [构建](player/build_guide.md) · [源码](https://github.com/songloft-org/songloft-player)。
+- [标准版下载](https://github.com/songloft-org/songloft-player-flutter/releases/latest)：连接独立服务器。
+- [Bundle 下载](https://github.com/songloft-org/songloft-player-flutter/releases/latest)：该仓库 Release 同时发布标准客户端和 `songloft-bundled-*` 包。
+- Android 标准版 `songloft-android.apk` 与 Bundle 版 `songloft-bundled-android.apk` 各用一个通用 APK，均支持 ARM64、ARMv7 和 x86_64。通用包从开发版开始提供。[Flutter 开发版](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)
+- [架构](player/architecture.md) · [构建](player/build_guide.md) · [源码](https://github.com/songloft-org/songloft-player-flutter)。
 
 后端完整镜像与二进制默认嵌入 Lynx Web。Flutter 原生客户端与独立 Web 保留；旧 Flutter 嵌入版可通过 `make build-frontend-flutter-web-embedded` 显式构建。
 

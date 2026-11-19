@@ -446,6 +446,6 @@ handler 无损降级为从头 `ServeFile`）。
 - **`/api/v1/<module>/config` — 模块内配置**：与该模块动作端点强相关的配置保留在模块前缀下，不拆到 `/settings/`。已有 `/cache-manage/config`（与 `stats/clean` 共用 `CacheService`）。判定：孤立或跨模块共享 → `/settings/<name>`；模块内强相关 → `/<module>/config` 或 `/<module>/<sub-name>`。
 - **`/api/v1/configs/{key}` — 通用 KV（仅 admin 编辑器）**：仅供 `config_manager.dart` 这类通用配置编辑器调试。新业务功能**不要直调**：通用 PUT 在 key 不存在时返回 404，且没有强类型、副作用和默认值。业务化封装后通用接口仍可改同一 key，但副作用必须同时挂在 `configHandler.SetOnConfigChanged` 回调（参考 `routers.go` 的 `musicPathChanged`）。
 
-客户端约定：`SettingsApi`（`clients/player/lib/features/settings/data/settings_api.dart`）封装所有 `/settings/*` 调用，业务 Provider 一律走它；`ConfigApi` 只在 `config_manager.dart` 和「列出所有配置」这类 admin UI 中使用。
+客户端约定：`SettingsApi`（`clients/player-flutter/lib/features/settings/data/settings_api.dart`）封装所有 `/settings/*` 调用，业务 Provider 一律走它；`ConfigApi` 只在 `config_manager.dart` 和「列出所有配置」这类 admin UI 中使用。
 
 历史背景：该规范在 2026-06 引入——`hls_proxy_enabled` 默认未预置导致 PUT `/configs/{key}` 返回 404，暴露出 `/configs`、`/settings/*`、`/cache-manage/config` 三种风格并存。最终确定业务端点是用户可见入口的唯一来源，通用 KV 退化为 admin 后门。

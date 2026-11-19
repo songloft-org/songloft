@@ -139,7 +139,7 @@ Does not include the web frontend, smaller in size:
 
 The Flutter and Lynx client repositories build and publish their own Bundle packages. The root repository maintains the Go backend and mobile binding API but does not package client apps. Both clients switch between local and remote modes from the login or settings screen. Android and desktop users choose a music directory the first time local mode is enabled; iOS uses the app's Documents directory:
 
-- Flutter downloads from the [stable Release](https://github.com/songloft-org/songloft-player/releases/latest) or [dev Release](https://github.com/songloft-org/songloft-player/releases/tag/dev).
+- Flutter downloads from the [stable Release](https://github.com/songloft-org/songloft-player-flutter/releases/latest) or [dev Release](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev).
 - Lynx downloads from the [stable Release](https://github.com/songloft-org/songloft-player-lynx/releases/latest) or [dev Release](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev).
 
 | Client and platform | Architecture | Asset under **Assets** |
@@ -176,10 +176,10 @@ The client workflows build the Go backend from the latest commit on the root rep
 
 Beyond the web interface, Songloft also offers a more powerful cross-platform Flutter client that supports background playback, local caching, media controls (headphones/lock screen/notification bar), and other capabilities the server web interface cannot provide — covering all six platforms: iOS, Android, macOS, Windows, Linux, and Web.
 
-🔗 **GitHub repository**: [songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
+🔗 **GitHub repository**: [songloft-org/songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter)
 
-- **Standard edition** (requires a server). The universal Android package `songloft-android.apk` supports ARM64, ARMv7, and x86_64. [Flutter stable release](https://github.com/songloft-org/songloft-player/releases/latest) · [Dev release](https://github.com/songloft-org/songloft-player/releases/tag/dev)
-- **Bundle local mode**: look for the `songloft-bundled-*` files listed above under **Assets** on the [Flutter stable Release](https://github.com/songloft-org/songloft-player/releases/latest) or [dev Release](https://github.com/songloft-org/songloft-player/releases/tag/dev).
+- **Standard edition** (requires a server). The universal Android package `songloft-android.apk` supports ARM64, ARMv7, and x86_64. [Flutter stable release](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · [Dev release](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)
+- **Bundle local mode**: look for the `songloft-bundled-*` files listed above under **Assets** on the [Flutter stable Release](https://github.com/songloft-org/songloft-player-flutter/releases/latest) or [dev Release](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev).
 
 > 🪟 **Windows users**: Install & update via [Scoop](https://scoop.sh). This bucket provides three apps, pick as needed:
 > ```powershell
@@ -191,7 +191,7 @@ Beyond the web interface, Songloft also offers a more powerful cross-platform Fl
 > ```
 > `songloft-server` and `songloft-player` can coexist.
 
-> 💡 When using the **Lite (-lite)** server, we recommend pairing it directly with the Flutter client (no need to deploy a separate web frontend). If you do need a standalone web frontend, refer to the `flutter build web` process in the [songloft-player](https://github.com/songloft-org/songloft-player) repository to build it yourself and serve the static files via a reverse proxy such as Nginx.
+> 💡 When using the **Lite (-lite)** server, we recommend pairing it directly with the Flutter client (no need to deploy a separate web frontend). If you do need a standalone web frontend, refer to the `flutter build web` process in the [songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter) repository to build it yourself and serve the static files via a reverse proxy such as Nginx.
 
 ### 📱 Lynx Client
 

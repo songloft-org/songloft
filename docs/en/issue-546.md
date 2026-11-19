@@ -18,7 +18,7 @@ Flutter (Settings → Account → Permanent access tokens) and Lynx (Settings �
 | Repository | Baseline |
 | --- | --- |
 | songloft-org/songloft | `022a56cebe4b4b6bc1ff7ca043f56d426bddaf71` |
-| songloft-org/songloft-player | `224fec0f74f31139761935c612e1ceb8d8e24717` |
+| songloft-org/songloft-player-flutter | `224fec0f74f31139761935c612e1ceb8d8e24717` |
 | songloft-org/songloft-player-lynx | `1d9317a87ef2967b6acfd90ba6ac8b731fbe5c48` |
 
 Final source fingerprints and log index: `/tmp/songloft-546-verification.json`. Fingerprints cover tracked diffs and untracked source content, excluding this record and progress/handoff documents to avoid self-reference.

@@ -1,6 +1,6 @@
 # Songloft Flutter Frontend Architecture
 
-> **Standalone repository**: [https://github.com/songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
+> **Standalone repository**: [https://github.com/songloft-org/songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter)
 
 This page describes the Flutter client's own architecture and local-mode implementation. The Flutter and Lynx client repositories build and release their own Bundle packages; root Releases do not package client apps. Lynx Android/iOS/Windows/macOS expose local mode from the login and settings screens. See [Bundle Mode](bundle-mode.md) and the [Lynx guides](player-lynx/index.md). Windows/macOS desktop packages now use the client shared publishing workflow, with final device acceptance still in progress.
 
@@ -32,7 +32,7 @@ The Songloft Flutter client supports six platforms: **Android, iOS, macOS, Windo
 ## Directory Structure
 
 ```
-clients/player/lib/
+clients/player-flutter/lib/
 ├── config/                          # App configuration
 │   ├── app_config.dart              # API config, deployment mode, version number
 │   └── constants.dart               # App constants
@@ -561,7 +561,7 @@ SongloftAudioHandler (extends BaseAudioHandler)
 ## Development Commands
 
 ```bash
-cd songloft-player
+cd clients/player-flutter
 flutter pub get                    # Install dependencies
 flutter run -d chrome              # Web debugging (standalone mode)
 flutter run -d chrome --dart-define=DEPLOY_MODE=embedded  # Simulate embedded mode
@@ -597,16 +597,16 @@ make build-frontend-all
 
 # Flutter source local-mode build reference (not used by root Releases)
 # 1. Compile the Go backend into a mobile library / desktop executable
-make build-go-mobile-android       # → clients/player/android/app/libs/songloft.aar
-make build-go-mobile-ios           # → clients/player/ios/Songloft.xcframework (macOS only)
-make build-go-desktop-linux        # → clients/player/linux/songloft-server
-make build-go-desktop-windows      # → clients/player/windows/songloft-server.exe
-make build-go-desktop-macos-arm64  # → clients/player/macos/Runner/songloft-server
+make build-go-mobile-android       # → clients/player-flutter/android/app/libs/songloft.aar
+make build-go-mobile-ios           # → clients/player-flutter/ios/Songloft.xcframework (macOS only)
+make build-go-desktop-linux        # → clients/player-flutter/linux/songloft-server
+make build-go-desktop-windows      # → clients/player-flutter/windows/songloft-server.exe
+make build-go-desktop-macos-arm64  # → clients/player-flutter/macos/Runner/songloft-server
 
 # 2. Build the Flutter client (add --dart-define=HAS_BACKEND=true)
 # Client repositories build Bundle releases through their own workflows; see their release guides
 ```
 
 Prebuilt installer downloads:
-- Standard edition (requires connecting to a server): [https://github.com/songloft-org/songloft-player/releases](https://github.com/songloft-org/songloft-player/releases)
-- Flutter Bundle edition (backend embedded): [Flutter repository Releases](https://github.com/songloft-org/songloft-player/releases/latest) · Lynx Bundle edition (Android/iOS): [Lynx repository Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest)
+- Standard edition (requires connecting to a server): [https://github.com/songloft-org/songloft-player-flutter/releases](https://github.com/songloft-org/songloft-player-flutter/releases)
+- Flutter Bundle edition (backend embedded): [Flutter repository Releases](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · Lynx Bundle edition (Android/iOS): [Lynx repository Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest)

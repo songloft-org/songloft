@@ -24,7 +24,7 @@ var ErrSeekStreamUnavailable = errors.New("seek stream unavailable")
 // 客户端可能仍在读取这条响应。此时绝不能让响应看起来"优雅结束"：ffmpeg 被杀导致音频被截断，
 // 若放任 chunked 响应正常收尾，客户端（如 just_audio 的 LockCachingAudioSource）会把这段
 // 截断内容当作下载成功永久缓存，且后续播放也不会再触发重新转码
-// （songloft-org/songloft-player#35）。调用方收到此错误必须强制断开底层连接（如
+// （songloft-org/songloft-player-flutter#35）。调用方收到此错误必须强制断开底层连接（如
 // http.Hijacker + Close），而不能优雅返回。
 var ErrSeekStreamAborted = errors.New("seek stream aborted by activity cancellation")
 
@@ -165,7 +165,7 @@ func seekStreamTimeout(remainingSecond, speed float64) time.Duration {
 //   - connCtx 是真正的 HTTP 请求/连接 ctx（如 r.Context()），只在客户端真的断开 TCP 连接
 //     时才会 Done。
 //
-// 二者不区分会导致 songloft-org/songloft-player#35：Activate 掐掉 ffmpeg 后，若把这当作
+// 二者不区分会导致 songloft-org/songloft-player-flutter#35：Activate 掐掉 ffmpeg 后，若把这当作
 // "正常结束"，chunked 响应会优雅收尾，客户端（仍连着、仍在读）拿到一段语法完整但内容被
 // 截断的 MP3，误判为下载成功并永久缓存，此后再也不会重新请求转码。
 //

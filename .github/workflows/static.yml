@@ -12,7 +12,7 @@ on:
       # （integrations/home-assistant，不含斜杠），带 /** 的模式要求字面 '/'，永远匹配不上。
       # 加载项文档进文档站 /addon/ 页，指针 bump 后要靠这条触发重新部署。
       - 'integrations/home-assistant'
-      - 'clients/player'
+      - 'clients/player-flutter'
       - 'clients/player-lynx'
       - 'plugins/toolchain'
       - 'README.md'
@@ -69,7 +69,7 @@ jobs:
           submodules: false
 
       - name: Checkout doc submodules
-        run: git submodule update --init --depth 1 clients/player clients/player-lynx plugins/toolchain integrations/home-assistant
+        run: git submodule update --init --depth 1 clients/player-flutter clients/player-lynx plugins/toolchain integrations/home-assistant
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
