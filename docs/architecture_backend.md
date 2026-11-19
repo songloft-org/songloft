@@ -5,7 +5,7 @@
 - **Go 版本**: 1.26+
 - **Web 框架**: Chi v5.2.4
 - **认证方式**: JWT 双 Token 登录 + 可撤销的永久访问 Token（设备集成）
-- **数据库**: SQLite 3 (modernc.org/sqlite v1.49.1，纯 Go CGO-free 实现)
+- **数据库**: SQLite 3。Android x86_64 Bundle 使用 NDK 编译的 go-sqlite3，其余构建使用纯 Go 的 modernc.org/sqlite。
 - **数据库访问栈**:
   - `pressly/goose v3` — schema 迁移（启动时自动 `Up`，文件在 `migrations/000N_xxx.sql`）
   - `sqlc-dev/sqlc` — 固定 SQL 生成类型安全代码（`queries/*.sql` → `sqlc/*.sql.go`，CLI 时生成）
@@ -365,3 +365,5 @@ App 负责从 `database.DB` 获取仓储并装配服务；Service 注入其所�
 歌单封面端点 `/api/v1/playlists/{id}/cover` 的优先级：存在的本地 `cover_path` → 远程 `cover_url` → 按成员顺序选取最多 20 个有封面元数据的候选。候选支持本地、远程及插件相对地址。远程尝试共用 5 秒预算，耗尽后仍可读取本地候选；动态成员封面要求缓存重新验证。
 
 封面支持 `?w=N` 服务端缩略图（CatmullRom 缩放，JPEG 85 质量，不上采样），缩略图通过 `cover_thumb_cache` 磁盘 LRU 缓存（上限 200MB）。
+
+桌面 Bundle 的动态端口、固定构建与可选父进程 stdin EOF 清理契约见[桌面宿主](desktop-host.md)。

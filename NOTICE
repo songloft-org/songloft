@@ -35,6 +35,7 @@ module for the full license text.
   - github.com/go-chi/chi/v5               (MIT)
   - github.com/go-chi/cors                 (MIT)
   - github.com/golang-jwt/jwt/v5           (MIT)
+  - github.com/mattn/go-sqlite3            (MIT, Android x86_64 Bundle)
   - github.com/pressly/goose/v3            (MIT)
   - github.com/saintfish/chardet            (MIT / ICU; full notices below)
   - github.com/swaggo/http-swagger         (MIT)
@@ -55,10 +56,11 @@ Copyright (c) 2017-2024 Fabrice Bellard
 Copyright (c) 2017-2024 Charlie Gordon
 
 --------------------------------------------------------------------------------
-4. SQLite  (bundled as modernc.org/sqlite via cgo-free port)
+4. SQLite
 --------------------------------------------------------------------------------
 SQLite is in the Public Domain. The Go port modernc.org/sqlite is
-distributed under BSD-3-Clause.
+distributed under BSD-3-Clause. The Android x86_64 Bundle driver
+github.com/mattn/go-sqlite3 is distributed under MIT.
 
 --------------------------------------------------------------------------------
 5. Flutter Client  (songloft-org/songloft-player, separate repository)

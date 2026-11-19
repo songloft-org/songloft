@@ -1,8 +1,8 @@
 # Songloft Architecture Overview
 
-Songloft is a self-hosted local music server built with a decoupled frontend/backend architecture. It supports two run modes: **Server Mode** (deploying the Go backend standalone) and **Bundle Local Mode** (embedding the Go backend inside the Flutter client, with no need to deploy a separate server).
+Songloft is a self-hosted local music server built with a decoupled frontend/backend architecture. It supports two run modes: **Server Mode** (deploying the Go backend standalone) and **Bundle Local Mode** (shipping the Go backend with the client, with no separate server deployment). The Flutter and Lynx client repositories each pin a root SHA, build, and publish their own Bundle packages. Root Releases publish backend, container, and server tools only.
 
-Server Mode supports Flutter, ReactLynx, official Electron Desktop, and Android TV clients. Lynx is an Android/iOS/HarmonyOS/Web preview with no desktop or Bundle mode; the client architecture diagram below describes the default Flutter setup.
+Server Mode supports Flutter, ReactLynx, official Electron Desktop, and Android TV clients. Flutter supports Bundle on Android/iOS/macOS/Windows/Linux; Lynx supports Bundle on Android/iOS. Windows/macOS Lynx desktop candidates are pending consolidated acceptance. The client architecture diagram below describes the Flutter client's own architecture.
 
 ## Architecture Documentation Navigation
 
@@ -10,6 +10,7 @@ Server Mode supports Flutter, ReactLynx, official Electron Desktop, and Android 
 - **[Frontend Architecture](./architecture_frontend.md)** - Detailed architecture of the Flutter cross-platform frontend
 - **[Choosing a Client](./clients.md)** - Flutter, Lynx, Electron Desktop, and TV platforms, capabilities, and downloads
 - **[Lynx Client](./player-lynx/index.md)** - Installation, builds, testing, and independent releases
+- **[Bundle Mode](./bundle-mode.md)** - Flutter/Lynx package sources, backend pins, and login/settings entry points
 - **[Color System](./color_system.md)** - Material 3 color system and theming conventions
 - **[Quick Start](./quick-start.md)** - Getting-started guide (generated in sync with README.md)
 

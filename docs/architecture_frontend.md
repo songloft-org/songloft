@@ -2,9 +2,9 @@
 
 > **独立仓库**: [https://github.com/songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
 
-本文描述 Flutter 客户端。ReactLynx + TypeScript 的 Lynx 预览客户端支持 Android/iOS/HarmonyOS/Web，详见[客户端选择](clients.md)及 [Lynx 指南](player-lynx/index.md)；它尚无桌面或 Bundle 本地后端，不沿用下面的 Flutter 目录与构建命令。
+本文描述 Flutter 客户端自身的架构与本地模式实现。Flutter 和 Lynx 客户端仓库分别构建并发布各自的 Bundle 包；主仓库 Release 不打包客户端应用。Lynx Android/iOS 的本地模式入口位于登录页和设置页，详见 [Bundle 模式说明](bundle-mode.md)及 [Lynx 指南](player-lynx/index.md)。Windows/macOS Lynx 桌面候选实现仍待统一验收。
 
-Songloft Flutter 客户端支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。完整版服务器默认嵌入独立的 Lynx Web（`clients/player-lynx`）；旧 Flutter Web 嵌入版仍可显式选择。同时支持 **Bundle 本地模式**：将 Go 后端嵌入 Flutter 客户端（移动端通过 gomobile 原生库，桌面端通过子进程），无需单独部署服务器即可播放本地音乐。
+Songloft Flutter 客户端支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。完整版服务器默认嵌入独立的 Lynx Web（`clients/player-lynx`）；旧 Flutter Web 嵌入版仍可显式选择。Flutter 仓库保留并独立发布 **Bundle 本地模式**客户端；Lynx 仓库也独立发布 Android/iOS Bundle 客户端。Go 后端源码由两个客户端仓库各自的锁文件固定。
 
 ## 技术栈
 
@@ -524,13 +524,13 @@ flutter build windows --dart-define=HAS_BACKEND=true  # Windows
 - **移动端**：Go 后端通过 gomobile 编译为 `.aar`（Android）/ `.xcframework`（iOS），Flutter 通过 `MethodChannel('com.songloft/backend')` 调用 `Start/Stop/IsRunning/GetPort`
 - **桌面端**：Go 后端编译为 `songloft-server` 可执行文件，Flutter 启动时作为子进程运行，通过 stdout 解析监听端口
 - **Web**：不支持 Bundle 模式
-- 本地模式启动流程：申请存储权限 → 启动嵌入后端 `127.0.0.1:<port>` → 健康检查轮询（最多 10 次 × 300ms）→ 自动 `admin/admin` 登录
+- 本地模式启动流程：申请所需存储权限 → 启动嵌入后端并取得动态端口 → 健康检查通过后读取本地后端生成的管理员凭据自动登录；Bundle 不使用服务器默认 `admin/admin`
 - `BackendLifecycle`（WidgetsBindingObserver）监听 App 生命周期，前台恢复时自动重启后端
 - **Android 路径**：Bundle 模式 CWD 是 `/`，covers 等目录必须相对 `DBPath` 解析，不能按 CWD 解析
 - **移动端临时目录**：`mobile.Start` 在服务初始化前创建 `<dataDir>/tmp` 并设置 Go 进程的 `TMPDIR`，供直播转码、下载和封面等临时文件使用；Android 默认 `/data/local/tmp` 对普通应用不可写。`Stop` 保留该环境配置，HLS 服务关闭时清理自己的会话目录。
 - **原生桥接**：Android 用 `Class.forName("mobile.Mobile")` 反射调用 gomobile 生成类，未打包 `.aar` 时 `isAvailable()` 返回 false（优雅降级）；iOS 用 Swift 调用 `MobileStart` 等 Objective-C 函数
-- **桌面子进程**：`DesktopBackendService` 在 Flutter 可执行文件同目录查找 `songloft-server`（macOS 为 `Contents/Resources/`），并从 stdout 解析实际监听端口
-- **CI 产物**：统一以 `songloft-bundled-` 开头；Android/Linux/Windows 带架构，Apple 为 `songloft-bundled-macos.zip`、`songloft-bundled-ios-nosign.ipa`。4 个并行 Job（Android/Linux/Apple/Windows）失败不阻塞主 Release
+- **桌面子进程**：`DesktopBackendService` 在 Flutter 可执行文件同目录查找 `songloft-server`，macOS 另兼容 `Contents/Resources/`，从 stdout 解析实际监听端口
+- **Flutter 发版边界**：本节描述 Flutter 客户端的源码能力。Flutter `build-and-release.yml` 在客户端仓库内固定并构建后端，随 Flutter Release 发布 Android/iOS/macOS/Windows/Linux Bundle 包；Lynx 仓库独立发布 Android/iOS Bundle 包。主仓库 `release.yml` 只处理服务端与容器资产，不构建客户端应用。
 
 ## 歌单标签与续播
 
@@ -595,7 +595,7 @@ make build-frontend-ios
 # 当前系统支持的所有平台
 make build-frontend-all
 
-# Bundle 本地模式（先编译 Go 后端，再构建 Flutter 客户端）
+# Flutter 源码本地模式构建参考（不是主仓库 Release 流程）
 # 1. 编译 Go 后端为移动端库 / 桌面端可执行文件
 make build-go-mobile-android       # → clients/player/android/app/libs/songloft.aar
 make build-go-mobile-ios           # → clients/player/ios/Songloft.xcframework（仅 macOS）
@@ -604,9 +604,9 @@ make build-go-desktop-windows      # → clients/player/windows/songloft-server.
 make build-go-desktop-macos-arm64  # → clients/player/macos/Runner/songloft-server
 
 # 2. 构建 Flutter 客户端（需加 --dart-define=HAS_BACKEND=true）
-# CI 中由 release.yml 的 build-bundled-{android,linux,apple,windows} Job 自动完成
+# Bundle Release 构建由各客户端仓库的 workflow 完成；具体配置见客户端仓库
 ```
 
 预编译安装包下载:
 - 标准版（需连接服务器）: [https://github.com/songloft-org/songloft-player/releases](https://github.com/songloft-org/songloft-player/releases)
-- Bundle 版（内嵌后端）: [https://github.com/songloft-org/songloft/releases](https://github.com/songloft-org/songloft/releases)（`songloft-bundled-*` 文件）
+- Flutter Bundle 版（内嵌后端）：[Flutter 仓库 Releases](https://github.com/songloft-org/songloft-player/releases/latest) · Lynx Bundle 版（Android/iOS）：[Lynx 仓库 Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest)

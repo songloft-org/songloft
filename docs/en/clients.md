@@ -6,8 +6,8 @@ Songloft offers Flutter, Lynx, Electron desktop, and TV clients connecting to th
 | --- | --- | --- | --- | --- |
 | Technology | Flutter / Dart | ReactLynx / TypeScript | Electron | Kotlin / Jetpack Compose for TV |
 | Platforms | Android, iOS, macOS, Windows, Linux, Web | Android, iOS, HarmonyOS, Web | Windows, macOS, Linux | Android 5.0+ TVs / boxes and landscape large-screen devices |
-| Bundled local backend | Supported on mobile and desktop | Not implemented; requires a separate server | Not implemented; requires a separate server | Not implemented; requires a separate server |
-| Desktop client | Supported | Not implemented | Dedicated desktop client | No desktop edition |
+| Bundled local backend | Flutter repository builds Android/iOS/macOS/Windows/Linux Bundle packages | Lynx Android/iOS Releases embed the Go backend | Not implemented; requires a separate server | Not implemented; requires a separate server |
+| Desktop client | Supported | Windows/macOS candidates pending acceptance | Dedicated desktop client | No desktop edition |
 | Client updates | See Flutter's client guides | Download and install again; no in-app update checks yet | See the Electron repository instructions | Update checks in settings |
 | Core features | Playback, library, playlists, lyrics, plugins, themes | Implemented, with native device regression still required | Library, playlists, lyrics, plugins, desktop integration | Remote navigation, music / MV, lyrics, karaoke, QR song requests |
 | License | Apache-2.0 | Apache-2.0 | Apache-2.0 | Apache-2.0 |
@@ -15,7 +15,7 @@ Songloft offers Flutter, Lynx, Electron desktop, and TV clients connecting to th
 ## Flutter
 
 - [Standalone downloads](https://github.com/songloft-org/songloft-player/releases/latest): connect to a separate server.
-- [Bundle downloads](https://github.com/songloft-org/songloft/releases/latest): choose `songloft-bundled-*` assets.
+- [Bundle downloads](https://github.com/songloft-org/songloft-player/releases/latest): the repository releases both standard clients and `songloft-bundled-*` packages.
 - [Architecture (Chinese)](../player/architecture.md) · [Build guide (Chinese)](../player/build_guide.md) · [Source](https://github.com/songloft-org/songloft-player).
 
 Full backend images/binaries embed Lynx Web by default. Native Flutter and standalone Web remain available; explicitly build legacy embedded Flutter Web with `make build-frontend-flutter-web-embedded`.
@@ -26,14 +26,15 @@ Underlying technology: [Lynx official website](https://lynxjs.org/) · [ReactLyn
 
 - [Development downloads](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev): main code pushes build automatically; all five packages must pass before downloads update.
 - [Stable releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest): version tags trigger publication; packages may not exist before the first successful release.
+- Lynx Android/iOS Releases include the Go backend and local-mode entry points; the root repository does not build or publish client apps.
 - [Overview](player-lynx/index.md) · [Installation](player-lynx/installation.md) · [Build](player-lynx/build-and-run.md) · [Testing](player-lynx/testing.md) · [Releasing](player-lynx/releasing.md) · [Contributing](player-lynx/contributing.md).
 
 | Platform                 | Package                                          | Limits                                                                      |
 | ------------------------ | ------------------------------------------------ | --------------------------------------------------------------------------- |
-| Android 5.0+             | `songloft-lynx-android.apk`                      | Release-signed; upgrades require the same key and a newer build number      |
-| iOS 15+                  | `songloft-lynx-ios-nosign.ipa`                   | Unsigned; re-sign before installation. Live Activity needs iOS 16.2+        |
+| Android 6.0+             | `songloft-lynx-android.apk` | Includes the local backend; upgrades require the same key and a newer build number |
+| iOS 15+                  | `songloft-lynx-ios-nosign.ipa` | Unsigned; re-sign before installation. Live Activity needs iOS 16.2+ |
 | HarmonyOS NEXT / API 13+ | `songloft-lynx-harmony.hap`                      | Experimental; profile controls eligible devices. No fullscreen video        |
-| Web                      | `songloft-lynx-web-{standalone,embedded}.tar.gz` | Core flows support ordinary HTTP; HTTPS enables clipboard/wake lock; no Bundle, DLNA, or single-song offline cache |
+| Web                      | `songloft-lynx-web-{standalone,embedded}.tar.gz` | Requires a server; core flows support ordinary HTTP; no DLNA or single-song offline cache |
 
 Releases include `version.json` and `checksums.txt`. Downloadable dev packages are also Release builds with no TCP/E2E bridge.
 
@@ -66,4 +67,4 @@ See [Third-party Clients in the quick start](quick-start.md#🌐-third-party-cli
 
 Preview a Lynx release in its own repository with `pnpm run release patch --dry-run`. Actual release synchronizes versions and atomically pushes main and its version tag. A client release does not require changing the server version.
 
-Public guides are synced from the `clients/player-lynx` submodule to `/player-lynx/` and `/en/player-lynx/`. Edit, commit, and push the source repository, then update its submodule pointer in the parent. Do not edit generated site pages. Actions/Release are authoritative for builds and signing; background playback, notifications, and casting also need device validation.
+Public guides are synced from the `clients/player-lynx` submodule to `/player-lynx/` and `/en/player-lynx/`. Edit, commit, and push the source repository, then update its submodule pointer in the parent. Do not edit generated site pages. The Flutter and Lynx client repositories each build Go from a pinned root SHA and publish their own Bundle clients. Root Releases publish server/container assets only, not client installers.

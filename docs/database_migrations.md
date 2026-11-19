@@ -12,6 +12,8 @@
 
 入口在 `internal/database/sqlite.go` 的 `Open()`:启动时自动 `goose.Up` 到最新版本,无须手工触发。
 
+Android x86_64 Bundle 通过 cgo 使用在 Android NDK 下构建的 SQLite 驱动。该架构的 Android 应用沙盒不接受纯 Go 驱动使用的旧版 Linux `lstat` 系统调用。两种驱动共用数据库文件、迁移、连接级 PRAGMA 和排序函数，可用相同的 Repository 验证数据。其余构建继续使用 modernc.org/sqlite。
+
 ## 新增 schema 变更(加表 / 加字段 / 加索引)
 
 ### 1. 新建迁移文件

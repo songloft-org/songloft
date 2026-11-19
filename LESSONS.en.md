@@ -10,6 +10,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### BUNDLE-ANDROID-001: Verify embedded SQLite inside the app sandbox
+
+- Scope: Flutter and Lynx Android x86_64 Bundle builds. Backend commits `8c014b342ea69683293fec729e9396a925b94e66` and `81204e279428db3565f4c33df176a76f7fbf4514` use the same modernc SQLite and libc versions.
+- Evidence: Go libraries taken from the published Flutter 2.13.12 APK and the Lynx candidate APK both terminated on the legacy Linux `lstat` call in the same test app on an Android 14 x86_64 emulator. The library with the Android NDK SQLite driver returned health check HTTP 200 in that host. See `/tmp/songloft-bundle-build.v9dPHY/sqlite-android-harness/{results,crashes}.log`.
+- Rule: Limit the fix to the verified Android x86_64 gomobile path and reuse the existing SQLite files, migrations and sort functions. Record driver selection on the other architectures. Check APK builds and backend startup separately, and verify the complete UI on a device.
+- Seen 1× (2026-11-18).
+
 ### RADIO-001: A radio entry point's URL suffix can differ from its media format
 
 - Scope: [songloft-org/songloft#578](https://github.com/songloft-org/songloft/issues/578), radio playback URLs and server-side audio extraction, baseline `81204e279428db3565f4c33df176a76f7fbf4514`.
@@ -337,6 +344,14 @@ Both clients pass Chinese/English 390px browser checks for name order in both di
 - Evidence: the server exports `BackupVersion = 2` and accepts v1/v2; Lynx `data-transfer.ts` accepts only v1 in `validateBackup`, used for import files and export responses. Node 22.17.1 transpiled and ran the actual `jsonMultipart` and `PlaylistBackupApi.exportBackup` with fixture transport: both v1 paths pass, both v2 paths throw `invalid_json`. Evidence: `/tmp/songloft-doc-sync-backup-probe.{cjs,json}`; this is not browser or live-server end-to-end validation.
 - Rule and Done right: check server export/import, client pre-upload validation and post-download validation when upgrading a format. Map cross-instance tags by name; do not manually change version numbers. At the user's request, validation now accepts v1/v2. Three v2 regressions fail on old code; all 28 focused checks pass after the fix. A real Web download was imported across two temporary backends: tag ID 1 remapped to 2 with correct song/playlist references. v1 succeeds; v3 is rejected before upload. Evidence: `/tmp/songloft-backup-v2/roundtrip.json`; full checks: [client verification](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/en/project/backup-v2.md).
 - Seen 1× (2026-11-15). Status: compatibility repair and actual browser acceptance complete, uncommitted/unreleased; this follow-up does not increment Seen.
+
+### BACKEND-001: Wait for HTTP listener registration before parent-exit cleanup
+
+- Scope: the desktop Bundle child process and `internal/app.App.Start`.
+- Evidence: source review on 2026-11-18 found that parent-stdin EOF can arrive before `App.Start` creates the `http.Server`. If the exit goroutine calls `Shutdown` first, it closes the database and `Start` may then begin listening, leaving an unusable orphan service.
+- Rule and fix: begin reading the parent pipe before app initialization, but defer exit cleanup until the HTTP server has registered its listener and entered `Accept`. `StartWithReady` and `readyListener` put the signal after the server tracks the listener; the existing `Start` contract remains intact.
+- Done right: Go source is gofmt-formatted, and the EOF → ready callback → `Shutdown` order can be reviewed in source. Not run: Go tests, build, or a host-crash/startup race process check.
+- Seen 1× (2026-11-18). Status: lesson; cross-platform process verification remains for final acceptance.
 
 ## Entry Format
 

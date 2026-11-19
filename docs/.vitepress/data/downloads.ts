@@ -1,5 +1,5 @@
 // 落地页「安装选择器」的结构化数据。数据来自仓库 README.md 的下载表。
-// 服务端与 Bundle 资产走主仓库 releases/latest/download，独立客户端走各自 Release。
+// 服务端资产走主仓库。客户端及其 Bundle 包走各自的 Release。
 
 export type Lang = 'zh' | 'en'
 export interface L { zh: string; en: string }
@@ -226,43 +226,26 @@ export const INSTALL: InstallMethod[] = [
   {
     id: 'bundle',
     label: { zh: 'Bundle 版', en: 'Bundle' },
-    tagline: { zh: '内嵌后端 · 免部署服务器', en: 'Embedded backend · no server' },
+    tagline: { zh: '客户端仓库独立打包 · 免部署服务器', en: 'Built by each client repository · no server' },
     icon: 'package',
-    kind: 'download',
+    kind: 'external',
     note: {
-      zh: '首次启动在登录页点「使用本地模式」→ 选择音乐目录即可，随时可在设置切换本地/远程。',
-      en: 'On first launch tap "Local mode" on the login page and pick a music folder.',
+      zh: 'Flutter 与 Lynx 各自在客户端仓库构建 Bundle 包，并固定 Go 后端源码版本。登录页或设置页切换本地/远程模式；Android 和桌面首次启用时选择音乐目录，iOS 使用应用 Documents 目录。',
+      en: 'Flutter and Lynx build Bundle packages in their own client repositories and pin the Go backend source. Switch modes on the login or settings screen; Android and desktop choose a music folder the first time, while iOS uses the app Documents directory.',
     },
-    groups: [
+    external: [
       {
-        os: 'android',
-        osLabel: { zh: 'Android', en: 'Android' },
-        icon: 'android',
-        assets: [a('arm64', { zh: 'ARM64 + ARMv7', en: 'ARM64 + ARMv7' }, 'songloft-bundled-android-arm64-v8a.apk')],
+        label: { zh: 'Flutter Bundle 下载', en: 'Flutter Bundle downloads' },
+        url: 'https://github.com/songloft-org/songloft-player/releases/latest',
+        primary: true,
       },
       {
-        os: 'ios',
-        osLabel: { zh: 'iOS', en: 'iOS' },
-        icon: 'apple',
-        assets: [a('arm64', { zh: 'ARM64', en: 'ARM64' }, 'songloft-bundled-ios-arm64.ipa')],
+        label: { zh: 'Lynx Bundle 下载', en: 'Lynx Bundle downloads' },
+        url: 'https://github.com/songloft-org/songloft-player-lynx/releases/latest',
       },
       {
-        os: 'macos',
-        osLabel: { zh: 'macOS', en: 'macOS' },
-        icon: 'apple',
-        assets: [a('arm64', { zh: 'Apple Silicon', en: 'Apple Silicon' }, 'songloft-bundled-macos-arm64.dmg')],
-      },
-      {
-        os: 'windows',
-        osLabel: { zh: 'Windows', en: 'Windows' },
-        icon: 'windows',
-        assets: [a('amd64', { zh: 'x86_64', en: 'x86_64' }, 'songloft-bundled-windows-x64.zip')],
-      },
-      {
-        os: 'linux',
-        osLabel: { zh: 'Linux', en: 'Linux' },
-        icon: 'linux',
-        assets: [a('amd64', { zh: 'x86_64', en: 'x86_64' }, 'songloft-bundled-linux-x64.tar.gz')],
+        label: { zh: '模式说明', en: 'Bundle mode guide' },
+        url: { zh: '/bundle-mode', en: '/en/bundle-mode' },
       },
     ],
   },
@@ -294,8 +277,7 @@ export const INSTALL: InstallMethod[] = [
         code:
           'scoop bucket add songloft https://github.com/songloft-org/songloft-scoop\n' +
           'scoop install songloft-player    # Flutter 客户端（GUI，需连接服务器）\n' +
-          'scoop install songloft-server    # 服务端（CLI，仅命令行程序）\n' +
-          'scoop install songloft-bundled   # Bundle 版（服务端 + 客户端一体化）',
+          'scoop install songloft-server    # 服务端（CLI，仅命令行程序）',
       },
       {
         group: { zh: 'Windows · Scoop', en: 'Windows · Scoop' },
@@ -303,16 +285,6 @@ export const INSTALL: InstallMethod[] = [
         code:
           'scoop update songloft-player     # 其余同理\n' +
           'scoop uninstall songloft-player  # 加 --purge 一并删除配置数据',
-      },
-      {
-        group: { zh: 'Windows · Scoop', en: 'Windows · Scoop' },
-        title: {
-          zh: '⚠️ 注意：songloft-bundled 与 songloft-server、songloft-player 不能同时安装',
-          en: '⚠️ Note: songloft-bundled conflicts with songloft-server and songloft-player',
-        },
-        code:
-          '# songloft-bundled 与 songloft-server、songloft-player 存在文件冲突，不能同时安装\n' +
-          '# songloft-server 与 songloft-player 可以共存',
       },
     ],
   },
@@ -323,8 +295,8 @@ export const INSTALL: InstallMethod[] = [
     icon: 'smartphone',
     kind: 'external',
     note: {
-      zh: '需连接服务器，无 Bundle 或桌面版。iOS IPA 需自行重签；HarmonyOS 为实验性支持。dev 仅在五包全部成功后更新，首次发版前可能没有正式包。Web 核心流程支持普通 HTTP，不强制 COOP/COEP；剪贴板和常亮等能力需安全上下文，详见安装指南。',
-      en: 'Requires a server; no Bundle or desktop edition. iOS IPA needs re-signing; HarmonyOS is experimental. Dev updates only after all five packages succeed; stable packages may not exist yet. Core Web flows support ordinary HTTP without mandatory COOP/COEP; clipboard and wake-lock features need a secure context. See the installation guide.',
+      zh: 'Lynx Android/iOS Release 包含 Go 后端，Flutter Bundle 包在 Flutter 仓库单独发布；两个客户端仓库均固定后端源码 SHA。Windows/macOS Lynx 桌面仍待统一验收。iOS IPA 需自行重签；HarmonyOS 为实验性支持。Web 核心流程支持普通 HTTP，不强制 COOP/COEP。',
+      en: 'Lynx Android/iOS releases include the Go backend; Flutter Bundle packages are published separately by the Flutter repository. Both client repositories pin the backend SHA. Windows/macOS Lynx desktop remains pending consolidated acceptance. iOS IPA needs re-signing; HarmonyOS is experimental. Core Web flows support ordinary HTTP without mandatory COOP/COEP.',
     },
     external: [
       {

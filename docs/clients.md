@@ -6,8 +6,8 @@ Songloft 提供 Flutter、Lynx、Electron 桌面与 TV 客户端，均连接同�
 | --- | --- | --- | --- | --- |
 | 技术 | Flutter / Dart | ReactLynx / TypeScript | Electron | Kotlin / Jetpack Compose for TV |
 | 平台 | Android、iOS、macOS、Windows、Linux、Web | Android、iOS、HarmonyOS、Web | Windows、macOS、Linux | Android 5.0+ 电视 / 盒子及横屏大屏设备 |
-| Bundle 本地后端 | 支持移动端与桌面端 | 未实现，需独立服务器 | 未实现，需独立服务器 | 未实现，需独立服务器 |
-| 桌面客户端 | 支持 | 未实现 | 专用桌面客户端 | 无桌面版 |
+| Bundle 本地后端 | Flutter 客户端仓库构建 Android/iOS/macOS/Windows/Linux Bundle 包 | Lynx 客户端仓库的 Android/iOS Release 内嵌 Go 后端 | 未实现，需独立服务器 | 未实现，需独立服务器 |
+| 桌面客户端 | 支持 | Windows/macOS 候选包待验收 | 专用桌面客户端 | 无桌面版 |
 | 客户端更新 | 以 Flutter 客户端指南为准 | 重新下载并安装，尚无客户端内检查更新 | 以 Electron 仓库说明为准 | 设置页检查更新 |
 | 核心功能 | 播放、曲库、歌单、歌词、插件、主题等 | 已有对应实现，仍需原生设备回归 | 曲库、歌单、歌词、插件与桌面集成 | 遥控器导航、音乐 / MV、歌词、K 歌与扫码点歌 |
 | 许可证 | Apache-2.0 | Apache-2.0 | Apache-2.0 | Apache-2.0 |
@@ -15,7 +15,7 @@ Songloft 提供 Flutter、Lynx、Electron 桌面与 TV 客户端，均连接同�
 ## Flutter
 
 - [标准版下载](https://github.com/songloft-org/songloft-player/releases/latest)：连接独立服务器。
-- [Bundle 下载](https://github.com/songloft-org/songloft/releases/latest)：选择 `songloft-bundled-*` 文件。
+- [Bundle 下载](https://github.com/songloft-org/songloft-player/releases/latest)：该仓库 Release 同时发布标准客户端和 `songloft-bundled-*` 包。
 - [架构](player/architecture.md) · [构建](player/build_guide.md) · [源码](https://github.com/songloft-org/songloft-player)。
 
 后端完整镜像与二进制默认嵌入 Lynx Web。Flutter 原生客户端与独立 Web 保留；旧 Flutter 嵌入版可通过 `make build-frontend-flutter-web-embedded` 显式构建。
@@ -26,14 +26,15 @@ Songloft 提供 Flutter、Lynx、Electron 桌面与 TV 客户端，均连接同�
 
 - [开发版下载](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)：main 代码推送后构建，五个包全部成功才更新。
 - [正式版本](https://github.com/songloft-org/songloft-player-lynx/releases/latest)：版本 tag 触发；首次成功发布前可能没有正式包。
+- Lynx 仓库的 Android/iOS Release 包含 Go 后端和本地模式入口；主仓库不构建或发布客户端应用。
 - [客户端概览](player-lynx/index.md) · [安装](player-lynx/installation.md) · [构建](player-lynx/build-and-run.md) · [测试](player-lynx/testing.md) · [发版](player-lynx/releasing.md) · [贡献](player-lynx/contributing.md)。
 
 | 平台                     | 产物                                             | 使用边界                                                |
 | ------------------------ | ------------------------------------------------ | ------------------------------------------------------- |
-| Android 5.0+             | `songloft-lynx-android.apk`                      | release 签名，覆盖升级需相同签名与较新构建号            |
-| iOS 15+                  | `songloft-lynx-ios-nosign.ipa`                   | 未签名，安装前需自行重签；Live Activity 需 iOS 16.2+    |
+| Android 6.0+             | `songloft-lynx-android.apk` | Lynx 包含本地后端；覆盖升级需相同签名与较新构建号 |
+| iOS 15+                  | `songloft-lynx-ios-nosign.ipa` | 未签名，安装前需自行重签；Live Activity 需 iOS 16.2+ |
 | HarmonyOS NEXT / API 13+ | `songloft-lynx-harmony.hap`                      | 实验性；签名 profile 决定可安装设备范围，全屏视频未实现 |
-| Web                      | `songloft-lynx-web-{standalone,embedded}.tar.gz` | 当前核心流程支持普通 HTTP；HTTPS 用于剪贴板和常亮等能力，无 Bundle、DLNA 或单曲离线缓存 |
+| Web                      | `songloft-lynx-web-{standalone,embedded}.tar.gz` | 需连接服务器；当前核心流程支持普通 HTTP；无 DLNA 或单曲离线缓存 |
 
 每个 Release 同时提供 `version.json` 与 `checksums.txt`。dev 下载包同样是 Release 构建，不开放 TCP/E2E 测试桥。
 
@@ -66,4 +67,4 @@ Web standalone 显示服务器地址输入；embedded 使用同源服务器并�
 
 Lynx 在自己的仓库使用 `pnpm run release patch --dry-run` 审核发版计划，实际发版同步版本并原子推送 main 与版本 tag。无需为客户端发版同步修改服务端版本。
 
-本站的 Lynx 公共指南从 `clients/player-lynx` 子模块自动同步，中文在 `/player-lynx/`、英文在 `/en/player-lynx/`。编辑源仓库、提交推送后，在主工程更新子模块指针；不要手改生成的文档站页面。平台编译和签名结果以该仓库 Actions/Release 为准，后台播放、通知、投屏等还需真机验证。
+本站的 Lynx 公共指南从 `clients/player-lynx` 子模块自动同步，中文在 `/player-lynx/`、英文在 `/en/player-lynx/`。编辑源仓库、提交推送后，在主工程更新子模块指针；不要手改生成的文档站页面。Flutter 与 Lynx 客户端仓库都从各自锁定的主仓库 SHA 构建 Go 后端并发布自己的客户端 Bundle 包；主仓库 Release 只发布服务端与容器资产，不发布客户端安装包。

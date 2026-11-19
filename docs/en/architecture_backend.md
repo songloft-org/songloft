@@ -5,7 +5,7 @@
 - **Go version**: 1.26+
 - **Web framework**: Chi v5.2.4
 - **Authentication**: JWT dual-token login plus revocable permanent access tokens for integrations
-- **Database**: SQLite 3 (modernc.org/sqlite v1.49.1, pure-Go CGO-free implementation)
+- **Database**: SQLite 3. Android x86_64 Bundle uses go-sqlite3 built with the NDK. Other builds use the pure-Go modernc.org/sqlite driver.
 - **Database access stack**:
   - `pressly/goose v3` — schema migrations (auto `Up` on startup, files in `migrations/000N_xxx.sql`)
   - `sqlc-dev/sqlc` — generates type-safe code from fixed SQL (`queries/*.sql` → `sqlc/*.sql.go`, generated at CLI time)
@@ -365,3 +365,5 @@ Song cover endpoint `/api/v1/songs/{id}/cover` priority: local `CoverPath` → p
 Playlist cover endpoint `/api/v1/playlists/{id}/cover` priority: existing local `cover_path` → remote `cover_url` → up to 20 members that have cover metadata in playlist order. Candidates support local, remote and plugin-relative covers. Remote attempts share a five-second budget; local fallbacks remain readable after it expires. Dynamic member covers require cache revalidation.
 
 Covers support `?w=N` server-side thumbnailing (CatmullRom scaling, JPEG quality 85, no upscaling), with thumbnails cached via `cover_thumb_cache` disk LRU (200 MB cap).
+
+See the [desktop host contract](desktop-host.md) for Bundle dynamic ports, pinned builds and optional parent-stdin EOF cleanup.

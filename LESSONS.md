@@ -10,6 +10,13 @@
 
 ## 条目
 
+### BUNDLE-ANDROID-001：在应用沙盒内验证内嵌 SQLite
+
+- 范围：Flutter 与 Lynx 的 Android x86_64 Bundle。比对后端提交 `8c014b342ea69683293fec729e9396a925b94e66` 和 `81204e279428db3565f4c33df176a76f7fbf4514`，两包的 modernc SQLite 和 libc 版本一致。
+- 证据：在同一个 Android 14 x86_64 模拟器上，将 Flutter 2.13.12 公开 APK 和 Lynx 候选 APK 的 Go 库分别放入同样的应用测试宿主。两者在启动后端时均因旧 Linux `lstat` 被沙盒终止。使用 Android NDK 的 SQLite 驱动的候选库在同一宿主返回健康检查 200。证据见 `/tmp/songloft-bundle-build.v9dPHY/sqlite-android-harness/{results,crashes}.log`。
+- 规则：把修复限定在验证过的 Android x86_64 gomobile 路径，复用既有 SQLite 文件、迁移与排序函数。附带记录其他架构选择的驱动。APK 构建通过与实际启动分别验证，完整界面仍需设备验收。
+- Seen 1× (2026-11-18)。
+
 ### RADIO-001：电台入口的 URL 后缀可能与实际媒体容器不同
 
 - 范围：[songloft-org/songloft#578](https://github.com/songloft-org/songloft/issues/578)，电台播放 URL 与服务端音轨提取，基线 `81204e279428db3565f4c33df176a76f7fbf4514`。
@@ -344,6 +351,14 @@
 - 证据：2026-11-15 bili 迁移中，原生/Web bundle 构建通过，但真实 Chromium 121 回退页因插件 `<base>`、相对 Worker 地址、缺失桥接模块及 COEP 下 srcdoc 初始化停滞而空白。去除回退页 COEP 的隔离对比能加载 bundle 并执行真实插件 API；记录见插件 `VERIFICATION.md` 与 `/tmp/songloft-bili-verification/`。
 - 规则与 Done right：先安装桥接再加载绝对 bundle 地址；模块由公共资源端点提供，资源路径包含部署子路径，无版本桥接资源不得 immutable 缓存。原生 frame 和 HTML 回退分别验证渲染、真实 GET/POST 与持久化，不能仅依据编译通过。普通 WebView 保留 COEP；Lynx HTML 回退例外及隔离宿主跨源嵌入限制明确写入插件指南。
 - Seen 1× (2026-11-15)。状态：本次工作树修复，未提交/发布；Flutter 真机及真实 B 站账号导入/下载未验。
+
+### BACKEND-001：父进程退出清理必须等待 HTTP listener 注册
+
+- 范围：桌面 Bundle 子进程与 `internal/app.App.Start`。
+- 证据：2026-11-18 源码审查发现，parent stdin EOF 可早于 `App.Start` 创建 `http.Server`；若退出 goroutine 先调用 `Shutdown`，它会关闭数据库，随后 `Start` 仍可能开始监听，留下不可用的孤儿服务。
+- 规则与修复：父管道应在应用初始化前开始读取，但退出清理必须等 HTTP Server 注册 listener 并进入 `Accept` 后再执行。新增 `StartWithReady` 与 `readyListener` 将就绪信号放在 Server 已追踪 listener 的边界；通用 `Start` 保持原契约。
+- Done right：本次 Go 源已 `gofmt`，可在源码中检查 EOF → ready callback → `Shutdown` 顺序。Not run：Go 测试、构建、宿主崩溃/启动竞态进程验收。
+- Seen 1× (2026-11-18)。状态：经验，跨平台进程验证待最终验收。
 
 ## 条目格式
 

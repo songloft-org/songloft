@@ -12,6 +12,8 @@ Covers three things: **adding schema changes**, **adding/modifying SQL queries**
 
 The entry point is `Open()` in `internal/database/sqlite.go`: on startup it automatically runs `goose.Up` to the latest version, no manual trigger needed.
 
+Android x86_64 Bundle uses a cgo SQLite driver built with the Android NDK. The app sandbox on that architecture rejects the legacy Linux `lstat` syscall used by the pure-Go driver. Both drivers use the same database files, migrations, per-connection PRAGMAs, sort functions and repositories. Other builds continue to use modernc.org/sqlite.
+
 ## Adding a Schema Change (add table / add column / add index)
 
 ### 1. Create a new migration file
