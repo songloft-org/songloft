@@ -2,7 +2,7 @@
 
 [English](en/desktop-host.md)
 
-Windows/macOS Lynx 实现在 [客户端子仓库](https://github.com/songloft-org/songloft-player-lynx)；主仓库保持 HTTP API 不变，提供 lite 可执行文件、动态端口和可选的父进程退出监测。当前实现尚未完成正式桌面分发验收。
+Windows/macOS Lynx 实现在 [客户端子仓库](https://github.com/songloft-org/songloft-player-lynx)；主仓库保持 HTTP API 不变，提供 lite 可执行文件、动态端口和可选的父进程退出监测。桌面包已由客户端共享工作流发布，正式签名/公证和最终设备验收仍开放。
 
 宿主以绝对 `-db`、`-music` 路径及 `-port 0 -parent-watch-stdin` 启动匹配架构的后端，工作目录为应用数据目录。后端监听后输出实际端口，宿主还须通过 `/api/v1/health` 才可自动登录。随机管理员凭据使用 `ADMIN_USERNAME/ADMIN_PASSWORD` 环境变量传入，禁止将密码放进命令行或普通日志。音乐目录与数据库、插件、缓存目录分离。Bundle 本地服务按桌面产品约定监听所有网卡并允许局域网访问；UI 显示实际可用的局域网地址，密码只通过凭据库提供给本机自动登录流程。
 

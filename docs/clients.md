@@ -2,13 +2,13 @@
 
 Songloft 提供 Flutter、Lynx、Electron 桌面与 TV 客户端，均连接同一后端；发布包和能力范围分别维护。
 
-| 项目 | Flutter | Lynx（预览版） | Songloft Desktop | Songloft TV |
+| 项目 | Flutter | Lynx | Songloft Desktop | Songloft TV |
 | --- | --- | --- | --- | --- |
 | 技术 | Flutter / Dart | ReactLynx / TypeScript | Electron | Kotlin / Jetpack Compose for TV |
 | 平台 | Android、iOS、macOS、Windows、Linux、Web | Android、iOS、HarmonyOS、Web | Windows、macOS、Linux | Android 5.0+ 电视 / 盒子及横屏大屏设备 |
-| Bundle 本地后端 | Flutter 客户端仓库构建 Android/iOS/macOS/Windows/Linux Bundle 包 | Lynx 客户端仓库的 Android/iOS Release 内嵌 Go 后端 | 未实现，需独立服务器 | 未实现，需独立服务器 |
-| 桌面客户端 | 支持 | Windows/macOS 候选包待验收 | 专用桌面客户端 | 无桌面版 |
-| 客户端更新 | 以 Flutter 客户端指南为准 | 重新下载并安装，尚无客户端内检查更新 | 以 Electron 仓库说明为准 | 设置页检查更新 |
+| Bundle 本地后端 | Flutter 客户端仓库构建 Android/iOS/macOS/Windows/Linux Bundle 包 | Lynx 客户端仓库的 Android/iOS/Windows/macOS Release 内嵌 Go 后端 | 未实现，需独立服务器 | 未实现，需独立服务器 |
+| 桌面客户端 | 支持 | Windows/macOS 包已接入共享发布流程，最终设备验收进行中 | 专用桌面客户端 | 无桌面版 |
+| 客户端更新 | 以 Flutter 客户端指南为准 | 移动端按 Release 更新，桌面端支持按架构清单的客户端内更新 | 以 Electron 仓库说明为准 | 设置页检查更新 |
 | 核心功能 | 播放、曲库、歌单、歌词、插件、主题等 | 已有对应实现，仍需原生设备回归 | 曲库、歌单、歌词、插件与桌面集成 | 遥控器导航、音乐 / MV、歌词、K 歌与扫码点歌 |
 | 许可证 | Apache-2.0 | Apache-2.0 | Apache-2.0 | Apache-2.0 |
 
@@ -21,13 +21,13 @@ Songloft 提供 Flutter、Lynx、Electron 桌面与 TV 客户端，均连接同�
 
 后端完整镜像与二进制默认嵌入 Lynx Web。Flutter 原生客户端与独立 Web 保留；旧 Flutter 嵌入版可通过 `make build-frontend-flutter-web-embedded` 显式构建。
 
-## Lynx 预览版
+## Lynx 客户端
 
 底层技术：[Lynx 官网](https://lynxjs.org/) · [ReactLynx 官方文档](https://lynxjs.org/react/)。
 
-- [开发版下载](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)：main 代码推送后构建，五个包全部成功才更新。
+- [开发版下载](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)：共享工作流构建 Windows x64、macOS arm64/x64、Android、iOS、HarmonyOS 和 Web，全部成功才更新。
 - [正式版本](https://github.com/songloft-org/songloft-player-lynx/releases/latest)：版本 tag 触发；首次成功发布前可能没有正式包。
-- Lynx 仓库的 Android/iOS Release 包含 Go 后端和本地模式入口；主仓库不构建或发布客户端应用。
+- Lynx 仓库 Release 包含 Go 后端和本地模式入口，桌面包同时提供 Windows NSIS、macOS DMG/ZIP 和按架构更新清单；主仓库不构建或发布客户端应用。
 - [客户端概览](player-lynx/index.md) · [安装](player-lynx/installation.md) · [构建](player-lynx/build-and-run.md) · [测试](player-lynx/testing.md) · [发版](player-lynx/releasing.md) · [贡献](player-lynx/contributing.md)。
 
 | 平台                     | 产物                                             | 使用边界                                                |

@@ -2,13 +2,13 @@
 
 Songloft offers Flutter, Lynx, Electron desktop, and TV clients connecting to the same backend. Their packages and capability scopes are maintained separately.
 
-| Item | Flutter | Lynx (preview) | Songloft Desktop | Songloft TV |
+| Item | Flutter | Lynx | Songloft Desktop | Songloft TV |
 | --- | --- | --- | --- | --- |
 | Technology | Flutter / Dart | ReactLynx / TypeScript | Electron | Kotlin / Jetpack Compose for TV |
 | Platforms | Android, iOS, macOS, Windows, Linux, Web | Android, iOS, HarmonyOS, Web | Windows, macOS, Linux | Android 5.0+ TVs / boxes and landscape large-screen devices |
-| Bundled local backend | Flutter repository builds Android/iOS/macOS/Windows/Linux Bundle packages | Lynx Android/iOS Releases embed the Go backend | Not implemented; requires a separate server | Not implemented; requires a separate server |
-| Desktop client | Supported | Windows/macOS candidates pending acceptance | Dedicated desktop client | No desktop edition |
-| Client updates | See Flutter's client guides | Download and install again; no in-app update checks yet | See the Electron repository instructions | Update checks in settings |
+| Bundled local backend | Flutter repository builds Android/iOS/macOS/Windows/Linux Bundle packages | Lynx Android/iOS/Windows/macOS Releases embed the Go backend | Not implemented; requires a separate server | Not implemented; requires a separate server |
+| Desktop client | Supported | Windows/macOS packages use the shared release workflow. Final device acceptance is in progress | Dedicated desktop client | No desktop edition |
+| Client updates | See Flutter's client guides | Mobile packages use Releases. Desktop packages support in-app updates through per-architecture manifests | See the Electron repository instructions | Update checks in settings |
 | Core features | Playback, library, playlists, lyrics, plugins, themes | Implemented, with native device regression still required | Library, playlists, lyrics, plugins, desktop integration | Remote navigation, music / MV, lyrics, karaoke, QR song requests |
 | License | Apache-2.0 | Apache-2.0 | Apache-2.0 | Apache-2.0 |
 
@@ -21,13 +21,13 @@ Songloft offers Flutter, Lynx, Electron desktop, and TV clients connecting to th
 
 Full backend images/binaries embed Lynx Web by default. Native Flutter and standalone Web remain available; explicitly build legacy embedded Flutter Web with `make build-frontend-flutter-web-embedded`.
 
-## Lynx preview
+## Lynx client
 
 Underlying technology: [Lynx official website](https://lynxjs.org/) · [ReactLynx documentation](https://lynxjs.org/react/).
 
-- [Development downloads](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev): main code pushes build automatically; all five packages must pass before downloads update.
+- [Development downloads](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev): the shared workflow builds Windows x64, macOS arm64/x64, Android, iOS, HarmonyOS, and Web, and updates downloads only after all targets pass.
 - [Stable releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest): version tags trigger publication; packages may not exist before the first successful release.
-- Lynx Android/iOS Releases include the Go backend and local-mode entry points; the root repository does not build or publish client apps.
+- Lynx Releases include the Go backend and local-mode entry points, plus Windows NSIS, macOS DMG/ZIP, and per-architecture update manifests. The root repository does not build or publish client apps.
 - [Overview](player-lynx/index.md) · [Installation](player-lynx/installation.md) · [Build](player-lynx/build-and-run.md) · [Testing](player-lynx/testing.md) · [Releasing](player-lynx/releasing.md) · [Contributing](player-lynx/contributing.md).
 
 | Platform                 | Package                                          | Limits                                                                      |

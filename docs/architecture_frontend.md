@@ -2,7 +2,7 @@
 
 > **独立仓库**: [https://github.com/songloft-org/songloft-player](https://github.com/songloft-org/songloft-player)
 
-本文描述 Flutter 客户端自身的架构与本地模式实现。Flutter 和 Lynx 客户端仓库分别构建并发布各自的 Bundle 包；主仓库 Release 不打包客户端应用。Lynx Android/iOS 的本地模式入口位于登录页和设置页，详见 [Bundle 模式说明](bundle-mode.md)及 [Lynx 指南](player-lynx/index.md)。Windows/macOS Lynx 桌面候选实现仍待统一验收。
+本文描述 Flutter 客户端自身的架构与本地模式实现。Flutter 和 Lynx 客户端仓库分别构建并发布各自的 Bundle 包；主仓库 Release 不打包客户端应用。Lynx Android/iOS/Windows/macOS 的本地模式入口位于登录页和设置页，详见 [Bundle 模式说明](bundle-mode.md)及 [Lynx 指南](player-lynx/index.md)。Windows/macOS 桌面包已接入客户端共享发布流程，最终设备验收仍在进行。
 
 Songloft Flutter 客户端支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。完整版服务器默认嵌入独立的 Lynx Web（`clients/player-lynx`）；旧 Flutter Web 嵌入版仍可显式选择。Flutter 仓库保留并独立发布 **Bundle 本地模式**客户端；Lynx 仓库也独立发布 Android/iOS Bundle 客户端。各客户端流水线在启动时选择主仓库 `main` 的最新 Go 后端提交。
 

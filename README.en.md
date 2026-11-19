@@ -152,7 +152,7 @@ The Flutter and Lynx client repositories build and publish their own Bundle pack
 | Lynx · Android 6.0+ | ARM64 / ARMv7 / x86_64 / x86 | `songloft-lynx-android.apk` |
 | Lynx · iOS | ARM64 (unsigned; re-sign required) | `songloft-lynx-ios-nosign.ipa` |
 
-The client workflows build the Go backend from the latest commit on the root repository’s `main` at startup. Choose a release with the asset listed above and check that its version offers local mode. When enabled, Windows and macOS Lynx candidates use the same dev and stable download pages as the mobile packages. See [Bundle Mode](docs/en/bundle-mode.md).
+The client workflows build the Go backend from the latest commit on the root repository’s `main` at startup. Choose a release with the asset listed above and check that its version offers local mode. Windows and macOS Lynx packages are built in the shared Build and Release workflow with the mobile and Web packages and use the same dev and stable download pages. See [Bundle Mode](docs/en/bundle-mode.md).
 
 ### 🐳 Docker Images
 
@@ -193,15 +193,15 @@ Beyond the web interface, Songloft also offers a more powerful cross-platform Fl
 
 > 💡 When using the **Lite (-lite)** server, we recommend pairing it directly with the Flutter client (no need to deploy a separate web frontend). If you do need a standalone web frontend, refer to the `flutter build web` process in the [songloft-player](https://github.com/songloft-org/songloft-player) repository to build it yourself and serve the static files via a reverse proxy such as Nginx.
 
-### 📱 Lynx Client (Preview)
+### 📱 Lynx Client
 
-[Songloft Player (Lynx)](https://github.com/songloft-org/songloft-player-lynx) uses [ReactLynx](https://lynxjs.org/react/) + TypeScript on Android, iOS, HarmonyOS, and Web. Playback, library/playlists, lyrics, plugins, themes, and multiple servers are implemented; Android/iOS packages include the local Go backend and switch modes from the login and settings screens. Windows/macOS desktop candidates and in-app client updates remain pending consolidated acceptance.
+[Songloft Player (Lynx)](https://github.com/songloft-org/songloft-player-lynx) uses [ReactLynx](https://lynxjs.org/react/) + TypeScript on Android, iOS, HarmonyOS, Web, and Windows/macOS desktop. Playback, library/playlists, lyrics, plugins, themes, multiple servers, Bundle local mode, and in-app desktop updates are implemented. Android, iOS, and desktop packages switch modes from the login and settings screens. Final desktop device acceptance remains open.
 
-- [Development downloads](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev): main code pushes build automatically; all five packages must succeed before downloads update.
+- [Development downloads](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev): the shared workflow builds Windows x64, macOS arm64/x64, Android, iOS, HarmonyOS, and Web, and updates the Release only after all targets pass.
 - [Stable releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest): published by version tags; a stable package may not exist before the first successful release.
 - [Installation](https://songloft.hanxi.cc/en/player-lynx/installation) · [Build and run](https://songloft.hanxi.cc/en/player-lynx/build-and-run) · [Releasing](https://songloft.hanxi.cc/en/player-lynx/releasing).
 
-The Lynx repository's releases provide an Android APK and an iOS IPA requiring re-signing, both with the Go backend, plus a signed HAP whose authorized devices depend on its profile and Web standalone/embedded archives. Root Releases do not package client apps. HarmonyOS is experimental. Web needs HTTPS and COOP/COEP headers; subpath deployment is unverified. See [client selection](docs/en/clients.md) and [Bundle mode](docs/en/bundle-mode.md).
+The Lynx repository's releases provide an Android APK and an iOS IPA requiring re-signing, both with the Go backend, plus a signed HAP whose authorized devices depend on its profile, Web standalone/embedded archives, a Windows NSIS installer, and macOS arm64/x64 DMG/ZIP packages. Root Releases do not package client apps. HarmonyOS is experimental. Web needs HTTPS and COOP/COEP headers; subpath deployment is unverified. Desktop packages build without Windows Authenticode, Apple Developer ID, or notarization, while update manifests use a separate Ed25519 key. See [client selection](docs/en/clients.md) and [Bundle mode](docs/en/bundle-mode.md).
 
 ### 🖥️ Songloft Desktop (Electron Client)
 

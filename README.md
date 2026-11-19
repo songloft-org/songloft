@@ -152,7 +152,7 @@ Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；�
 | Lynx · Android 6.0+ | ARM64 / ARMv7 / x86_64 / x86 | `songloft-lynx-android.apk` |
 | Lynx · iOS | ARM64（未签名，需自行重签） | `songloft-lynx-ios-nosign.ipa` |
 
-客户端流水线从打包启动时主仓库 `main` 的最新提交编译 Go 后端。请选择包含上述文件的 Release，并查看该版本是否提供本地模式。Windows/macOS Lynx 桌面候选包由 Lynx 仓库构建，启用后与移动端共用开发版和正式版下载入口。详见[Bundle 模式说明](docs/bundle-mode.md)。
+客户端流水线从打包启动时主仓库 `main` 的最新提交编译 Go 后端。请选择包含上述文件的 Release，并查看该版本是否提供本地模式。Windows/macOS Lynx 桌面包由 Lynx 仓库构建，已与移动端和 Web 接入同一 Build and Release，共用开发版和正式版下载入口。详见[Bundle 模式说明](docs/bundle-mode.md)。
 
 ### 🐳 Docker 镜像
 
@@ -193,15 +193,15 @@ Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；�
 
 > 💡 使用 **精简版（-lite）** 服务端时，推荐直接搭配 Flutter 客户端使用（无需额外部署 Web 前端）；如确实需要独立 Web 前端，可参考 [songloft-player](https://github.com/songloft-org/songloft-player) 仓库的 `flutter build web` 流程自行构建并由 Nginx 等反向代理静态托管。
 
-### 📱 Lynx 客户端（预览版）
+### 📱 Lynx 客户端
 
-[Songloft Player (Lynx)](https://github.com/songloft-org/songloft-player-lynx) 使用 [ReactLynx](https://lynxjs.org/react/) + TypeScript，支持 Android、iOS、HarmonyOS 和 Web。已实现核心播放、曲库/歌单、歌词、插件、主题与多服务器；Android/iOS 包含 Bundle 本地后端，可通过登录页和设置页切换运行模式。Windows/macOS 桌面候选实现与客户端内更新仍待统一验收。
+[Songloft Player (Lynx)](https://github.com/songloft-org/songloft-player-lynx) 使用 [ReactLynx](https://lynxjs.org/react/) + TypeScript，支持 Android、iOS、HarmonyOS、Web 和 Windows/macOS 桌面。已实现核心播放、曲库/歌单、歌词、插件、主题、多服务器、Bundle 本地模式和桌面客户端内更新；Android/iOS/桌面均通过登录页和设置页切换运行模式。桌面设备最终验收仍在进行。
 
-- [开发版下载](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)：main 代码推送后自动打包，五个产物全部成功才更新。
+- [开发版下载](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)：main 代码推送后由共享工作流打包，Windows x64、macOS arm64/x64、Android、iOS、HarmonyOS 和 Web 全部通过后更新。
 - [正式版本](https://github.com/songloft-org/songloft-player-lynx/releases/latest)：通过版本 tag 发布；首次成功发版前可能尚无正式包。
 - [安装指南](https://songloft.hanxi.cc/player-lynx/installation) · [构建与运行](https://songloft.hanxi.cc/player-lynx/build-and-run) · [发版指南](https://songloft.hanxi.cc/player-lynx/releasing)。
 
-Lynx 仓库 Release 提供内嵌 Go 后端的 Android APK、需自行重签的 iOS IPA、签名 HAP（设备范围由 profile 决定）和 Web standalone/embedded 包。主仓库 Release 不打包客户端应用。HarmonyOS 为实验性支持；Web 需 HTTPS 与 COOP/COEP 响应头，子路径部署未验证。详见[客户端选择](docs/clients.md)和[Bundle 模式说明](docs/bundle-mode.md)。
+Lynx 仓库 Release 提供内嵌 Go 后端的 Android APK、需自行重签的 iOS IPA、签名 HAP（设备范围由 profile 决定）、Web standalone/embedded 包，以及 Windows NSIS 和 macOS arm64/x64 DMG/ZIP。主仓库 Release 不打包客户端应用。HarmonyOS 为实验性支持；Web 需 HTTPS 与 COOP/COEP 响应头，子路径部署未验证。桌面包在没有 Windows Authenticode、Apple Developer ID 和公证的情况下构建，更新清单仍使用独立 Ed25519 签名。详见[客户端选择](docs/clients.md)和[Bundle 模式说明](docs/bundle-mode.md)。
 
 ### 🖥️ Songloft Desktop（Electron 客户端）
 

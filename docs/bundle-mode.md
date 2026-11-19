@@ -8,13 +8,13 @@ Bundle 将 Go 后端与客户端一起安装，用户不必另外部署服务器
 |---|---|---|---|
 | Flutter | Android 通用 APK `songloft-bundled-android.apk`（ARM64、ARMv7、x86_64）、iOS `songloft-bundled-ios-nosign.ipa`、Linux `songloft-bundled-linux-x64.tar.gz`、Windows `songloft-bundled-windows-x64.zip`、macOS `songloft-bundled-macos.zip` | [正式版](https://github.com/songloft-org/songloft-player/releases/latest) · [开发版](https://github.com/songloft-org/songloft-player/releases/tag/dev) | 打包启动时主仓库 `main` 的最新提交 |
 | Lynx | Android `songloft-lynx-android.apk`、iOS `songloft-lynx-ios-nosign.ipa` | [songloft-player-lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest) | 打包启动时主仓库 `main` 的最新提交 |
-| Lynx 桌面 | Windows/macOS 候选包 | [正式版](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [开发版](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)，启用后与移动端同发 | 打包启动时主仓库 `main` 的最新提交 |
+| Lynx 桌面 | Windows `*.exe`、macOS arm64/x64 `*.dmg` 与更新 `*.zip` | [正式版](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [开发版](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)，与移动端和 Web 同一工作流发布 | 打包启动时主仓库 `main` 的最新提交 |
 
 Flutter 与 Lynx 各自在客户端仓库编译并发布 Bundle。每次流水线启动时解析一次公开主仓库 `main` 的最新 SHA 和版本。该次运行的所有平台和架构使用同一 SHA，并在后端或安装包元数据中记录实际版本及提交。主仓库 Release 只发布服务端、容器和服务端工具。
 
 主仓库和 `pkg/tag` 依赖仓库目前均为公开仓库，客户端 GitHub Actions 可按固定 SHA 直接检出，不需要个人访问令牌或主仓库写权限。客户端 Release 的写权限只用于发布到各自客户端仓库。
 
-Flutter Bundle 使用独立资产名，更新检查与 Android Bundle 热更读取 Flutter 仓库自己的 Release；标准版和 Bundle 版在同一版本 Release，补丁 manifest 用不同文件名前缀隔离。Lynx Android/iOS 客户端包直接内嵌后端，客户端更新由 Lynx 仓库发布包负责。Windows/macOS Lynx 桌面候选实现仍待统一验收。
+Flutter Bundle 使用独立资产名，更新检查与 Android Bundle 热更读取 Flutter 仓库自己的 Release；标准版和 Bundle 版在同一版本 Release，补丁 manifest 用不同文件名前缀隔离。Lynx Android/iOS/桌面客户端包直接内嵌后端，桌面更新由 Lynx 仓库发布的按架构清单负责。桌面包使用无平台证书构建，macOS 采用 ad hoc 签名。
 
 从主仓库下载安装的旧 Flutter Bundle 仍会检查旧地址。Flutter 仓库首次发布上述 Bundle 资产后，请从该仓库手动下载匹配平台的整包进行迁移。Lynx 移动端沿用原文件名，请查阅对应 Release，确认该版本提供本地模式。
 
