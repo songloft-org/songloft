@@ -31,6 +31,7 @@ concurrency:
 
 env:
   GO_VERSION: "1.26"
+  FLUTTER_VERSION: "3.44.6"
   DOCKER_USERNAME: songloft
   IMAGE_NAME: songloft
   RELEASE_REPO: ${{ github.repository }}
@@ -51,6 +52,10 @@ jobs:
       previous_tag: ${{ steps.prev-tag.outputs.previous_tag }}
       build_time: ${{ steps.parse.outputs.build_time }}
       git_commit: ${{ steps.parse.outputs.git_commit }}
+      backend_sha: ${{ steps.snapshot.outputs.backend_sha }}
+      flutter_sha: ${{ steps.snapshot.outputs.flutter_sha }}
+      lynx_sha: ${{ steps.snapshot.outputs.lynx_sha }}
+      tag_sha: ${{ steps.snapshot.outputs.tag_sha }}
       should_run: ${{ steps.gate.outputs.should_run }}
     steps:
       - name: Checkout code
@@ -99,7 +104,7 @@ jobs:
             RELEASE_TITLE="Development Build dev from ${{ github.ref_name }} (${TIMESTAMP} UTC)"
           fi
           BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
-          GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
           # RELEASE_TAG 只用于 GitHub release 的 tag 名与 Docker 镜像 tag 后缀。
           # 刻意与 VERSION / VERSION_TAG 分开：VERSION=dev 会驱动 Makefile 的
@@ -132,6 +137,25 @@ jobs:
           PREV_TAG=$(node scripts/previous-release.mjs "$CURRENT_TAG" "$RELEASE_REPO")
           echo "Previous published stable release (or first commit): ${PREV_TAG}"
           echo "previous_tag=${PREV_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Record immutable release snapshot
+        id: snapshot
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          set -euo pipefail
+          backend_sha=$(git rev-parse HEAD)
+          flutter_sha=$(git ls-tree HEAD clients/player-flutter | awk '{print $3}')
+          lynx_sha=$(git ls-tree HEAD clients/player-lynx | awk '{print $3}')
+          tag_sha=$(git ls-tree HEAD pkg/tag | awk '{print $3}')
+          for value in "$backend_sha" "$flutter_sha" "$lynx_sha" "$tag_sha"; do
+            [[ "$value" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::Invalid release snapshot SHA: $value"; exit 1; }
+          done
+          printf 'backend_sha=%s\nflutter_sha=%s\nlynx_sha=%s\ntag_sha=%s\n' \
+            "$backend_sha" "$flutter_sha" "$lynx_sha" "$tag_sha" >> "$GITHUB_OUTPUT"
+          echo "Backend SHA: $backend_sha"
+          echo "Flutter SHA: $flutter_sha"
+          echo "Lynx SHA: $lynx_sha"
+          echo "pkg/tag SHA: $tag_sha"
 
   # ============================================================
   # 发布前质量闸门：固定为本轮 checkout 的 SHA，失败则构建/发布不继续。
@@ -690,6 +714,643 @@ jobs:
           path: docker-tars/
           retention-days: 1
 
+  # Job 5-8: 含后端的客户端构建（bundled client）
+  # 将 Go 后端嵌入 Flutter 客户端，用户无需单独部署服务端
+  # ============================================================
+  build-bundled-flutter-android:
+    name: Flutter Bundle Android
+    needs: [prepare, quality]
+    if: needs.prepare.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free disk space for Go and Flutter native builds
+        run: |
+          df -h /
+          # Hosted Ubuntu images include large toolchains unused by this job.
+          # Keep Android SDK/NDK, Java, Go and the checked-out artifacts intact.
+          sudo rm -rf /usr/share/dotnet /usr/local/.ghcup /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init submodules
+        run: |
+          git submodule update --init --recursive -- clients/player-flutter
+          test "$(git -C clients/player-flutter rev-parse HEAD)" = "${{ needs.prepare.outputs.flutter_sha }}"
+          git submodule update --init --recursive -- pkg/tag
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install gomobile
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init
+
+      - name: Build Go backend as Android .aar
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TRACELY_APP_ID: ${{ secrets.TRACELY_APP_ID }}
+          TRACELY_APP_SECRET: ${{ secrets.TRACELY_APP_SECRET }}
+          TRACELY_HOST: ${{ secrets.TRACELY_HOST }}
+        run: make build-go-mobile-android
+
+      - name: Release Go build cache before Flutter packaging
+        run: |
+          test -s clients/player-flutter/android/app/libs/songloft.aar
+          go clean -cache -testcache
+          df -h /
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: |
+          cd clients/player-flutter
+          flutter pub get
+
+      # 原生契约哈希:pub get 后(GeneratedPluginRegistrant/.flutter-plugins-dependencies
+      # 已生成)、build 前计算并写 asset,同一组值稍后写进 manifest(同源同值)。
+      - name: Compute native contract hash (bake asset)
+        run: |
+          cd clients/player-flutter
+          python3 -m unittest discover -s scripts/tests -p '*_test.py'
+          HASHES=$(./scripts/compute_native_contract.sh \
+            --export-surface "$GITHUB_WORKSPACE/mobile/export_surface.txt" \
+            --write-asset android/app/src/main/assets/native_contract.json)
+          echo "native_contract.json = $HASHES"
+          DART_CONTRACT_HASH=$(printf '%s' "$HASHES" | sed -n 's/.*"dart":"\([a-f0-9]*\)".*/\1/p')
+          GO_CONTRACT_HASH=$(printf '%s' "$HASHES" | sed -n 's/.*"go":"\([a-f0-9]*\)".*/\1/p')
+          echo "DART_CONTRACT_HASH=$DART_CONTRACT_HASH" >> "$GITHUB_ENV"
+          echo "GO_CONTRACT_HASH=$GO_CONTRACT_HASH" >> "$GITHUB_ENV"
+
+      - name: Setup Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > $RUNNER_TEMP/release.jks
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV
+          fi
+
+      - name: Build APK with embedded backend
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd clients/player-flutter
+          flutter build apk --release \
+            --dart-define=HAS_BACKEND=true \
+            --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} \
+            --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }} \
+            --dart-define=FRONTEND_GIT_COMMIT=${{ needs.prepare.outputs.git_commit }} \
+            --dart-define=FLUTTER_BINDING=${{ env.FLUTTER_VERSION }}
+
+      - name: Verify and collect universal APK
+        working-directory: clients/player-flutter
+        run: |
+          apk=build/app/outputs/flutter-apk/app-release.apk
+          python3 scripts/check-android-preferences-jni.py "$apk"
+          cp "$apk" "$GITHUB_WORKSPACE/songloft-bundled-android.apk"
+
+      # 无基线热更:每次发版自动产出本渠道最新的前端补丁(libapp.so)+ 后端补丁
+      # (libgojni.so),随 release 上传;客户端查本渠道最新即更新。覆盖 arm64-v8a/
+      # armeabi-v7a/x86_64(gomobile bind 含 android/amd64 目标,x86_64 供模拟器验证)。
+      # 详见 clients/player-flutter/docs/cn/backend_hotupdate.md。
+      - name: Guard mobile export surface (frozen)
+        run: |
+          go doc ./mobile | grep '^func ' | sort > /tmp/current_surface.txt
+          sort mobile/export_surface.txt > /tmp/expected_surface.txt
+          if ! diff -u /tmp/expected_surface.txt /tmp/current_surface.txt; then
+            echo "::error::mobile 包导出面已变更!只换 libgojni.so 不安全(须连 DEX/整包一起发)。若确为有意变更,请同步更新 mobile/export_surface.txt。"
+            exit 1
+          fi
+          echo "导出面守卫通过。"
+
+      - name: Produce hot-update patch assets (frontend zip + backend so)
+        env:
+          REPO: ${{ env.RELEASE_REPO }}
+          # 用 release_tag：补丁资产挂在实际的 release 下，
+          # 用 version 会让 manifest 里的 patchUrl/soUrl 指向不存在的路径。
+          TAG: ${{ needs.prepare.outputs.release_tag }}
+          SEMVER: ${{ needs.prepare.outputs.version_tag }}
+          GIT_COMMIT: ${{ needs.prepare.outputs.git_commit }}
+          BUILD_TIME: ${{ needs.prepare.outputs.build_time }}
+          FLUTTER_BINDING: ${{ env.FLUTTER_VERSION }}
+        run: |
+          set -e
+          cd clients/player-flutter
+          # --split-per-abi 时 gradle 会把各 ABI APK 的 versionCode 改写为
+          # 「ABI偏移×1000+pubspec基础值」(如 arm64-v8a=2001),flutter_patcher 按
+          # versionCode 严格绑定,manifest/补丁必须写 APK 的**真实值**(用 aapt 读),
+          # 写 pubspec 裸值会让客户端 versionCode 闸恒不通过。
+          BUILD_TOOLS_DIR=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            apk="build/app/outputs/flutter-apk/app-release.apk"
+            [ -f "$apk" ] || { echo "::error::缺少通用 APK"; exit 1; }
+            ABI_VC=$("$BUILD_TOOLS_DIR/aapt" dump badging "$apk" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -1)
+            [ -n "$ABI_VC" ] || { echo "::error::无法从 $apk 读取 versionCode"; exit 1; }
+            LABEL="${SEMVER}-${GIT_COMMIT}"
+
+            # 前端补丁:libapp.so 打成 patch.zip + 扩展 manifest。文件名带 commit(不可变
+            # URL):滚动 tag 下 manifest 与 zip 是两次独立请求,代理/CDN 缓存住旧 manifest
+            # 时,固定文件名会让旧 md5 对上新 zip → 永远 md5Mismatch。
+            rm -rf dist
+            dart run flutter_patcher:pack --apk "$apk" --version "$LABEL" \
+              --target-version-code "$ABI_VC" --abi "$abi"
+            cp dist/patch.zip "$GITHUB_WORKSPACE/bundle-patch-${abi}-${GIT_COMMIT}.zip"
+            ZIP_MD5=$(md5sum "$GITHUB_WORKSPACE/bundle-patch-${abi}-${GIT_COMMIT}.zip" | cut -d' ' -f1)
+            cat > "$GITHUB_WORKSPACE/bundle-manifest-${abi}.json" <<EOF
+          {
+            "hasUpdate": true,
+            "patch": {
+              "version": "${LABEL}",
+              "semanticVersion": "${SEMVER}",
+              "gitCommit": "${GIT_COMMIT}",
+              "flutterBinding": "${FLUTTER_BINDING}",
+              "contractHash": "${DART_CONTRACT_HASH}",
+              "targetVersionCode": ${ABI_VC},
+              "patchUrl": "https://github.com/${REPO}/releases/download/${TAG}/bundle-patch-${abi}-${GIT_COMMIT}.zip",
+              "md5": "${ZIP_MD5}"
+            }
+          }
+          EOF
+
+            # 后端补丁:从 APK 抽 libgojni.so + 校验 SONAME + manifest。release 资产名同样
+            # 带 commit(不可变 URL,防代理缓存 manifest/so 错配);客户端落地文件名固定
+            # libgojni.so(与资产名无关),bionic basename 去重不受影响。
+            unzip -p "$apk" "lib/${abi}/libgojni.so" > "$GITHUB_WORKSPACE/bundle-libgojni-${abi}-${GIT_COMMIT}.so"
+            # gomobile 产物**无 DT_SONAME**(正常),bionic 回退用文件 basename;客户端落地
+            # 文件名固定 libgojni.so,故去重仍生效。仅当存在**非空且非 libgojni.so** 的
+            # soname 时才会破坏去重 → 才失败。
+            SONAME=$(readelf -d "$GITHUB_WORKSPACE/bundle-libgojni-${abi}-${GIT_COMMIT}.so" | sed -n 's/.*SONAME.*\[\(.*\)\].*/\1/p')
+            if [ -n "$SONAME" ] && [ "$SONAME" != "libgojni.so" ]; then
+              echo "::error::bundle-libgojni-${abi}-${GIT_COMMIT}.so 的 DT_SONAME=[$SONAME](非空且非 libgojni.so),预加载去重将失效"
+              exit 1
+            fi
+            echo "soname 校验通过(soname=[$SONAME],空则走 basename 回退)"
+            SO_MD5=$(md5sum "$GITHUB_WORKSPACE/bundle-libgojni-${abi}-${GIT_COMMIT}.so" | cut -d' ' -f1)
+            SO_SIZE=$(stat -c%s "$GITHUB_WORKSPACE/bundle-libgojni-${abi}-${GIT_COMMIT}.so")
+            cat > "$GITHUB_WORKSPACE/bundle-backend-manifest-${abi}.json" <<EOF
+          {
+            "hasUpdate": true,
+            "backend": {
+              "abi": "${abi}",
+              "version": "${TAG}",
+              "gitCommit": "${GIT_COMMIT}",
+              "buildTime": "${BUILD_TIME}",
+              "soUrl": "https://github.com/${REPO}/releases/download/${TAG}/bundle-libgojni-${abi}-${GIT_COMMIT}.so",
+              "md5": "${SO_MD5}",
+              "contractHash": "${GO_CONTRACT_HASH}",
+              "size": ${SO_SIZE}
+            }
+          }
+          EOF
+            echo "补丁 $abi: soname=$SONAME so_md5=$SO_MD5 zip_md5=$ZIP_MD5"
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundled-android
+          path: |
+            songloft-bundled-android.apk
+            bundle-manifest-*.json
+            bundle-patch-*.zip
+            bundle-backend-manifest-*.json
+            bundle-libgojni-*.so
+          retention-days: 1
+
+  build-bundled-flutter-linux:
+    name: Flutter Bundle Linux
+    needs: [prepare, quality]
+    if: needs.prepare.outputs.should_run == 'true'
+    # Match the standalone Flutter Linux release environment and runtime baseline.
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init submodules
+        run: |
+          git submodule update --init --recursive -- clients/player-flutter
+          test "$(git -C clients/player-flutter rev-parse HEAD)" = "${{ needs.prepare.outputs.flutter_sha }}"
+          git submodule update --init --recursive -- pkg/tag
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build Go backend for Linux
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TRACELY_APP_ID: ${{ secrets.TRACELY_APP_ID }}
+          TRACELY_APP_SECRET: ${{ secrets.TRACELY_APP_SECRET }}
+          TRACELY_HOST: ${{ secrets.TRACELY_HOST }}
+        run: make build-go-desktop-linux
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libglu1-mesa libstdc++-12-dev libsecret-1-dev libayatana-appindicator3-dev
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: |
+          cd clients/player-flutter
+          flutter pub get
+
+      - name: Build Flutter Linux with embedded backend
+        run: |
+          cd clients/player-flutter
+          flutter build linux --release \
+            --dart-define=HAS_BACKEND=true \
+            --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} \
+            --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }} \
+            --dart-define=FRONTEND_GIT_COMMIT=${{ needs.prepare.outputs.git_commit }}
+
+      - name: Package tar.gz
+        run: |
+          cd clients/player-flutter/build/linux/x64/release/bundle
+          tar czf "$GITHUB_WORKSPACE/songloft-bundled-linux-x64.tar.gz" .
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundled-linux
+          path: songloft-bundled-linux-x64.tar.gz
+          retention-days: 1
+
+  build-bundled-flutter-apple:
+    name: Flutter Bundle macOS + iOS
+    needs: [prepare, quality]
+    if: needs.prepare.outputs.should_run == 'true'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init submodules
+        run: |
+          git submodule update --init --recursive -- clients/player-flutter
+          test "$(git -C clients/player-flutter rev-parse HEAD)" = "${{ needs.prepare.outputs.flutter_sha }}"
+          git submodule update --init --recursive -- pkg/tag
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build Go backend for macOS (arm64)
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TRACELY_APP_ID: ${{ secrets.TRACELY_APP_ID }}
+          TRACELY_APP_SECRET: ${{ secrets.TRACELY_APP_SECRET }}
+          TRACELY_HOST: ${{ secrets.TRACELY_HOST }}
+        run: make build-go-desktop-macos-arm64
+
+      - name: Install gomobile (for iOS)
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init
+
+      - name: Build Go backend as iOS .xcframework
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TRACELY_APP_ID: ${{ secrets.TRACELY_APP_ID }}
+          TRACELY_APP_SECRET: ${{ secrets.TRACELY_APP_SECRET }}
+          TRACELY_HOST: ${{ secrets.TRACELY_HOST }}
+        run: make build-go-mobile-ios
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: |
+          cd clients/player-flutter
+          flutter pub get
+
+      - name: Build Flutter macOS with embedded backend
+        run: |
+          cd clients/player-flutter
+          flutter build macos --release \
+            --dart-define=HAS_BACKEND=true \
+            --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} \
+            --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }} \
+            --dart-define=FRONTEND_GIT_COMMIT=${{ needs.prepare.outputs.git_commit }}
+
+      - name: Finalize macOS app bundle
+        run: |
+          cd clients/player-flutter
+          sign_identity="${MACOS_CODESIGN_IDENTITY:--}"
+          for app_dir in build/macos/Build/Products/Release/*.app; do
+            if [ ! -x "$app_dir/Contents/MacOS/songloft-server" ]; then
+              cp macos/Runner/songloft-server "$app_dir/Contents/MacOS/songloft-server"
+              chmod +x "$app_dir/Contents/MacOS/songloft-server"
+              # 先深度签名整个 app，再单独给子进程签 inherit entitlements；
+              # 顺序不能反：--deep 重签会覆盖子进程 entitlements，导致沙盒下无
+              # network.server 权限，songloft-server 无法 bind，本地模式报错。
+              codesign --force --deep --sign "$sign_identity" --entitlements macos/Runner/Release.entitlements "$app_dir"
+              codesign --force --sign "$sign_identity" --entitlements macos/Runner/GoBackend.entitlements "$app_dir/Contents/MacOS/songloft-server"
+            fi
+            codesign --verify --deep --strict --verbose=2 "$app_dir"
+          done
+
+      - name: Package macOS .app as ZIP
+        run: |
+          cd clients/player-flutter/build/macos/Build/Products/Release
+          app_dir=$(find . -maxdepth 1 -name "*.app" -type d -print -quit)
+          test -n "$app_dir"
+          ditto -c -k --sequesterRsrc --keepParent "${app_dir#./}" "$GITHUB_WORKSPACE/songloft-bundled-macos.zip"
+
+      - name: Build Flutter iOS with embedded backend (no codesign)
+        run: |
+          cd clients/player-flutter
+          flutter build ios --release --no-codesign \
+            --dart-define=HAS_BACKEND=true \
+            --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} \
+            --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }} \
+            --dart-define=FRONTEND_GIT_COMMIT=${{ needs.prepare.outputs.git_commit }}
+
+      - name: Package iOS as IPA
+        run: |
+          cd clients/player-flutter
+          test ! -e build/ios/iphoneos/Runner.app/Frameworks/Songloft.framework
+          nm build/ios/iphoneos/Runner.app/Runner | grep -q 'MobileStart'
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r -y "$GITHUB_WORKSPACE/songloft-bundled-ios-nosign.ipa" Payload
+          rm -rf Payload
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundled-apple
+          path: |
+            songloft-bundled-macos.zip
+            songloft-bundled-ios-nosign.ipa
+          retention-days: 1
+
+  build-bundled-flutter-windows:
+    name: Flutter Bundle Windows
+    needs: [prepare, quality]
+    if: needs.prepare.outputs.should_run == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init submodules
+        run: |
+          git submodule update --init --recursive -- clients/player-flutter
+          test "$(git -C clients/player-flutter rev-parse HEAD)" = "${{ needs.prepare.outputs.flutter_sha }}"
+          git submodule update --init --recursive -- pkg/tag
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build Go backend for Windows
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TRACELY_APP_ID: ${{ secrets.TRACELY_APP_ID }}
+          TRACELY_APP_SECRET: ${{ secrets.TRACELY_APP_SECRET }}
+          TRACELY_HOST: ${{ secrets.TRACELY_HOST }}
+        shell: bash
+        run: |
+          GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -v -tags lite \
+            -ldflags="-s -w -X songloft/internal/version.Version=${VERSION} -X songloft/internal/version.GitCommit=${GIT_COMMIT} -X songloft/internal/version.BuildTime=${BUILD_TIME} -X songloft/internal/version.BuildType=lite" \
+            -o clients/player-flutter/windows/runner/songloft-server.exe .
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+
+      - name: Flutter pub get
+        run: |
+          cd clients/player-flutter
+          flutter pub get
+
+      - name: Test Windows WebView window synchronization
+        shell: pwsh
+        run: |
+          cmake -S clients/player-flutter/test/native/windows -B clients/player-flutter/build/native-webview-tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build clients/player-flutter/build/native-webview-tests --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ctest --test-dir clients/player-flutter/build/native-webview-tests -C Release --output-on-failure
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build Flutter Windows with embedded backend
+        run: |
+          cd clients/player-flutter
+          flutter build windows --release --dart-define=HAS_BACKEND=true --dart-define=FRONTEND_VERSION=${{ needs.prepare.outputs.version_tag }} --dart-define=FRONTEND_BUILD_TIME=${{ needs.prepare.outputs.build_time }} --dart-define=FRONTEND_GIT_COMMIT=${{ needs.prepare.outputs.git_commit }}
+
+      - name: Package ZIP
+        shell: pwsh
+        run: |
+          Copy-Item clients/player-flutter\build\native-webview-tests\Release\webview_hit_test.exe -Destination clients/player-flutter\build\windows\x64\runner\Release\ -ErrorAction Stop
+          Compress-Archive -Path clients/player-flutter\build\windows\x64\runner\Release\* -DestinationPath songloft-bundled-windows-x64.zip
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundled-windows
+          path: songloft-bundled-windows-x64.zip
+          retention-days: 1
+
+  # ============================================================
+
+  # Lynx Bundle builds stay in the backend release snapshot. The client Release
+  # workflow builds only standard, HarmonyOS, and Web packages.
+  build-bundled-lynx:
+    name: Lynx Bundle (${{ matrix.target }})
+    needs: [prepare, quality]
+    if: needs.prepare.outputs.should_run == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: android
+            runner: ubuntu-latest
+          - target: ios
+            runner: macos-latest
+          - target: win32-x64
+            runner: windows-2022
+          - target: darwin-arm64
+            runner: macos-15
+          - target: darwin-x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      SONGLOFT_BACKEND_COMMIT: ${{ needs.prepare.outputs.backend_sha }}
+      SONGLOFT_BACKEND_SOURCE: ${{ github.workspace }}/backend-source
+      SONGLOFT_DESKTOP_VARIANT: bundled
+      SONGLOFT_DESKTOP_CHANNEL: ${{ needs.prepare.outputs.version == 'dev' && 'dev' || 'stable' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Initialize fixed Lynx and backend sources
+        run: |
+          git submodule update --init --recursive -- clients/player-lynx pkg/tag
+          test "$(git -C clients/player-lynx rev-parse HEAD)" = "${{ needs.prepare.outputs.lynx_sha }}"
+          git clone --no-checkout "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" backend-source
+          git -C backend-source checkout --detach "$SONGLOFT_BACKEND_COMMIT"
+          git -C backend-source submodule update --init --depth 1 pkg/tag
+          test "$(git -C backend-source rev-parse HEAD)" = "$SONGLOFT_BACKEND_COMMIT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - name: Create Lynx bundle release metadata
+        if: matrix.target == 'android'
+        working-directory: clients/player-lynx
+        env:
+          CLIENT_SHA: ${{ needs.prepare.outputs.lynx_sha }}
+          VERSION: ${{ needs.prepare.outputs.version_tag }}
+          BUILD_TIME: ${{ needs.prepare.outputs.build_time }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          mkdir -p .build
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs'
+          const packageVersion = JSON.parse(readFileSync('package.json', 'utf8')).version
+          const version = process.env.VERSION === 'dev' ? 'dev' : packageVersion
+          const buildTime = new Date(process.env.BUILD_TIME.replace('_', 'T') + 'Z').toISOString()
+          writeFileSync('.build/version.json', JSON.stringify({
+            version, package_version: packageVersion, native_version: packageVersion,
+            build_number: Math.floor(Date.now() / 1000), git_commit: process.env.CLIENT_SHA,
+            build_time: buildTime, channel: version === 'dev' ? 'dev' : 'stable',
+            release_tag: process.env.RELEASE_TAG, assets: [], bundle_update: null,
+          }, null, 2) + '\n')
+          NODE
+          cp .build/version.json "$GITHUB_WORKSPACE/lynx-bundle-source.json"
+      - name: Build Android Bundle
+        if: matrix.target == 'android'
+        run: |
+          export GOFLAGS=-buildvcs=false
+          go install golang.org/x/mobile/cmd/gomobile@latest golang.org/x/mobile/cmd/gobind@latest
+          gomobile bind -target=android/arm64,android/arm,android/amd64 -androidapi 23 -tags lite \
+            -ldflags="-s -w -X songloft/internal/version.GitCommit=$SONGLOFT_BACKEND_COMMIT" \
+            -o clients/player-lynx/android/app/libs/songloft.aar backend-source/mobile
+          cd clients/player-lynx
+          pnpm install --frozen-lockfile
+          pnpm run build:android-bundle
+          (cd android && ./gradlew --no-daemon assembleRelease)
+          cp android/app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/songloft-lynx-bundled-android.apk"
+          SONGLOFT_BUILD_METADATA="$PWD/.build/version.json" \
+            SONGLOFT_UPDATE_PUBLIC_KEY="${{ vars.LYNX_UPDATE_PUBLIC_KEY }}" \
+            node scripts/bundle-host.mjs
+          cp dist/main.lynx.bundle "$GITHUB_WORKSPACE/songloft-lynx-main.lynx.bundle"
+          cp .build/native-host.json "$GITHUB_WORKSPACE/lynx-native-host.json"
+      - name: Build iOS Bundle
+        if: matrix.target == 'ios'
+        run: |
+          export GOFLAGS=-buildvcs=false
+          go install golang.org/x/mobile/cmd/gomobile@latest golang.org/x/mobile/cmd/gobind@latest
+          gomobile bind -target=ios/arm64 -tags lite \
+            -ldflags="-s -w -X songloft/internal/version.GitCommit=$SONGLOFT_BACKEND_COMMIT" \
+            -o clients/player-lynx/ios/Songloft.xcframework backend-source/mobile
+          cd clients/player-lynx
+          pnpm install --frozen-lockfile
+          pnpm run build:ios-bundle
+          pnpm run ios:pods
+          (cd ios && xcodebuild -project SongloftLynx.xcodeproj -scheme SongloftLynx -sdk iphoneos -configuration Release CODE_SIGNING_ALLOWED=NO build)
+          mkdir -p Payload
+          cp -R ios/build/Release-iphoneos/SongloftLynx.app Payload/
+          zip -qry "$GITHUB_WORKSPACE/songloft-lynx-bundled-ios-nosign.ipa" Payload
+      - name: Build desktop Bundle
+        if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
+        working-directory: clients/player-lynx
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --dir desktop install --frozen-lockfile --ignore-scripts
+          pnpm run build
+          pnpm --dir desktop build:native
+          pnpm --dir desktop build:resources
+          pnpm --dir desktop package
+          source_dir="desktop/release/$SONGLOFT_DESKTOP_CHANNEL/${{ matrix.target }}"
+          for file in "$source_dir"/*; do
+            case "$file" in
+              *.exe|*.dmg|*.zip) cp "$file" "$GITHUB_WORKSPACE/songloft-lynx-bundled-${{ matrix.target }}.${file##*.}" ;;
+            esac
+          done
+      - name: Upload Lynx Bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lynx-bundled-${{ matrix.target }}
+          path: |
+            songloft-lynx-bundled-android.apk
+            songloft-lynx-bundled-ios-nosign.ipa
+            songloft-lynx-bundled-${{ matrix.target }}-*
+            songloft-lynx-main.lynx.bundle
+            lynx-native-host.json
+          if-no-files-found: error
+          retention-days: 1
+      - name: Upload Lynx bundle metadata
+        if: matrix.target == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lynx-bundled-metadata
+          path: lynx-bundle-source.json
+          if-no-files-found: error
+          retention-days: 1
+
   # ============================================================
   # Job 9: 生成 Changelog 并发布 Release
   # ============================================================
@@ -700,6 +1361,11 @@ jobs:
         prepare,
         build-binaries,
         docker-build-push,
+        build-bundled-flutter-android,
+        build-bundled-flutter-linux,
+        build-bundled-flutter-apple,
+        build-bundled-flutter-windows,
+        build-bundled-lynx,
       ]
     # always() 会让本 job 在上游 skipped 时也进入判定，故必须显式检查 should_run，
     # 否则发版那轮被跳过的 main run 会走到这里，用空的 prepare outputs 去建 release。
@@ -708,7 +1374,12 @@ jobs:
       needs.prepare.outputs.should_run == 'true' &&
       needs.prepare.result == 'success' &&
       needs.build-binaries.result == 'success' &&
-      needs.docker-build-push.result == 'success'
+      needs.docker-build-push.result == 'success' &&
+      needs.build-bundled-flutter-android.result == 'success' &&
+      needs.build-bundled-flutter-linux.result == 'success' &&
+      needs.build-bundled-flutter-apple.result == 'success' &&
+      needs.build-bundled-flutter-windows.result == 'success' &&
+      needs.build-bundled-lynx.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -733,10 +1404,60 @@ jobs:
           name: docker-tars
           path: release-files
 
+      - name: Download Flutter Bundle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bundled-*
+          path: release-files
+          merge-multiple: true
+
+      - name: Download Lynx Bundle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lynx-bundled-*
+          path: release-files
+          merge-multiple: true
+
+      - name: Generate Bundle manifests
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          BUILD_TIME: ${{ needs.prepare.outputs.build_time }}
+          BACKEND_SHA: ${{ needs.prepare.outputs.backend_sha }}
+          FLUTTER_SHA: ${{ needs.prepare.outputs.flutter_sha }}
+          LYNX_SHA: ${{ needs.prepare.outputs.lynx_sha }}
+        run: |
+          if [ -f release-files/lynx-native-host.json ] && [ -f release-files/songloft-lynx-main.lynx.bundle ]; then
+            mkdir -p "$RUNNER_TEMP/lynx-bundle-release"
+            cp release-files/songloft-lynx-bundled-* "$RUNNER_TEMP/lynx-bundle-release/"
+            cp release-files/lynx-bundle-source.json "$RUNNER_TEMP/lynx-bundle-release/version.json"
+            cp release-files/songloft-lynx-main.lynx.bundle "$RUNNER_TEMP/lynx-bundle-source.lynx.bundle"
+            cp release-files/lynx-native-host.json "$RUNNER_TEMP/lynx-native-host.json"
+            SONGLOFT_UPDATE_PUBLIC_KEY="${{ vars.LYNX_UPDATE_PUBLIC_KEY }}" \
+            SONGLOFT_UPDATE_PRIVATE_KEY="${{ secrets.LYNX_UPDATE_PRIVATE_KEY }}" \
+              node clients/player-lynx/scripts/finalize-release.mjs \
+                "$RUNNER_TEMP/lynx-bundle-release" \
+                "$RUNNER_TEMP/lynx-bundle-source.lynx.bundle" \
+                "$RUNNER_TEMP/lynx-native-host.json"
+            cp "$RUNNER_TEMP/lynx-bundle-release/version.json" release-files/bundle-lynx-version.json
+            cp "$RUNNER_TEMP/lynx-bundle-release/version.json.sig" release-files/bundle-lynx-version.json.sig
+          fi
+          cat > "$RUNNER_TEMP/bundle-metadata.json" <<EOF
+          {
+            "version": "${VERSION}",
+            "build_time": "${BUILD_TIME}",
+            "backend_sha": "${BACKEND_SHA}",
+            "flutter_sha": "${FLUTTER_SHA}",
+            "lynx_sha": "${LYNX_SHA}"
+          }
+          EOF
+          node scripts/generate-bundle-manifests.mjs release-files "$RUNNER_TEMP/bundle-metadata.json"
+          rm -f release-files/bundle-manifest-*.json release-files/bundle-backend-manifest-*.json \
+            release-files/lynx-bundle-source.json release-files/lynx-native-host.json
+
       - name: Generate checksums
         run: |
           cd release-files
-          # 对所有文件（二进制 + Docker tar 包）生成 sha256 校验和
+          # 对所有文件（二进制 + Docker tar 包 + 客户端 Bundle）生成 sha256 校验和
           sha256sum $(ls | grep -v checksums.txt) > checksums.txt
           echo "=== checksums.txt ==="
           cat checksums.txt
@@ -800,14 +1521,18 @@ jobs:
               --title "${RELEASE_TITLE}" \
               --notes-file "${NOTES_FILE}" \
               --prerelease \
+              --draft \
               "${FILES[@]}"
+            gh release edit "${RELEASE_TAG}" --repo "${{ env.RELEASE_REPO }}" --draft=false --prerelease --latest=false
           else
             gh release create "${RELEASE_TAG}" \
               --repo "${{ env.RELEASE_REPO }}" \
               --title "${RELEASE_TITLE}" \
               --notes-file "${NOTES_FILE}" \
               --latest \
+              --draft \
               "${FILES[@]}"
+            gh release edit "${RELEASE_TAG}" --repo "${{ env.RELEASE_REPO }}" --draft=false --latest
           fi
 
           echo "Release created: https://github.com/${{ env.RELEASE_REPO }}/releases/tag/${VERSION}"

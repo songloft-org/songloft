@@ -137,10 +137,10 @@ Songloft 提供三种版本，满足不同使用场景：
 
 #### 📱 客户端 Bundle 本地模式（内嵌后端，无需服务器）
 
-Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；主仓库只维护 Go 后端和移动绑定接口，不打包客户端应用。两个客户端都在登录页和设置页切换本地/远程模式；Android/桌面首次启用时选择音乐目录，iOS 使用应用 Documents 目录：
+Flutter Bundle 和 Lynx Bundle 由后端仓库的 Release 统一发布。Flutter 标准版和 Lynx 标准版仍由各自客户端 Release 发布。两个客户端都在登录页和设置页切换本地/远程模式；Android/桌面首次启用时选择音乐目录，iOS 使用应用 Documents 目录：
 
-- Flutter 下载见 [正式版](https://github.com/songloft-org/songloft-player-flutter/releases/latest)或 [开发版](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)。
-- Lynx 下载见 [正式版](https://github.com/songloft-org/songloft-player-lynx/releases/latest)或 [开发版](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)。
+- Flutter 标准版见 [Flutter 客户端 Release](https://github.com/songloft-org/songloft-player-flutter/releases/latest)，Flutter Bundle 见[后端 Release](https://github.com/songloft-org/songloft/releases/latest)或[dev](https://github.com/songloft-org/songloft/releases/tag/dev)。
+- Lynx 标准版见 [Lynx 客户端 Release](https://github.com/songloft-org/songloft-player-lynx/releases/latest)，Lynx Bundle 见[后端 Release](https://github.com/songloft-org/songloft/releases/latest)或[dev](https://github.com/songloft-org/songloft/releases/tag/dev)。
 
 | 客户端与平台 | 架构 | **Assets** 中的文件名 |
 | --- | --- | --- |
@@ -149,10 +149,12 @@ Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；�
 | Flutter · Linux | x86_64 | `songloft-bundled-linux-x64.tar.gz` |
 | Flutter · macOS | Intel / Apple Silicon | `songloft-bundled-macos.zip` |
 | Flutter · Windows | x86_64 | `songloft-bundled-windows-x64.zip` |
-| Lynx · Android 6.0+ | ARM64 / ARMv7 / x86_64 / x86 | `songloft-lynx-android.apk` |
-| Lynx · iOS | ARM64（未签名，需自行重签） | `songloft-lynx-ios-nosign.ipa` |
+| Lynx · Android 6.0+ | ARM64 / ARMv7 / x86_64 / x86 | `songloft-lynx-bundled-android.apk` |
+| Lynx · iOS | ARM64（未签名，需自行重签） | `songloft-lynx-bundled-ios-nosign.ipa` |
+| Lynx · Windows | x86_64 | `songloft-lynx-bundled-win32-x64.exe` |
+| Lynx · macOS | Apple Silicon / Intel | `songloft-lynx-bundled-darwin-arm64.dmg` / `songloft-lynx-bundled-darwin-x64.dmg` |
 
-客户端流水线从打包启动时主仓库 `main` 的最新提交编译 Go 后端。请选择包含上述文件的 Release，并查看该版本是否提供本地模式。Windows/macOS Lynx 桌面包由 Lynx 仓库构建，已与移动端和 Web 接入同一 Build and Release，共用开发版和正式版下载入口。详见[Bundle 模式说明](docs/bundle-mode.md)。
+Lynx HarmonyOS 和 Web 仍属于非 Bundle 产物。Bundle 资产的客户端 SHA、后端 SHA、版本、构建时间和 SHA-256 记录在后端 Release 的 `bundle-index.json`。详见[Bundle 模式说明](docs/bundle-mode.md)。
 
 ### 🐳 Docker 镜像
 
@@ -179,7 +181,7 @@ Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；�
 🔗 **GitHub 仓库**：[songloft-org/songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter)
 
 - **标准版**（需连接服务器）：Android 通用包 `songloft-android.apk` 支持 ARM64、ARMv7 和 x86_64。[Flutter 正式版](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · [开发版](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)
-- **Bundle 本地模式**：在 [Flutter 正式版](https://github.com/songloft-org/songloft-player-flutter/releases/latest)或 [开发版](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)的 **Assets** 查找上表中的 `songloft-bundled-*` 文件。
+- **Bundle 本地模式**：从[后端正式版](https://github.com/songloft-org/songloft/releases/latest)或[开发版](https://github.com/songloft-org/songloft/releases/tag/dev)的 **Assets** 下载上表中的 `songloft-bundled-*` 文件。Flutter 标准版仍从 Flutter Release 下载。
 
 > 🪟 **Windows 用户**：可通过 [Scoop](https://scoop.sh) 一键安装与更新，该 Bucket 提供三个应用，可按需选择：
 > ```powershell
@@ -197,11 +199,11 @@ Flutter 与 Lynx 客户端分别在自己的仓库构建并发布 Bundle 包；�
 
 [Songloft Player (Lynx)](https://github.com/songloft-org/songloft-player-lynx) 使用 [ReactLynx](https://lynxjs.org/react/) + TypeScript，支持 Android、iOS、HarmonyOS、Web 和 Windows/macOS 桌面。已实现核心播放、曲库/歌单、歌词、插件、主题、多服务器、Bundle 本地模式和桌面客户端内更新；Android/iOS/桌面均通过登录页和设置页切换运行模式。桌面设备最终验收仍在进行。
 
-- [开发版下载](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)：main 代码推送后由共享工作流打包，Windows x64、macOS arm64/x64、Android、iOS、HarmonyOS 和 Web 全部通过后更新。
-- [正式版本](https://github.com/songloft-org/songloft-player-lynx/releases/latest)：通过版本 tag 发布；首次成功发版前可能尚无正式包。
+- [标准版开发/正式版本](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev) · [正式版](https://github.com/songloft-org/songloft-player-lynx/releases/latest)：Android、iOS、HarmonyOS、Web 和标准桌面包。
+- [Bundle 开发/正式版本](https://github.com/songloft-org/songloft/releases/tag/dev) · [正式版](https://github.com/songloft-org/songloft/releases/latest)：Lynx Bundle 和 Flutter Bundle。
 - [安装指南](https://songloft.hanxi.cc/player-lynx/installation) · [构建与运行](https://songloft.hanxi.cc/player-lynx/build-and-run) · [发版指南](https://songloft.hanxi.cc/player-lynx/releasing)。
 
-Lynx 仓库 Release 提供内嵌 Go 后端的 Android APK、需自行重签的 iOS IPA、签名 HAP（设备范围由 profile 决定）、Web standalone/embedded 包，以及 Windows NSIS 和 macOS arm64/x64 DMG/ZIP。主仓库 Release 不打包客户端应用。HarmonyOS 为实验性支持；Web 需 HTTPS 与 COOP/COEP 响应头，子路径部署未验证。桌面包在没有 Windows Authenticode、Apple Developer ID 和公证的情况下构建，更新清单仍使用独立 Ed25519 签名。详见[客户端选择](docs/clients.md)和[Bundle 模式说明](docs/bundle-mode.md)。
+后端 Release 发布 Flutter Bundle、Lynx Bundle 以及 `bundle-index.json` 和客户端专用 manifest。Lynx 仓库 Release 发布标准版、签名 HAP（设备范围由 profile 决定）和 Web standalone/embedded 包。HarmonyOS 为实验性支持；Web 需 HTTPS 与 COOP/COEP 响应头，子路径部署未验证。桌面包在没有 Windows Authenticode、Apple Developer ID 和公证的情况下构建，更新清单仍使用独立 Ed25519 签名。详见[客户端选择](docs/clients.md)和[Bundle 模式说明](docs/bundle-mode.md)。
 
 ### 🖥️ Songloft Desktop（Electron 客户端）
 

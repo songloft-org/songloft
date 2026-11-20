@@ -2,9 +2,9 @@
 
 > **独立仓库**: [https://github.com/songloft-org/songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter)
 
-本文描述 Flutter 客户端自身的架构与本地模式实现。Flutter 和 Lynx 客户端仓库分别构建并发布各自的 Bundle 包；主仓库 Release 不打包客户端应用。Lynx Android/iOS/Windows/macOS 的本地模式入口位于登录页和设置页，详见 [Bundle 模式说明](bundle-mode.md)及 [Lynx 指南](player-lynx/index.md)。Windows/macOS 桌面包已接入客户端共享发布流程，最终设备验收仍在进行。
+本文描述 Flutter 客户端自身的架构与本地模式实现。后端 Release 统一发布 Flutter Bundle 和 Lynx Bundle，Flutter/Lynx 标准版、Lynx HarmonyOS 与 Web 仍由各自客户端 Release 发布。Lynx Android/iOS/Windows/macOS 的本地模式入口位于登录页和设置页，详见 [Bundle 模式说明](bundle-mode.md)及 [Lynx 指南](player-lynx/index.md)。Windows/macOS 桌面包已接入客户端共享发布流程，最终设备验收仍在进行。
 
-Songloft Flutter 客户端支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。完整版服务器默认嵌入独立的 Lynx Web（`clients/player-lynx`）；旧 Flutter Web 嵌入版仍可显式选择。Flutter 仓库保留并独立发布 **Bundle 本地模式**客户端；Lynx 仓库也独立发布 Android/iOS Bundle 客户端。各客户端流水线在启动时选择主仓库 `main` 的最新 Go 后端提交。
+Songloft Flutter 客户端支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。完整版服务器默认嵌入独立的 Lynx Web（`clients/player-lynx`）；旧 Flutter Web 嵌入版仍可显式选择。Flutter 仓库保留标准版发布，Lynx 仓库保留标准版、HarmonyOS 和 Web 发布。后端 Release 固定客户端与后端完整 SHA 后发布 Bundle。
 
 ## 技术栈
 
@@ -530,7 +530,7 @@ flutter build windows --dart-define=HAS_BACKEND=true  # Windows
 - **移动端临时目录**：`mobile.Start` 在服务初始化前创建 `<dataDir>/tmp` 并设置 Go 进程的 `TMPDIR`，供直播转码、下载和封面等临时文件使用；Android 默认 `/data/local/tmp` 对普通应用不可写。`Stop` 保留该环境配置，HLS 服务关闭时清理自己的会话目录。
 - **原生桥接**：Android 用 `Class.forName("mobile.Mobile")` 反射调用 gomobile 生成类，未打包 `.aar` 时 `isAvailable()` 返回 false（优雅降级）；iOS 用 Swift 调用 `MobileStart` 等 Objective-C 函数
 - **桌面子进程**：`DesktopBackendService` 在 Flutter 可执行文件同目录查找 `songloft-server`，macOS 另兼容 `Contents/Resources/`，从 stdout 解析实际监听端口
-- **Flutter 发版边界**：本节描述 Flutter 客户端的源码能力。Flutter `build-and-release.yml` 在启动时解析主仓库 `main` 的最新 SHA 并构建后端，随 Flutter Release 发布 Android/iOS/macOS/Windows/Linux Bundle 包；Lynx 仓库独立发布 Android/iOS Bundle 包。主仓库 `release.yml` 只处理服务端与容器资产，不构建客户端应用。
+- **Flutter 发版边界**：本节描述 Flutter 客户端的源码能力。后端 `release.yml` 在准备阶段固定主仓库、Flutter、Lynx 和 `pkg/tag` 的完整 SHA，构建并发布 Flutter Bundle 与 Lynx Bundle。客户端标准版、HarmonyOS 和 Web 继续由各自客户端 Release 发布。
 
 ## 歌单标签与续播
 
@@ -604,9 +604,9 @@ make build-go-desktop-windows      # → clients/player-flutter/windows/songloft
 make build-go-desktop-macos-arm64  # → clients/player-flutter/macos/Runner/songloft-server
 
 # 2. 构建 Flutter 客户端（需加 --dart-define=HAS_BACKEND=true）
-# Bundle Release 构建由各客户端仓库的 workflow 完成；具体配置见客户端仓库
+# Bundle Release 构建由后端仓库 `release.yml` 完成；标准版、HarmonyOS 和 Web 由各客户端仓库 workflow 完成
 ```
 
 预编译安装包下载:
 - 标准版（需连接服务器）: [https://github.com/songloft-org/songloft-player-flutter/releases](https://github.com/songloft-org/songloft-player-flutter/releases)
-- Flutter Bundle 版（内嵌后端）：[Flutter 仓库 Releases](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · Lynx Bundle 版（Android/iOS）：[Lynx 仓库 Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest)
+- Flutter Bundle 版（内嵌后端）：[后端 Releases](https://github.com/songloft-org/songloft/releases/latest) · Lynx Bundle 版：[后端 Releases](https://github.com/songloft-org/songloft/releases/latest)

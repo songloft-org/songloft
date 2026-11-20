@@ -1,5 +1,5 @@
 // 落地页「安装选择器」的结构化数据。数据来自仓库 README.md 的下载表。
-// 服务端资产走主仓库。客户端及其 Bundle 包走各自的 Release。
+// 服务端和 Bundle 资产走主仓库。标准客户端、HarmonyOS 与 Web 资产走各自的 Release。
 
 export type Lang = 'zh' | 'en'
 export interface L { zh: string; en: string }
@@ -226,26 +226,26 @@ export const INSTALL: InstallMethod[] = [
   {
     id: 'bundle',
     label: { zh: 'Bundle 版', en: 'Bundle' },
-    tagline: { zh: '客户端仓库独立打包 · 免部署服务器', en: 'Built by each client repository · no server' },
+    tagline: { zh: '后端 Release 统一发布 · 免部署服务器', en: 'Published by the backend Release · no server' },
     icon: 'package',
     kind: 'external',
     note: {
-      zh: 'Flutter Bundle 的 Android 通用 APK 支持 ARM64、ARMv7 和 x86_64。Flutter 与 Lynx 各自在客户端仓库构建 Bundle 包，并固定 Go 后端源码版本。登录页或设置页切换本地与远程模式。首次启用时，Android 和桌面选择音乐目录，iOS 使用应用 Documents 目录。',
-      en: 'The Flutter Bundle universal Android APK supports ARM64, ARMv7, and x86_64. Flutter and Lynx build Bundle packages in their own repositories and pin the Go backend source. Switch modes on the login or settings screen. On first use, Android and desktop let you choose a music folder, while iOS uses the app Documents directory.',
+      zh: '后端 Release 同时发布 Flutter Bundle 和 Lynx Bundle。Flutter/Lynx 标准版仍在各自客户端 Release，HarmonyOS 和 Web 属于 Lynx 非 Bundle 产物。登录页或设置页切换本地与远程模式。首次启用时，Android 和桌面选择音乐目录，iOS 使用应用 Documents 目录。',
+      en: 'The backend Release publishes Flutter Bundle and Lynx Bundle packages. Flutter/Lynx standard packages remain in their client Releases, while HarmonyOS and Web are non-Bundle Lynx outputs. Switch modes on the login or settings screen. On first use, Android and desktop let users choose a music folder, while iOS uses the app Documents directory.',
     },
     external: [
       {
         label: { zh: 'Flutter Bundle 下载', en: 'Flutter Bundle downloads' },
-        url: 'https://github.com/songloft-org/songloft-player-flutter/releases/latest',
+        url: 'https://github.com/songloft-org/songloft/releases/latest',
         primary: true,
       },
       {
         label: { zh: 'Flutter Bundle Android APK（开发版）', en: 'Flutter Bundle Android APK (dev)' },
-        url: 'https://github.com/songloft-org/songloft-player-flutter/releases/download/dev/songloft-bundled-android.apk',
+        url: 'https://github.com/songloft-org/songloft/releases/download/dev/songloft-bundled-android.apk',
       },
       {
         label: { zh: 'Lynx Bundle 下载', en: 'Lynx Bundle downloads' },
-        url: 'https://github.com/songloft-org/songloft-player-lynx/releases/latest',
+        url: 'https://github.com/songloft-org/songloft/releases/latest',
       },
       {
         label: { zh: '模式说明', en: 'Bundle mode guide' },
@@ -303,8 +303,8 @@ export const INSTALL: InstallMethod[] = [
     icon: 'smartphone',
     kind: 'external',
     note: {
-      zh: 'Lynx Android/iOS Release 包含 Go 后端，Flutter Bundle 包在 Flutter 仓库单独发布；两个客户端仓库均固定后端源码 SHA。Windows/macOS Lynx 桌面仍待统一验收。iOS IPA 需自行重签；HarmonyOS 为实验性支持。Web 核心流程支持普通 HTTP，不强制 COOP/COEP。',
-      en: 'Lynx Android/iOS releases include the Go backend; Flutter Bundle packages are published separately by the Flutter repository. Both client repositories pin the backend SHA. Windows/macOS Lynx desktop remains pending consolidated acceptance. iOS IPA needs re-signing; HarmonyOS is experimental. Core Web flows support ordinary HTTP without mandatory COOP/COEP.',
+      zh: 'Lynx 标准版、Bundle、HarmonyOS 和 Web 分别从对应 Release 入口下载。Bundle 由后端 Release 发布，桌面文件名不包含 dev 或 stable。iOS IPA 需自行重签；HarmonyOS 为实验性支持。Web 核心流程支持普通 HTTP，不强制 COOP/COEP。',
+      en: 'Lynx standard, Bundle, HarmonyOS, and Web packages use their corresponding Release entry points. Bundle packages are published by the backend Release, and desktop filenames contain no dev or stable segment. iOS IPA needs re-signing; HarmonyOS is experimental. Core Web flows support ordinary HTTP without mandatory COOP/COEP.',
     },
     external: [
       {
@@ -315,6 +315,14 @@ export const INSTALL: InstallMethod[] = [
       {
         label: { zh: '正式版本', en: 'Stable releases' },
         url: 'https://github.com/songloft-org/songloft-player-lynx/releases/latest',
+      },
+      {
+        label: { zh: 'Bundle 开发版', en: 'Bundle dev release' },
+        url: 'https://github.com/songloft-org/songloft/releases/tag/dev',
+      },
+      {
+        label: { zh: 'Bundle 正式版', en: 'Bundle stable release' },
+        url: 'https://github.com/songloft-org/songloft/releases/latest',
       },
       {
         label: { zh: '安装指南', en: 'Installation guide' },

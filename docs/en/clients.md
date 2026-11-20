@@ -6,7 +6,7 @@ Songloft offers Flutter, Lynx, Electron desktop, and TV clients connecting to th
 | --- | --- | --- | --- | --- |
 | Technology | Flutter / Dart | ReactLynx / TypeScript | Electron | Kotlin / Jetpack Compose for TV |
 | Platforms | Android, iOS, macOS, Windows, Linux, Web | Android, iOS, HarmonyOS, Web | Windows, macOS, Linux | Android 5.0+ TVs / boxes and landscape large-screen devices |
-| Bundled local backend | Flutter repository builds Android/iOS/macOS/Windows/Linux Bundle packages | Lynx Android/iOS/Windows/macOS Releases embed the Go backend | Not implemented; requires a separate server | Not implemented; requires a separate server |
+| Bundled local backend | Backend Release publishes Flutter Bundle packages | Backend Release publishes Lynx Bundle packages; standard remains in the Lynx Release | Not implemented; requires a separate server | Not implemented; requires a separate server |
 | Desktop client | Supported | Windows/macOS packages use the shared release workflow. Final device acceptance is in progress | Dedicated desktop client | No desktop edition |
 | Client updates | See Flutter's client guides | Mobile packages use Releases. Desktop packages support in-app updates through per-architecture manifests | See the Electron repository instructions | Update checks in settings |
 | Core features | Playback, library, playlists, lyrics, plugins, themes | Implemented, with native device regression still required | Library, playlists, lyrics, plugins, desktop integration | Remote navigation, music / MV, lyrics, karaoke, QR song requests |
@@ -15,7 +15,7 @@ Songloft offers Flutter, Lynx, Electron desktop, and TV clients connecting to th
 ## Flutter
 
 - [Standalone downloads](https://github.com/songloft-org/songloft-player-flutter/releases/latest): connect to a separate server.
-- [Bundle downloads](https://github.com/songloft-org/songloft-player-flutter/releases/latest): the repository releases both standard clients and `songloft-bundled-*` packages.
+- [Bundle downloads](https://github.com/songloft-org/songloft/releases/latest): the backend Release publishes `songloft-bundled-*` packages.
 - The standard `songloft-android.apk` and Bundle `songloft-bundled-android.apk` each support ARM64, ARMv7, and x86_64 in one APK. Universal packages appear first in the dev release. [Flutter dev release](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)
 - [Architecture (Chinese)](../player/architecture.md) · [Build guide (Chinese)](../player/build_guide.md) · [Source](https://github.com/songloft-org/songloft-player-flutter).
 
@@ -25,19 +25,19 @@ Full backend images/binaries embed Lynx Web by default. Native Flutter and stand
 
 Underlying technology: [Lynx official website](https://lynxjs.org/) · [ReactLynx documentation](https://lynxjs.org/react/).
 
-- [Development downloads](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev): the shared workflow builds Windows x64, macOS arm64/x64, Android, iOS, HarmonyOS, and Web, and updates downloads only after all targets pass.
-- [Stable releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest): version tags trigger publication; packages may not exist before the first successful release.
-- Lynx Releases include the Go backend and local-mode entry points, plus Windows NSIS, macOS DMG/ZIP, and per-architecture update manifests. The root repository does not build or publish client apps.
+- [Lynx standard development/stable releases](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev) · [stable](https://github.com/songloft-org/songloft-player-lynx/releases/latest): standard, HarmonyOS, and Web.
+- [Bundle development/stable releases](https://github.com/songloft-org/songloft/releases/tag/dev) · [stable](https://github.com/songloft-org/songloft/releases/latest): Lynx Bundle and Flutter Bundle.
+- Lynx desktop standard packages remain in the Lynx Release. Bundle desktop packages are in the backend Release, and filenames contain no `dev` or `stable` channel segment.
 - [Overview](player-lynx/index.md) · [Installation](player-lynx/installation.md) · [Build](player-lynx/build-and-run.md) · [Testing](player-lynx/testing.md) · [Releasing](player-lynx/releasing.md) · [Contributing](player-lynx/contributing.md).
 
 | Platform                 | Package                                          | Limits                                                                      |
 | ------------------------ | ------------------------------------------------ | --------------------------------------------------------------------------- |
-| Android 6.0+             | `songloft-lynx-android.apk` | Includes the local backend; upgrades require the same key and a newer build number |
-| iOS 15+                  | `songloft-lynx-ios-nosign.ipa` | Unsigned; re-sign before installation. Live Activity needs iOS 16.2+ |
+| Android 6.0+             | `songloft-lynx-android.apk` / `songloft-lynx-bundled-android.apk` | Standard / Bundle, Bundle includes the local backend |
+| iOS 15+                  | `songloft-lynx-ios-nosign.ipa` / `songloft-lynx-bundled-ios-nosign.ipa` | Standard / Bundle, both unsigned |
 | HarmonyOS NEXT / API 13+ | `songloft-lynx-harmony.hap`                      | Experimental; profile controls eligible devices. No fullscreen video        |
 | Web                      | `songloft-lynx-web-{standalone,embedded}.tar.gz` | Requires a server; core flows support ordinary HTTP; no DLNA or single-song offline cache |
 
-Releases include `version.json` and `checksums.txt`. Downloadable dev packages are also Release builds with no TCP/E2E bridge.
+Backend Bundle Releases include `bundle-index.json`, client-specific manifests, and `checksums.txt`. Lynx standard Releases include `version.json` and `checksums.txt`. Downloadable dev packages are also Release builds with no TCP/E2E bridge.
 
 Standalone Web shows a server-address field; embedded uses the same-origin server and hides that field. Both require suitable MIME types; the current asynchronous engine does not require SAB or isolation headers. Root and subpath deployments are verified; see [Web deployment](player-lynx/web-deployment.md) for browser, plugin and background-operation limits.
 
@@ -68,4 +68,4 @@ See [Third-party Clients in the quick start](quick-start.md#🌐-third-party-cli
 
 Preview a Lynx release in its own repository with `pnpm run release patch --dry-run`. Actual release synchronizes versions and atomically pushes main and its version tag. A client release does not require changing the server version.
 
-Public guides are synced from the `clients/player-lynx` submodule to `/player-lynx/` and `/en/player-lynx/`. Edit, commit, and push the source repository, then update its submodule pointer in the parent. Do not edit generated site pages. The Flutter and Lynx client repositories each build Go from the latest root `main` commit at the start of the workflow and publish their own Bundle clients. Root Releases publish server/container assets only, not client installers.
+Public guides are synced from the `clients/player-lynx` submodule to `/player-lynx/` and `/en/player-lynx/`. Edit, commit, and push the source repository, then update its submodule pointer in the parent. Do not edit generated site pages. The backend Release fixes the full backend, Flutter submodule, Lynx submodule, and `pkg/tag` SHAs, then publishes Flutter Bundle, Lynx Bundle, and `bundle-index.json`. Flutter/Lynx standard, Lynx HarmonyOS, and Web remain in their client Releases.

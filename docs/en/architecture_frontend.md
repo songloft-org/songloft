@@ -2,9 +2,9 @@
 
 > **Standalone repository**: [https://github.com/songloft-org/songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter)
 
-This page describes the Flutter client's own architecture and local-mode implementation. The Flutter and Lynx client repositories build and release their own Bundle packages; root Releases do not package client apps. Lynx Android/iOS/Windows/macOS expose local mode from the login and settings screens. See [Bundle Mode](bundle-mode.md) and the [Lynx guides](player-lynx/index.md). Windows/macOS desktop packages now use the client shared publishing workflow, with final device acceptance still in progress.
+This page describes the Flutter client's own architecture and local-mode implementation. The backend Release publishes Flutter and Lynx Bundles, while Flutter/Lynx standard, Lynx HarmonyOS, and Web remain in their client Releases. Lynx Android/iOS/Windows/macOS expose local mode from the login and settings screens. See [Bundle Mode](bundle-mode.md) and the [Lynx guides](player-lynx/index.md). Windows/macOS desktop packages now use the client shared publishing workflow, with final device acceptance still in progress.
 
-The Songloft Flutter client supports six platforms: **Android, iOS, macOS, Windows, Linux, and Web**. The full server defaults to the separate Lynx Web client (`clients/player-lynx`); legacy embedded Flutter Web remains an explicit option. The Flutter repository retains and independently releases **Bundle local-mode** clients; the Lynx repository also releases Android/iOS Bundle clients. Each client workflow selects the latest Go backend commit on the root repository’s `main` at startup.
+The Songloft Flutter client supports six platforms: **Android, iOS, macOS, Windows, Linux, and Web**. The full server defaults to the separate Lynx Web client (`clients/player-lynx`); legacy embedded Flutter Web remains an explicit option. The Flutter repository retains standard-edition releases, and the Lynx repository retains standard, HarmonyOS, and Web releases. The backend Release fixes full client and backend SHAs before publishing Bundles.
 
 ## Tech Stack
 
@@ -530,7 +530,7 @@ flutter build windows --dart-define=HAS_BACKEND=true  # Windows
 - **Mobile temporary directory**: before initializing services, `mobile.Start` creates `<dataDir>/tmp` and sets the Go process's `TMPDIR` for temporary HLS, download, and cover files. Android's default `/data/local/tmp` is not writable by ordinary apps. `Stop` retains this environment setting; the HLS service removes its own session directory when closed.
 - **Native bridging**: Android calls the gomobile-generated classes by reflection via `Class.forName("mobile.Mobile")`; when the `.aar` is not bundled, `isAvailable()` returns false (graceful degradation). iOS uses Swift to call Objective-C functions such as `MobileStart`
 - **Desktop subprocess**: `DesktopBackendService` looks for `songloft-server` alongside the Flutter executable, with `Contents/Resources/` also supported on macOS. It parses the actual listening port from stdout.
-- **Flutter release boundary**: this section describes Flutter's source implementation. The client repository's `build-and-release.yml` builds the backend from the latest root `main` SHA at startup, then publishes Android/iOS/macOS/Windows/Linux Bundle packages with Flutter Releases. The Lynx repository independently publishes Android/iOS Bundle clients. Root `release.yml` handles server and container assets only; it does not build client apps.
+- **Flutter release boundary**: this section describes Flutter's source implementation. The backend `release.yml` fixes the full root, Flutter, Lynx, and `pkg/tag` SHAs during preparation, then builds and publishes Flutter and Lynx Bundles. Standard, HarmonyOS, and Web packages remain in their client Releases.
 
 ## Playlist Tags and Resume
 
@@ -604,9 +604,9 @@ make build-go-desktop-windows      # → clients/player-flutter/windows/songloft
 make build-go-desktop-macos-arm64  # → clients/player-flutter/macos/Runner/songloft-server
 
 # 2. Build the Flutter client (add --dart-define=HAS_BACKEND=true)
-# Client repositories build Bundle releases through their own workflows; see their release guides
+# The backend `release.yml` builds Bundle releases; client workflows build standard, HarmonyOS, and Web packages
 ```
 
 Prebuilt installer downloads:
 - Standard edition (requires connecting to a server): [https://github.com/songloft-org/songloft-player-flutter/releases](https://github.com/songloft-org/songloft-player-flutter/releases)
-- Flutter Bundle edition (backend embedded): [Flutter repository Releases](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · Lynx Bundle edition (Android/iOS): [Lynx repository Releases](https://github.com/songloft-org/songloft-player-lynx/releases/latest)
+- Flutter Bundle edition (backend embedded): [Backend Releases](https://github.com/songloft-org/songloft/releases/latest) · Lynx Bundle edition: [Backend Releases](https://github.com/songloft-org/songloft/releases/latest)
