@@ -13,7 +13,7 @@ test -f "$archive"
 link_flags=$(cat "$asset/link-flags.txt")
 # This is the part of the native link contract that the app's final link needs.
 test "$link_flags" = '-lc++ -framework Security -framework CoreFoundation'
-xcrun lipo -verify_arch arm64 "$archive"
+xcrun lipo "$archive" -verify_arch arm64
 
 if [[ -e "$staging" || -L "$staging" ]]; then
   echo "FFmpeg staging path already exists: $staging" >&2

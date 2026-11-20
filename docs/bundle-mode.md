@@ -7,9 +7,11 @@ Bundle 将 Go 后端与客户端一起安装，用户不必另外部署服务器
 | 客户端 | Bundle 包 | 发布仓库 | 后端源码固定方式 |
 |---|---|---|---|
 | Flutter | `songloft-bundled-android.apk`、`songloft-bundled-ios-nosign.ipa`、`songloft-bundled-linux-x64.tar.gz`、`songloft-bundled-macos.zip`、`songloft-bundled-windows-x64.zip` | [后端正式版](https://github.com/songloft-org/songloft/releases/latest) · [dev](https://github.com/songloft-org/songloft/releases/tag/dev) | Release 准备阶段固定主仓库与子模块完整 SHA |
-| Lynx | `songloft-lynx-bundled-android.apk`、`songloft-lynx-bundled-ios-nosign.ipa`、`songloft-lynx-bundled-win32-x64.exe`、`songloft-lynx-bundled-darwin-arm64.dmg`、`songloft-lynx-bundled-darwin-x64.dmg` | [后端正式版](https://github.com/songloft-org/songloft/releases/latest) · [dev](https://github.com/songloft-org/songloft/releases/tag/dev) | Release 准备阶段固定主仓库与子模块完整 SHA |
+| Lynx | `songloft-lynx-bundled-android.apk`、`songloft-lynx-bundled-ios-nosign.ipa`、`songloft-lynx-bundled-win32-x64.exe`、`songloft-lynx-bundled-darwin-arm64.dmg`、`songloft-lynx-bundled-darwin-x64.dmg` / `songloft-lynx-bundled-darwin-arm64.zip` / `songloft-lynx-bundled-darwin-x64.zip` | [后端正式版](https://github.com/songloft-org/songloft/releases/latest) · [dev](https://github.com/songloft-org/songloft/releases/tag/dev) | Release 准备阶段固定主仓库与子模块完整 SHA |
 | Lynx 标准版 | Android/iOS、桌面标准包 | [Lynx Release](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [dev](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev) | Lynx Release 自己固定后端依赖 |
 | Lynx HarmonyOS / Web | HAP 与 Web standalone/embedded | [Lynx Release](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [dev](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev) | 非 Bundle 产物 |
+
+[完整包名清单](release-packages.md)。后端仓库配置 `DESKTOP_UPDATE_PUBLIC_KEY` 和 `DESKTOP_UPDATE_PRIVATE_KEY` 后签署桌面更新清单。缺少密钥时，dev 构建仍上传 Bundle 到 Actions，跳过 GitHub Release 发布。Lynx 移动热更新另使用 `LYNX_UPDATE_PUBLIC_KEY` 和 `LYNX_UPDATE_PRIVATE_KEY`。
 
 后端 Release 同时发布 `bundle-index.json`、`bundle-flutter-version.json`、`bundle-flutter-backend-manifest-<abi>.json`、`bundle-lynx-version.json`、`bundle-lynx-version.json.sig` 和 `desktop-bundled-<target>.json`。`bundle-index.json` 的每条记录包含 `client`、`edition`、平台、资产名、完整客户端 SHA、完整后端 SHA、版本、构建时间和 SHA-256。服务端自己的 `version.json` 保留独立名称。
 

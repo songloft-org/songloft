@@ -57,6 +57,7 @@ jobs:
       lynx_sha: ${{ steps.snapshot.outputs.lynx_sha }}
       tag_sha: ${{ steps.snapshot.outputs.tag_sha }}
       should_run: ${{ steps.gate.outputs.should_run }}
+      desktop_signing_ready: ${{ steps.desktop-signing.outputs.ready }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -145,6 +146,24 @@ jobs:
           echo "Lynx SHA: $lynx_sha"
           echo "pkg/tag SHA: $tag_sha"
 
+
+      - name: Check Lynx Desktop signing configuration
+        id: desktop-signing
+        if: steps.gate.outputs.should_run == 'true'
+        env:
+          DESKTOP_UPDATE_PUBLIC_KEY: ${{ secrets.DESKTOP_UPDATE_PUBLIC_KEY }}
+          DESKTOP_UPDATE_PRIVATE_KEY: ${{ secrets.DESKTOP_UPDATE_PRIVATE_KEY }}
+          VERSION: ${{ steps.parse.outputs.version }}
+        run: |
+          if [[ -n "$DESKTOP_UPDATE_PUBLIC_KEY" && -n "$DESKTOP_UPDATE_PRIVATE_KEY" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$VERSION" == dev ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Lynx Desktop signing secrets are missing. Bundle packages will be available as Actions artifacts."
+          else
+            echo "::error::Configure DESKTOP_UPDATE_PUBLIC_KEY and DESKTOP_UPDATE_PRIVATE_KEY to publish Lynx Desktop Bundles."
+            exit 1
+          fi
 
       - name: Get previous published stable release
         id: prev-tag
@@ -1395,7 +1414,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Create Lynx bundle release metadata
-        if: matrix.target == 'android'
+        if: matrix.target == 'android' || matrix.target == 'ios'
         working-directory: clients/player-lynx
         env:
           CLIENT_SHA: ${{ needs.prepare.outputs.lynx_sha }}
@@ -1411,7 +1430,7 @@ jobs:
           const buildTime = new Date(process.env.BUILD_TIME.replace('_', 'T') + 'Z').toISOString()
           writeFileSync('.build/version.json', JSON.stringify({
             version, package_version: packageVersion, native_version: packageVersion,
-            build_number: Math.floor(Date.now() / 1000), git_commit: process.env.CLIENT_SHA,
+            build_number: Math.floor(Date.parse(buildTime) / 1000), git_commit: process.env.CLIENT_SHA,
             build_time: buildTime, channel: version === 'dev' ? 'dev' : 'stable',
             release_tag: process.env.RELEASE_TAG, assets: [], bundle_update: null,
           }, null, 2) + '\n')
@@ -1419,6 +1438,9 @@ jobs:
           cp .build/version.json "$GITHUB_WORKSPACE/lynx-bundle-source.json"
       - name: Build Android Bundle
         if: matrix.target == 'android'
+        env:
+          SONGLOFT_BUILD_METADATA: ${{ github.workspace }}/clients/player-lynx/.build/version.json
+          SONGLOFT_UPDATE_PUBLIC_KEY: ${{ vars.LYNX_UPDATE_PUBLIC_KEY }}
         run: |
           for pair in 'android-arm64-v8a:arm64-v8a' 'android-armeabi-v7a:armeabi-v7a' 'android-x86_64:x86_64'; do
             target=${pair%%:*}; abi=${pair##*:}
@@ -1442,13 +1464,13 @@ jobs:
               grep -Fx "lib/$abi/lib$tool.so" "$RUNNER_TEMP/bundle-apk-files"
             done
           done
-          SONGLOFT_BUILD_METADATA="$PWD/.build/version.json" \
-            SONGLOFT_UPDATE_PUBLIC_KEY="${{ vars.LYNX_UPDATE_PUBLIC_KEY }}" \
-            node scripts/bundle-host.mjs
           cp dist/main.lynx.bundle "$GITHUB_WORKSPACE/songloft-lynx-main.lynx.bundle"
           cp .build/bundle-host.json "$GITHUB_WORKSPACE/lynx-native-host.json"
       - name: Build iOS Bundle
         if: matrix.target == 'ios'
+        env:
+          SONGLOFT_BUILD_METADATA: ${{ github.workspace }}/clients/player-lynx/.build/version.json
+          SONGLOFT_UPDATE_PUBLIC_KEY: ${{ vars.LYNX_UPDATE_PUBLIC_KEY }}
         run: |
           node scripts/install-ffmpeg-asset.mjs --resolution "$RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json" --target ios-arm64 --output-dir "$RUNNER_TEMP/ffmpeg-ios"
           export GOFLAGS=-buildvcs=false
@@ -1474,6 +1496,13 @@ jobs:
           grep -E ' [Tt] _sl_transcode$' "$RUNNER_TEMP/lynx-bundle-symbols"
           cp -R "$app" Payload/
           zip -qry "$GITHUB_WORKSPACE/songloft-lynx-bundled-ios-nosign.ipa" Payload
+      - name: Configure Lynx Desktop update key
+        if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
+        working-directory: clients/player-lynx
+        env:
+          UPDATE_PUBLIC_KEY: ${{ needs.prepare.outputs.desktop_signing_ready == 'true' && secrets.DESKTOP_UPDATE_PUBLIC_KEY || '' }}
+          REQUIRE_UPDATE_KEY: ${{ needs.prepare.outputs.desktop_signing_ready }}
+        run: node desktop/scripts/ci-signing.mjs
       - name: Fetch desktop SDK
         if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
         working-directory: clients/player-lynx
@@ -1481,27 +1510,38 @@ jobs:
       - name: Build desktop Bundle
         if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
         working-directory: clients/player-lynx
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version_tag }}
         run: |
+          if [[ "$SONGLOFT_DESKTOP_CHANNEL" == stable ]]; then
+            export SONGLOFT_DESKTOP_VERSION="$RELEASE_VERSION"
+          fi
           pnpm install --frozen-lockfile
           pnpm --dir desktop install --frozen-lockfile
-          pnpm run desktop:build
+          pnpm run desktop:build --without-probe
           pnpm --dir desktop build:native
           pnpm --dir desktop build:resources
           pnpm --dir desktop package
-          source_dir="desktop/release/$SONGLOFT_DESKTOP_CHANNEL/${{ matrix.target }}"
-          for file in "$source_dir"/*; do
-            case "$file" in
-              *.exe|*.dmg|*.zip) cp "$file" "$GITHUB_WORKSPACE/songloft-lynx-bundled-${{ matrix.target }}.${file##*.}" ;;
-            esac
-          done
+      - name: Upload Lynx Desktop Bundle
+        if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ env.SONGLOFT_DESKTOP_CHANNEL }}-bundled-${{ matrix.target }}
+          path: |
+            clients/player-lynx/desktop/release/${{ env.SONGLOFT_DESKTOP_CHANNEL }}/${{ matrix.target }}/*.exe
+            clients/player-lynx/desktop/release/${{ env.SONGLOFT_DESKTOP_CHANNEL }}/${{ matrix.target }}/*.dmg
+            clients/player-lynx/desktop/release/${{ env.SONGLOFT_DESKTOP_CHANNEL }}/${{ matrix.target }}/*.zip
+            clients/player-lynx/desktop/resources/${{ matrix.target }}/build-info.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Upload Lynx Bundle artifacts
+        if: matrix.target == 'android' || matrix.target == 'ios'
         uses: actions/upload-artifact@v4
         with:
           name: lynx-bundled-${{ matrix.target }}
           path: |
             songloft-lynx-bundled-android.apk
             songloft-lynx-bundled-ios-nosign.ipa
-            songloft-lynx-bundled-${{ matrix.target }}.*
             songloft-lynx-main.lynx.bundle
             lynx-native-host.json
           if-no-files-found: error
@@ -1538,6 +1578,7 @@ jobs:
       always() &&
       needs.prepare.outputs.should_run == 'true' &&
       needs.prepare.result == 'success' &&
+      needs.prepare.outputs.desktop_signing_ready == 'true' &&
       needs.resolve-ffmpeg-assets.result == 'success' &&
       needs.build-binaries.result == 'success' &&
       needs.docker-build-push.result == 'success' &&
@@ -1584,6 +1625,41 @@ jobs:
           path: release-files
           merge-multiple: true
 
+      - name: Checkout Lynx release tooling
+        uses: actions/checkout@v4
+        with:
+          repository: songloft-org/songloft-player-lynx
+          ref: ${{ needs.prepare.outputs.lynx_sha }}
+          path: lynx-release-source
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+          package_json_file: lynx-release-source/package.json
+      - name: Download Lynx Desktop installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*-bundled-*
+          path: ${{ runner.temp }}/desktop-builds
+      - name: Sign Lynx Desktop update manifests
+        env:
+          CHANNEL: ${{ needs.prepare.outputs.version == 'dev' && 'dev' || 'stable' }}
+          TAG: ${{ needs.prepare.outputs.release_tag }}
+          LYNX_SHA: ${{ needs.prepare.outputs.lynx_sha }}
+          BACKEND_SHA: ${{ needs.prepare.outputs.backend_sha }}
+          SONGLOFT_DESKTOP_UPDATE_PRIVATE_KEY_PEM: ${{ secrets.DESKTOP_UPDATE_PRIVATE_KEY }}
+        run: |
+          pnpm --dir lynx-release-source/desktop install --frozen-lockfile --ignore-scripts
+          node lynx-release-source/desktop/scripts/prepare-release.mjs "$CHANNEL" "$TAG" "$LYNX_SHA" "$BACKEND_SHA" \
+            "$RUNNER_TEMP/desktop-builds" "$RUNNER_TEMP/desktop-publish"
+          for target in win32-x64 darwin-arm64 darwin-x64; do
+            test -s "$RUNNER_TEMP/desktop-publish/manifests/desktop-bundled-$target.json"
+          done
+          cp "$RUNNER_TEMP/desktop-publish/assets/"* "$RUNNER_TEMP/desktop-publish/manifests/"* release-files/
+
       - name: Generate Bundle manifests
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -1594,21 +1670,24 @@ jobs:
           FFMPEG_RELEASE_TAG: ${{ needs.resolve-ffmpeg-assets.outputs.release_tag }}
           FFMPEG_SOURCE_COMMIT: ${{ needs.resolve-ffmpeg-assets.outputs.source_commit }}
           FFMPEG_MANIFEST_SHA256: ${{ needs.resolve-ffmpeg-assets.outputs.manifest_sha256 }}
+          SONGLOFT_UPDATE_PUBLIC_KEY: ${{ vars.LYNX_UPDATE_PUBLIC_KEY }}
+          SONGLOFT_UPDATE_PRIVATE_KEY: ${{ secrets.LYNX_UPDATE_PRIVATE_KEY }}
         run: |
           if [ -f release-files/lynx-native-host.json ] && [ -f release-files/songloft-lynx-main.lynx.bundle ]; then
-            mkdir -p "$RUNNER_TEMP/lynx-bundle-release"
+            mkdir -p "$RUNNER_TEMP/lynx-bundle-release" "$RUNNER_TEMP/lynx-bundle-source"
             cp release-files/songloft-lynx-bundled-* "$RUNNER_TEMP/lynx-bundle-release/"
             cp release-files/lynx-bundle-source.json "$RUNNER_TEMP/lynx-bundle-release/version.json"
-            cp release-files/songloft-lynx-main.lynx.bundle "$RUNNER_TEMP/lynx-bundle-source.lynx.bundle"
-            cp release-files/lynx-native-host.json "$RUNNER_TEMP/lynx-native-host.json"
-            SONGLOFT_UPDATE_PUBLIC_KEY="${{ vars.LYNX_UPDATE_PUBLIC_KEY }}" \
-            SONGLOFT_UPDATE_PRIVATE_KEY="${{ secrets.LYNX_UPDATE_PRIVATE_KEY }}" \
-              node clients/player-lynx/scripts/finalize-release.mjs \
-                "$RUNNER_TEMP/lynx-bundle-release" \
-                "$RUNNER_TEMP/lynx-bundle-source.lynx.bundle" \
-                "$RUNNER_TEMP/lynx-native-host.json"
+            cp release-files/songloft-lynx-main.lynx.bundle "$RUNNER_TEMP/lynx-bundle-source/main.lynx.bundle"
+            node lynx-release-source/scripts/finalize-release.mjs \
+              "$RUNNER_TEMP/lynx-bundle-release" \
+              "$RUNNER_TEMP/lynx-bundle-source/main.lynx.bundle" \
+              release-files/lynx-native-host.json
             cp "$RUNNER_TEMP/lynx-bundle-release/version.json" release-files/bundle-lynx-version.json
-            cp "$RUNNER_TEMP/lynx-bundle-release/version.json.sig" release-files/bundle-lynx-version.json.sig
+            if [[ -f "$RUNNER_TEMP/lynx-bundle-release/version.json.sig" ]]; then
+              cp "$RUNNER_TEMP/lynx-bundle-release/version.json.sig" release-files/bundle-lynx-version.json.sig
+            else
+              rm release-files/songloft-lynx-main.lynx.bundle
+            fi
           fi
           cat > "$RUNNER_TEMP/bundle-metadata.json" <<EOF
           {
