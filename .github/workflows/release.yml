@@ -1291,6 +1291,7 @@ jobs:
         run: |
           export GOFLAGS=-buildvcs=false
           go install golang.org/x/mobile/cmd/gomobile@latest golang.org/x/mobile/cmd/gobind@latest
+          mkdir -p clients/player-lynx/android/app/libs
           (cd backend-source && gomobile bind -target=android/arm64,android/arm,android/amd64 -androidapi 23 -tags lite \
             -ldflags="-s -w -X songloft/internal/version.GitCommit=$SONGLOFT_BACKEND_COMMIT" \
             -o "$GITHUB_WORKSPACE/clients/player-lynx/android/app/libs/songloft.aar" ./mobile)
@@ -1309,6 +1310,7 @@ jobs:
         run: |
           export GOFLAGS=-buildvcs=false
           go install golang.org/x/mobile/cmd/gomobile@latest golang.org/x/mobile/cmd/gobind@latest
+          mkdir -p clients/player-lynx/ios
           (cd backend-source && gomobile bind -target=ios/arm64 -tags lite \
             -ldflags="-s -w -X songloft/internal/version.GitCommit=$SONGLOFT_BACKEND_COMMIT" \
             -o "$GITHUB_WORKSPACE/clients/player-lynx/ios/Songloft.xcframework" ./mobile)
@@ -1316,9 +1318,12 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run build:ios-bundle
           pnpm run ios:pods
-          (cd ios && xcodebuild -project SongloftLynx.xcodeproj -scheme SongloftLynx -sdk iphoneos -configuration Release CODE_SIGNING_ALLOWED=NO build)
+          (cd ios && xcodebuild -workspace SongloftLynx.xcworkspace -scheme SongloftLynx \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build)
           mkdir -p Payload
-          cp -R ios/build/Release-iphoneos/SongloftLynx.app Payload/
+          cp -R ios/build/DerivedData/Build/Products/Release-iphoneos/SongloftLynx.app Payload/
           zip -qry "$GITHUB_WORKSPACE/songloft-lynx-bundled-ios-nosign.ipa" Payload
       - name: Build desktop Bundle
         if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
