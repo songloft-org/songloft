@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -716,6 +717,7 @@ type BridgeHandler struct {
 	metadataRefresher               *services.MetadataRefresher // 元数据刷新服务（songs.refreshMetadata bridge 调用）
 	pluginToken                     string                      // 插件专用的永久 JWT Token
 	port                            string                      // 服务器监听端口（用于构造宿主 URL）
+	basePath                        string                      // 宿主部署路径，由 Manager 在创建时传入
 	portMu                          sync.RWMutex
 	processes                       sync.Map      // map[name]*managedProcess — 后台进程跟踪
 	udpSockets                      sync.Map      // map[socketID]*managedUDPSocket — UDP socket 跟踪
@@ -753,7 +755,7 @@ func (h *BridgeHandler) hostPort() string {
 }
 
 // NewBridgeHandler 创建桥接处理器
-func NewBridgeHandler(service *JSService, dataDir string, db database.DB, songDownloader *services.SongDownloader, songService *services.SongService, playlistService *services.PlaylistService, songTagService *services.SongTagService, metadataRefresher *services.MetadataRefresher, pluginToken string, port string) *BridgeHandler {
+func NewBridgeHandler(service *JSService, dataDir string, db database.DB, songDownloader *services.SongDownloader, songService *services.SongService, playlistService *services.PlaylistService, songTagService *services.SongTagService, metadataRefresher *services.MetadataRefresher, pluginToken, port, basePath string) *BridgeHandler {
 	return &BridgeHandler{
 		service:           service,
 		permissions:       service.plugin.Permissions,
@@ -766,6 +768,7 @@ func NewBridgeHandler(service *JSService, dataDir string, db database.DB, songDo
 		metadataRefresher: metadataRefresher,
 		pluginToken:       pluginToken,
 		port:              port,
+		basePath:          basePath,
 	}
 }
 
@@ -1865,12 +1868,10 @@ func (h *BridgeHandler) handlePlugin(action, data string) (string, error) {
 		return h.pluginToken, nil
 
 	case "plugin.getHostUrl":
-		port := h.hostPort()
-		return fmt.Sprintf("http://localhost:%s", port), nil
+		return hostBaseURL("localhost", h.hostPort(), h.basePath), nil
 
 	case "plugin.getNetworkAddresses":
-		port := h.hostPort()
-		return getNetworkAddresses(port)
+		return getNetworkAddresses(h.hostPort(), h.basePath)
 
 	case "plugin.getFileUrl":
 		var req struct {
@@ -1942,9 +1943,14 @@ func (h *BridgeHandler) handlePlugin(action, data string) (string, error) {
 	}
 }
 
-// getNetworkAddresses 返回本机局域网可达的 IPv4 地址列表，192.168.x.x 优先。
+func hostBaseURL(host, port, basePath string) string {
+	u := url.URL{Scheme: "http", Host: net.JoinHostPort(host, port), Path: basePath}
+	return u.String()
+}
+
+// getNetworkAddresses 返回本机局域网可达的 IPv4 服务基础 URL，192.168.x.x 优先。
 // 过滤规则：排除回环、IPv6、Docker 虚拟网桥接口、172.16.0.0/12 网段（Docker 默认使用）。
-func getNetworkAddresses(port string) (string, error) {
+func getNetworkAddresses(port, basePath string) (string, error) {
 	// 172.16.0.0/12 几乎全被 Docker bridge 占用，排除
 	docker12 := net.IPNet{IP: net.IP{172, 16, 0, 0}, Mask: net.CIDRMask(12, 32)}
 
@@ -1976,7 +1982,7 @@ func getNetworkAddresses(port string) (string, error) {
 			if ip == nil || docker12.Contains(ip) {
 				continue
 			}
-			url := fmt.Sprintf("http://%s:%s", ip.String(), port)
+			url := hostBaseURL(ip.String(), port, basePath)
 			if strings.HasPrefix(ip.String(), "192.168.") {
 				preferred = append(preferred, url)
 			} else {

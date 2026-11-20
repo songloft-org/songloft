@@ -791,7 +791,7 @@ async function pluginInfoExample() {
     // Get the plugin's JWT Token (for accessing host APIs, such as authenticated resources like music files and covers)
     var token = await songloft.plugin.getToken();
 
-    // Get the base URL of the host service (e.g. http://192.168.1.100:58091)
+    // Get the base URL of the host service (e.g. http://localhost:58091/songloft)
     var hostUrl = await songloft.plugin.getHostUrl();
 }
 ```
@@ -802,13 +802,14 @@ async function pluginInfoExample() {
 async function getMusicUrl(songId) {
     var host = await songloft.plugin.getHostUrl();
     var token = await songloft.plugin.getToken();
-    return host + "/music/" + encodedPath + "?access_token=" + token;
+    return host + "/api/v1/songs/" + songId + "/play?access_token=" + token;
 }
 ```
 
 **Method reference:**
 - `getToken()` — returns the currently valid JWT access_token string, usable for accessing the host's protected APIs
-- `getHostUrl()` — returns the base URL of the host service, used to build complete API or resource addresses
+- `getHostUrl()` — returns the loopback base URL with the deployment path. Append `/api/v1/...` to call a host API
+- `getNetworkAddresses()` — returns local IPv4 base URLs for LAN access, each with the deployment path
 
 ### songloft.lyrics — Lyrics Provider
 

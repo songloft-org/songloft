@@ -39,6 +39,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 - Validation: added regressions for resolver port updates, manager updates to existing bridge handlers, the host URL, and the mobile listener entry. `make check` and `go test ./internal/app ./internal/services ./internal/jsplugin ./mobile` pass. Lynx Android device and speaker retest remain for the reporter's environment.
 - Seen 1× (2026-11-20). Status: local uncommitted parent-repository fix.
 
+### JSPLUG-003: Include the deployment path in plugin host base URLs
+
+- Scope: JS plugin host bridge, [songloft-org/songloft-plugin-miot#149](https://github.com/songloft-org/songloft-plugin-miot/issues/149), backend fix baseline `4e90470`.
+- Evidence: On Linux amd64, Songloft v2.13.12 (`8c014b3`) and MIoT v2026.11.20.1 deployed under `/songloft` returned 404 for the unprefixed `/api/v1/songs/stats` when opening and refreshing the speaker page in a browser.
+- Correct example: Pass the router's `BasePath` to the bridge handler. Build URLs for `getHostUrl()` and `getNetworkAddresses()` with the same function so plugins can append `/api/v1/…` directly. Cover root, single-level and nested deployment paths as well as dynamically assigned ports.
+- Verification: Both subpath regressions failed before the fix. Afterward, `make check`, targeted race checks and real plugin HTTP requests for all three deployment paths passed. Docker Chrome displayed the playlist control on load and reload, and the plugin response included the all-songs playlist. Playback on a physical speaker remains unverified.
+- Seen 1× (2026-11-20). Status: local uncommitted backend fix.
+
 ### PLAY-STREAM-001: Register speaker playback streams and reclaim them on session switches
 
 - Scope: local-song playback, playback-activity sessions, and authentication context; [songloft-org/songloft#584](https://github.com/songloft-org/songloft/issues/584), baseline `7dede0c`.

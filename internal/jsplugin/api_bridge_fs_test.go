@@ -19,7 +19,7 @@ func newTestBridgeHandler(t *testing.T, permissions []string, entryPath string) 
 	}
 	svc := &JSService{plugin: plugin}
 	dataDir := t.TempDir()
-	return NewBridgeHandler(svc, dataDir, db, nil, nil, nil, nil, nil, "", "")
+	return NewBridgeHandler(svc, dataDir, db, nil, nil, nil, nil, nil, "", "", "")
 }
 
 func TestResolveFSPath_EmptyPath(t *testing.T) {

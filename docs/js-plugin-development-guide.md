@@ -790,7 +790,7 @@ async function pluginInfoExample() {
     // 获取插件的 JWT Token（用于访问宿主 API，如音乐文件、封面等需认证的资源）
     var token = await songloft.plugin.getToken();
 
-    // 获取宿主服务的基础 URL（如 http://192.168.1.100:58091）
+    // 获取宿主服务的基础 URL（如 http://localhost:58091/songloft）
     var hostUrl = await songloft.plugin.getHostUrl();
 }
 ```
@@ -801,13 +801,14 @@ async function pluginInfoExample() {
 async function getMusicUrl(songId) {
     var host = await songloft.plugin.getHostUrl();
     var token = await songloft.plugin.getToken();
-    return host + "/music/" + encodedPath + "?access_token=" + token;
+    return host + "/api/v1/songs/" + songId + "/play?access_token=" + token;
 }
 ```
 
 **方法说明：**
 - `getToken()` — 返回当前有效的 JWT access_token 字符串，可用于访问宿主的受保护 API
-- `getHostUrl()` — 返回宿主服务的基础 URL，用于构建完整的 API 或资源地址
+- `getHostUrl()` — 返回带部署路径的回环基础 URL。直接拼接 `/api/v1/...` 可访问宿主 API
+- `getNetworkAddresses()` — 返回本机局域网 IPv4 基础 URL 列表，每个地址都带部署路径
 
 ### songloft.lyrics — 歌词提供者
 

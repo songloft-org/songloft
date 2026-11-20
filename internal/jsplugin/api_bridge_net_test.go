@@ -31,7 +31,7 @@ func newTestNetBridgeHandler(t *testing.T) *BridgeHandler {
 	}
 
 	dataDir := t.TempDir()
-	return NewBridgeHandler(svc, dataDir, db, nil, nil, nil, nil, nil, "", "")
+	return NewBridgeHandler(svc, dataDir, db, nil, nil, nil, nil, nil, "", "", "")
 }
 
 type discardHandler struct{}

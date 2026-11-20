@@ -39,6 +39,14 @@
 - 验证：新增解析器端口更新、管理器更新既有桥接处理器、宿主地址及移动 listener 入口回归；`make check` 与 `go test ./internal/app ./internal/services ./internal/jsplugin ./mobile` 通过。Lynx Android 真机和音箱复测待用户环境验收。
 - Seen 1× (2026-11-20)。状态：父仓库本地未提交修复。
 
+### JSPLUG-003：插件宿主基础 URL 需要携带部署路径
+
+- 范围：JS 插件宿主桥接，[songloft-org/songloft-plugin-miot#149](https://github.com/songloft-org/songloft-plugin-miot/issues/149)，后端修复基线 `4e90470`。
+- 证据：Linux amd64 上，Songloft v2.13.12（`8c014b3`）与 MIoT v2026.11.20.1 在 `/songloft` 部署下，浏览器打开及刷新智能音箱页均触发未带部署路径的 `/api/v1/songs/stats` 并返回 404。
+- 正确示例：将路由使用的 `BasePath` 传入桥接处理器。`getHostUrl()` 和 `getNetworkAddresses()` 使用同一个基础 URL 构造函数，使插件能直接追加 `/api/v1/…`。回归同时覆盖根路径、单级及多级子路径和动态监听端口。
+- 验证：旧实现未通过两组子路径回归，修复后 `make check`、定向 race 检查、三种路径的实际插件 HTTP 请求均通过。Docker Chrome 首次打开及刷新时均成功显示歌单控件，插件响应包含「全部歌曲」。真实音箱播放待验收。
+- Seen 1× (2026-11-20)。状态：后端本地未提交修复。
+
 ### PLAY-STREAM-001：音箱播放流必须登记并按会话切换回收
 
 - 范围：本地歌曲播放、播放活动会话和鉴权 context；[songloft-org/songloft#584](https://github.com/songloft-org/songloft/issues/584)，基线 `7dede0c`。

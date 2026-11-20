@@ -348,7 +348,7 @@ func (m *Manager) LoadPlugin(ctx context.Context, plugin *JSPlugin) error {
 	service := NewJSService(plugin, m.scheduler, m.jsManager)
 
 	// 2. 创建并关联 BridgeHandler
-	bridgeHandler := NewBridgeHandler(service, dataDir, m.db, m.songDownloader, m.songService, m.playlistService, m.songTagService, m.metadataRefresher, m.pluginToken, m.getPort())
+	bridgeHandler := NewBridgeHandler(service, dataDir, m.db, m.songDownloader, m.songService, m.playlistService, m.songTagService, m.metadataRefresher, m.pluginToken, m.getPort(), m.basePath)
 	bridgeHandler.onPlayEventRegister = m.RegisterPlayEvent
 	bridgeHandler.onPlayEventUnregister = m.UnregisterPlayEvent
 	bridgeHandler.onPlaylistSongsChangeRegister = m.RegisterPlaylistSongsChange
