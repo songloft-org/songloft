@@ -1338,7 +1338,7 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --dir desktop install --frozen-lockfile
           node desktop/scripts/fetch-sdk.mjs
-          pnpm run build
+          pnpm run desktop:build
           pnpm --dir desktop build:native
           pnpm --dir desktop build:resources
           pnpm --dir desktop package
