@@ -48,7 +48,7 @@ func coverThumbWorkers() int {
 
 // serveCoverFile 统一的本地封面文件服务。
 //
-// 无 ?w=（或非法/超限）时：等价于旧行为，直接 http.ServeFile 原图（保留 ETag/Range/304）。
+// 无 ?w=（或非法）时：直接服务完整原图（保留条件请求，不使用 Range）。
 //
 // 有 ?w=N 时：把封面等比缩放到目标宽度 N（物理像素，绝不放大）后以 JPEG 返回。
 // 这是 songloft-org/songloft#309 的服务端配合：Web 端封面改回浏览器原生 <img>
@@ -63,9 +63,12 @@ func coverThumbWorkers() int {
 func serveCoverFile(w http.ResponseWriter, r *http.Request, path string, thumbCache *services.CoverThumbCache) {
 	widthStr := strings.TrimSpace(r.URL.Query().Get("w"))
 	if widthStr == "" {
-		// 无缩略请求：老路径，直接服务原图。
+		// 无缩略请求：直接服务原图。封面是完整的图片资源，不参与字节范围传输。
+		// 浏览器可能在缓存校验时发送单字节 Range 请求。若把它交给
+		// http.ServeFile，响应会成为只含一个字节的 206，图片解码器无法显示。
+		// 保留 If-Modified-Since 等完整资源的条件请求，单独移除 Range。
 		w.Header().Set("Cache-Control", "public, max-age=31536000")
-		http.ServeFile(w, r, path)
+		serveCoverOriginal(w, r, path)
 		return
 	}
 
@@ -73,7 +76,7 @@ func serveCoverFile(w http.ResponseWriter, r *http.Request, path string, thumbCa
 	if err != nil || width <= 0 {
 		slog.Debug("封面缩略参数非法，回退原图", "path", path, "w", widthStr, "error", err)
 		w.Header().Set("Cache-Control", "public, max-age=31536000")
-		http.ServeFile(w, r, path)
+		serveCoverOriginal(w, r, path)
 		return
 	}
 	if width > coverThumbMaxWidth {
@@ -131,7 +134,7 @@ func serveCoverFile(w http.ResponseWriter, r *http.Request, path string, thumbCa
 			"path", path, "w", width, "error", err)
 		// 已写过 ETag，但原图直出用 ServeFile 会自带自己的校验，这里删掉避免语义冲突。
 		w.Header().Del("ETag")
-		http.ServeFile(w, r, path)
+		serveCoverOriginal(w, r, path)
 		return
 	}
 
@@ -157,6 +160,25 @@ func serveCoverFile(w http.ResponseWriter, r *http.Request, path string, thumbCa
 	if _, err := w.Write(data); err != nil {
 		slog.Debug("封面缩略写出失败（客户端可能已断开）", "path", path, "error", err)
 	}
+}
+
+// serveCoverOriginal 返回完整的本地封面文件。
+// 图片请求不需要音频播放那样的 Range seek，禁用 Range 可以避免浏览器缓存校验
+// 产生单字节 206，导致图片解码器只拿到不完整的资源。
+func serveCoverOriginal(w http.ResponseWriter, r *http.Request, path string) {
+	http.ServeFile(w, requestWithoutCoverRange(r), path)
+}
+
+// requestWithoutCoverRange 为本地文件和远程代理保持完整图片语义。
+// 音频端点仍保留各自的 Range 行为。
+func requestWithoutCoverRange(r *http.Request) *http.Request {
+	if r.Header.Get("Range") == "" {
+		return r
+	}
+	request := r.Clone(r.Context())
+	request.Header.Del("Range")
+	request.Header.Del("If-Range")
+	return request
 }
 
 // serveCachedThumb 从磁盘缓存文件直接返回缩略图。

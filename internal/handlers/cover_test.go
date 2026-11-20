@@ -102,6 +102,30 @@ func TestServeCoverFile_NoWidthServesOriginal(t *testing.T) {
 	}
 }
 
+func TestServeCoverFile_RangeServesCompleteOriginal(t *testing.T) {
+	path := writeTestPNG(t, 200, 200)
+	original, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("读取测试封面失败：%v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/songs/1/cover", nil)
+	req.Header.Set("Range", "bytes=10-10")
+	req.Header.Set("If-Range", "Tue, 17 Nov 2026 16:38:39 GMT")
+	rec := httptest.NewRecorder()
+	serveCoverFile(rec, req, path, nil)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("封面 Range 请求应返回完整资源 200，实际 %d", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Range"); got != "" {
+		t.Fatalf("完整封面响应不应包含 Content-Range，实际 %q", got)
+	}
+	if !bytes.Equal(rec.Body.Bytes(), original) {
+		t.Fatalf("封面 Range 请求返回的不是完整文件：实际 %d 字节，期望 %d", rec.Body.Len(), len(original))
+	}
+}
+
 func TestServeCoverFile_WidthReturnsJPEG(t *testing.T) {
 	path := writeTestPNG(t, 500, 500)
 

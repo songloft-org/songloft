@@ -968,7 +968,7 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *PlaylistHandler) tryRemoteCover(w http.ResponseWriter, r *http.Request, rawURL string) bool {
-	return tryServeRemoteResource(w, r, h.urlResolver.Resolve(rawURL), RemoteResourceOptions{
+	return tryServeRemoteResource(w, requestWithoutCoverRange(r), h.urlResolver.Resolve(rawURL), RemoteResourceOptions{
 		Timeout: songCoverProxyTimeout, AllowFallback: true,
 	})
 }

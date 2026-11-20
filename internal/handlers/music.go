@@ -1362,7 +1362,7 @@ func (h *SongHandler) GetSongCover(w http.ResponseWriter, r *http.Request) {
 		if h.urlResolver != nil {
 			coverURL = h.urlResolver.Resolve(coverURL)
 		}
-		ServeRemoteResourceWithOptions(w, r, coverURL, RemoteResourceOptions{
+		ServeRemoteResourceWithOptions(w, requestWithoutCoverRange(r), coverURL, RemoteResourceOptions{
 			Timeout:      songCoverProxyTimeout,
 			ErrorStatus:  http.StatusNotFound,
 			ErrorMessage: "cover fetch failed",
@@ -1378,7 +1378,7 @@ func (h *SongHandler) GetSongCover(w http.ResponseWriter, r *http.Request) {
 			if h.urlResolver != nil {
 				resolvedURL = h.urlResolver.Resolve(resolvedURL)
 			}
-			ServeRemoteResourceWithOptions(w, r, resolvedURL, RemoteResourceOptions{
+			ServeRemoteResourceWithOptions(w, requestWithoutCoverRange(r), resolvedURL, RemoteResourceOptions{
 				Timeout:      songCoverProxyTimeout,
 				ErrorStatus:  http.StatusNotFound,
 				ErrorMessage: "cover fetch failed",
