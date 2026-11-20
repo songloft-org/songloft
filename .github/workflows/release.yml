@@ -1338,11 +1338,61 @@ jobs:
 
   # ============================================================
 
+  build-lynx-bundle-source:
+    name: Build shared Lynx Bundle source
+    needs: [prepare, quality]
+    if: needs.prepare.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Checkout the pinned Lynx client
+        run: |
+          git submodule update --init --depth 1 clients/player-lynx
+          test "$(git -C clients/player-lynx rev-parse HEAD)" = "${{ needs.prepare.outputs.lynx_sha }}"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+          package_json_file: clients/player-lynx/package.json
+      - name: Build the Lynx bundle and native metadata
+        working-directory: clients/player-lynx
+        env:
+          CLIENT_SHA: ${{ needs.prepare.outputs.lynx_sha }}
+          BUILD_TIME: ${{ needs.prepare.outputs.build_time }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          SONGLOFT_BUILD_METADATA: ${{ github.workspace }}/clients/player-lynx/.build/version.json
+          SONGLOFT_UPDATE_PUBLIC_KEY: ${{ vars.LYNX_UPDATE_PUBLIC_KEY }}
+        run: |
+          mkdir -p .build
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs'
+          import { createBuildMetadata } from './scripts/release-lib.mjs'
+          const packageVersion = JSON.parse(readFileSync('package.json', 'utf8')).version
+          const now = new Date(process.env.BUILD_TIME.replace('_', 'T') + 'Z')
+          const ref = process.env.RELEASE_TAG === 'dev' ? '' : `refs/tags/${process.env.RELEASE_TAG}`
+          const metadata = createBuildMetadata({ packageVersion, now, ref, sha: process.env.CLIENT_SHA })
+          writeFileSync('.build/version.json', JSON.stringify({ ...metadata, assets: [], bundle_update: null }, null, 2) + '\n')
+          NODE
+          pnpm install --frozen-lockfile
+          pnpm run desktop:build --without-probe
+          mkdir -p "$RUNNER_TEMP/lynx-bundle-source"
+          cp dist/main.lynx.bundle dist/desktop-build.json .build/version.json .build/bundle-host.json "$RUNNER_TEMP/lynx-bundle-source/"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shared-lynx-bundle-source
+          path: ${{ runner.temp }}/lynx-bundle-source/
+          if-no-files-found: error
+          retention-days: 7
+
   # Lynx Bundle builds stay in the backend release snapshot. The client Release
   # workflow builds only standard, HarmonyOS, and Web packages.
   build-bundled-lynx:
     name: Lynx Bundle (${{ matrix.target }})
-    needs: [prepare, quality, resolve-ffmpeg-assets]
+    needs: [prepare, resolve-ffmpeg-assets, build-lynx-bundle-source]
     if: needs.prepare.outputs.should_run == 'true'
     strategy:
       fail-fast: false
@@ -1372,6 +1422,9 @@ jobs:
       DESKTOP_TARGET: ${{ matrix.target }}
       SONGLOFT_DESKTOP_SDK: ${{ github.workspace }}/clients/player-lynx/desktop-sdk
       SONGLOFT_MPV_ROOT: ${{ github.workspace }}/clients/player-lynx/desktop-sdk/build
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: 'false'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -1419,28 +1472,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Create Lynx bundle release metadata
-        if: matrix.target == 'android' || matrix.target == 'ios'
+      - uses: actions/download-artifact@v4
+        with:
+          name: shared-lynx-bundle-source
+          path: ${{ runner.temp }}/lynx-bundle-source
+      - name: Restore pinned Lynx bundle and metadata
         working-directory: clients/player-lynx
-        env:
-          CLIENT_SHA: ${{ needs.prepare.outputs.lynx_sha }}
-          VERSION: ${{ needs.prepare.outputs.version_tag }}
-          BUILD_TIME: ${{ needs.prepare.outputs.build_time }}
-          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
         run: |
-          mkdir -p .build
-          node --input-type=module <<'NODE'
-          import { readFileSync, writeFileSync } from 'node:fs'
-          const packageVersion = JSON.parse(readFileSync('package.json', 'utf8')).version
-          const version = process.env.VERSION === 'dev' ? 'dev' : packageVersion
-          const buildTime = new Date(process.env.BUILD_TIME.replace('_', 'T') + 'Z').toISOString()
-          writeFileSync('.build/version.json', JSON.stringify({
-            version, package_version: packageVersion, native_version: packageVersion,
-            build_number: Math.floor(Date.parse(buildTime) / 1000), git_commit: process.env.CLIENT_SHA,
-            build_time: buildTime, channel: version === 'dev' ? 'dev' : 'stable',
-            release_tag: process.env.RELEASE_TAG, assets: [], bundle_update: null,
-          }, null, 2) + '\n')
-          NODE
+          source="$RUNNER_TEMP/lynx-bundle-source"
+          mkdir -p dist .build
+          cp "$source/main.lynx.bundle" "$source/desktop-build.json" dist/
+          cp "$source/version.json" "$source/bundle-host.json" .build/
           cp .build/version.json "$GITHUB_WORKSPACE/lynx-bundle-source.json"
       - name: Build Android Bundle
         if: matrix.target == 'android'
@@ -1465,7 +1507,7 @@ jobs:
             -o "$GITHUB_WORKSPACE/clients/player-lynx/android/app/libs/songloft.aar" ./mobile)
           cd clients/player-lynx
           pnpm install --frozen-lockfile
-          pnpm run build:android-bundle
+          node scripts/copy-bundle-android.mjs
           if [[ "$SONGLOFT_REQUIRE_SIGNING" == true ]]; then
             umask 077
             export ANDROID_KEYSTORE_PATH="$(mktemp "$RUNNER_TEMP/lynx-signing.XXXXXX")"
@@ -1499,7 +1541,7 @@ jobs:
             "-s -w -X songloft/internal/version.GitCommit=$SONGLOFT_BACKEND_COMMIT"
           cd clients/player-lynx
           pnpm install --frozen-lockfile
-          pnpm run build:ios-bundle
+          node scripts/copy-bundle-ios.mjs
           pnpm run ios:pods
           (cd ios && xcodebuild -workspace SongloftLynx.xcworkspace -scheme SongloftLynx \
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
@@ -1535,7 +1577,6 @@ jobs:
           fi
           pnpm install --frozen-lockfile
           pnpm --dir desktop install --frozen-lockfile
-          pnpm run desktop:build --without-probe
           pnpm --dir desktop build:native
           pnpm --dir desktop build:resources
           pnpm --dir desktop package

@@ -17,6 +17,8 @@ Bundle 将 Go 后端与客户端一起安装，用户不必另外部署服务器
 
 Bundle 构建开始时从 `hanxi/ffmpeg-builder` 的 `dev` 或正式通道解析一个具体 Release，并把 `ffmpeg_release_tag`、`ffmpeg_source_commit` 与 `ffmpeg_manifest_sha256` 写入 Bundle 清单。所有平台复用同一解析记录，下载后再次校验平台、ABI、大小和 SHA-256。
 
+Lynx Android、iOS 和桌面 Bundle 的业务代码由后端工作流构建一次，各目标复用同一份 JS bundle 和宿主元数据。
+
 - Android APK 为 arm64-v8a、armeabi-v7a 和 x86_64 携带 FFmpeg 和 FFprobe。Android 将它们作为原生文件安装，后端从应用的 `nativeLibraryDir` 执行它们。Flutter 后端热补丁仍校验 gomobile 接口签名，旧 APK 需要整包升级才能获得内置工具。
 - 桌面启动器将包内的 FFmpeg 和 FFprobe 路径传给 Go 后端。Flutter macOS Bundle 包含签名后的工具。
 - iOS 将 arm64 FFmpeg 静态链接进 gomobile 后端。元数据、封面和视频帧、文件及流式转码、seek、响度均衡、倍速、电台、HLS 和 Chromaprint 在应用进程内运行。IPA 仍需重签才能安装。构建需要包含静态库、头文件及链接参数的新 FFmpeg Release 资产。
