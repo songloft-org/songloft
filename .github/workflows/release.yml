@@ -1287,9 +1287,9 @@ jobs:
         run: |
           export GOFLAGS=-buildvcs=false
           go install golang.org/x/mobile/cmd/gomobile@latest golang.org/x/mobile/cmd/gobind@latest
-          gomobile bind -target=android/arm64,android/arm,android/amd64 -androidapi 23 -tags lite \
+          (cd backend-source && gomobile bind -target=android/arm64,android/arm,android/amd64 -androidapi 23 -tags lite \
             -ldflags="-s -w -X songloft/internal/version.GitCommit=$SONGLOFT_BACKEND_COMMIT" \
-            -o clients/player-lynx/android/app/libs/songloft.aar backend-source/mobile
+            -o "$GITHUB_WORKSPACE/clients/player-lynx/android/app/libs/songloft.aar" ./mobile)
           cd clients/player-lynx
           pnpm install --frozen-lockfile
           pnpm run build:android-bundle
@@ -1305,9 +1305,9 @@ jobs:
         run: |
           export GOFLAGS=-buildvcs=false
           go install golang.org/x/mobile/cmd/gomobile@latest golang.org/x/mobile/cmd/gobind@latest
-          gomobile bind -target=ios/arm64 -tags lite \
+          (cd backend-source && gomobile bind -target=ios/arm64 -tags lite \
             -ldflags="-s -w -X songloft/internal/version.GitCommit=$SONGLOFT_BACKEND_COMMIT" \
-            -o clients/player-lynx/ios/Songloft.xcframework backend-source/mobile
+            -o "$GITHUB_WORKSPACE/clients/player-lynx/ios/Songloft.xcframework" ./mobile)
           cd clients/player-lynx
           pnpm install --frozen-lockfile
           pnpm run build:ios-bundle
