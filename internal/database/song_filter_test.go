@@ -84,7 +84,7 @@ func TestListSongsExcludePlaylistLabels(t *testing.T) {
 	}
 }
 
-func TestMusicQueryExcludesRadioAndAudiobookSongs(t *testing.T) {
+func TestCombinedTypeFilterExcludesRadioAndAudiobookSongs(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -111,41 +111,52 @@ func TestMusicQueryExcludesRadioAndAudiobookSongs(t *testing.T) {
 		t.Fatalf("add audiobook song: %v", err)
 	}
 
-	filter := &SongFilter{Type: models.TypeMusicQuery, Limit: 20}
+	filter := &SongFilter{
+		Type:                  models.TypeLocal + "," + models.TypeRemote,
+		ExcludePlaylistLabels: []string{models.PlaylistLabelAudiobook},
+		Limit:                 20,
+	}
 	list, err := db.SongRepository().List(ctx, filter)
 	if err != nil {
-		t.Fatalf("list music query: %v", err)
+		t.Fatalf("list combined type query: %v", err)
 	}
 	if len(list) != 2 || list[0].Type == models.TypeRadio || list[1].Type == models.TypeRadio {
-		t.Fatalf("music query returned unexpected songs: %+v", list)
+		t.Fatalf("combined type query returned unexpected songs: %+v", list)
 	}
 
 	count, err := db.SongRepository().Count(ctx, filter)
 	if err != nil {
-		t.Fatalf("count music query: %v", err)
+		t.Fatalf("count combined type query: %v", err)
 	}
 	if count != 2 {
-		t.Fatalf("music query count = %d, want 2", count)
+		t.Fatalf("combined type query count = %d, want 2", count)
 	}
 
-	random, err := db.SongRepository().ListRandom(ctx, &SongFilter{Type: models.TypeMusicQuery, Limit: 20})
+	random, err := db.SongRepository().ListRandom(ctx, &SongFilter{
+		Type:                  models.TypeLocal + "," + models.TypeRemote,
+		ExcludePlaylistLabels: []string{models.PlaylistLabelAudiobook},
+		Limit:                 20,
+	})
 	if err != nil {
-		t.Fatalf("random music query: %v", err)
+		t.Fatalf("random combined type query: %v", err)
 	}
 	if len(random) != 2 {
-		t.Fatalf("random music query returned %d songs, want 2", len(random))
+		t.Fatalf("random combined type query returned %d songs, want 2", len(random))
 	}
 	for _, song := range random {
 		if song.Type == models.TypeRadio || song.ID == songs[3].ID {
-			t.Fatalf("random music query returned excluded song: %+v", song)
+			t.Fatalf("random combined type query returned excluded song: %+v", song)
 		}
 	}
 
-	ids, err := db.SongRepository().ListIDs(ctx, &SongFilter{Type: models.TypeMusicQuery})
+	ids, err := db.SongRepository().ListIDs(ctx, &SongFilter{
+		Type:                  models.TypeLocal + "," + models.TypeRemote,
+		ExcludePlaylistLabels: []string{models.PlaylistLabelAudiobook},
+	})
 	if err != nil {
-		t.Fatalf("music query ids: %v", err)
+		t.Fatalf("combined type query ids: %v", err)
 	}
 	if len(ids) != 2 {
-		t.Fatalf("music query ids = %d, want 2", len(ids))
+		t.Fatalf("combined type query ids = %d, want 2", len(ids))
 	}
 }

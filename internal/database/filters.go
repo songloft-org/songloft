@@ -76,9 +76,11 @@ type PlaylistSongFilter struct {
 
 // FacetFilter 标签分类聚合（facet）的过滤/排序/分页条件。
 type FacetFilter struct {
-	// Type applies the same query-only song type filter as SongFilter.
-	// "music" matches local and remote songs outside audiobook playlists.
+	// Type applies the same comma-separated song type filter as SongFilter.
+	// Supported values are local, remote and radio.
 	Type string
+	// ExcludePlaylistLabels excludes songs in playlists carrying any label.
+	ExcludePlaylistLabels []string
 	// Keyword 对取值做模糊搜索（空表示不过滤）。
 	Keyword string
 	// OrderBy 排序维度："count"（按歌曲数，默认）或 "name"（按取值名）。

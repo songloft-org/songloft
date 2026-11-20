@@ -60,7 +60,7 @@
 
 歌曲管理模块是 Songloft 核心 API，覆盖歌曲增删改查、播放流分发、封面/歌词、音频标签写入、文件整理和重复检测。所有端点均需 JWT 认证（`BearerAuth`），基础路径 `/api/v1`。
 
-**歌曲类型**: `local`（本地文件）、`remote`（外部 URL / 插件音源）、`radio`（在线广播/直播流）。查询参数额外支持虚拟类型 `music`，表示本地和网络歌曲，并排除电台及属于有声书歌单的歌曲；`music` 不会写入 Song 对象。
+**歌曲类型**: `local`（本地文件）、`remote`（外部 URL / 插件音源）、`radio`（在线广播/直播流）。查询参数 `type` 支持以逗号分隔的多个已存储类型，例如 `local,remote`。客户端可配合 `exclude_playlist_labels=hidden,audiobook` 排除隐藏和有声书歌单歌曲。类型值只用于查询，不会写入 Song 对象。
 
 **Song JSON 序列化规则**（`MarshalJSON` 统一处理）:
 - `url` -- 统一为 `/api/v1/songs/{id}/play`（HLS 电台为 `.../play.m3u8`）
@@ -90,9 +90,10 @@
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `type` | string | 否 | -- | `local` / `remote` / `radio` / `music`；`music` 排除电台和有声书歌单 |
+| `type` | string | 否 | -- | 已存储类型，支持逗号分隔组合，例如 `local,remote` |
 | `keyword` | string | 否 | -- | 搜索关键词（匹配标题、艺术家、专辑） |
 | `path_prefix` | string | 否 | -- | 按 `file_path` 前缀过滤 |
+| `exclude_playlist_labels` | string | 否 | `hidden` | 排除带指定 label 的歌单内歌曲（逗号分隔），传 `none` 显示全部 |
 | `limit` | int | 否 | `20` | 每页数量，上限 `100000` |
 | `offset` | int | 否 | `0` | 偏移量 |
 
@@ -106,7 +107,7 @@
 
 **路径:** `/api/v1/songs/ids` | **认证:** BearerAuth
 
-与 `/songs` 共享过滤条件（`type`、`keyword`、`path_prefix`），仅返回 ID。用于「全选当前筛选范围」等批量操作场景，不分页。
+与 `/songs` 共享过滤条件（包括 `type`、`keyword`、`path_prefix`、`exclude_playlist_labels`），仅返回 ID。用于「全选当前筛选范围」等批量操作场景，不分页。
 
 **成功响应 (200):** `{"ids": [1, 2, 3], "total": 3}`
 
@@ -155,7 +156,8 @@
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `field` | string | 是 | -- | 聚合维度：`genre` / `artist` / `album` / `language` / `style` / `year` / `decade`（`year`/`decade` 的 value 为数字字符串，年代如 `"1990"` 表示 1990-1999） |
-| `type` | string | 否 | -- | `local` / `remote` / `radio` / `music`；`music` 排除电台和有声书歌单 |
+| `type` | string | 否 | -- | 已存储类型，支持逗号分隔组合，例如 `local,remote` |
+| `exclude_playlist_labels` | string | 否 | `hidden` | 排除带指定 label 的歌单内歌曲（逗号分隔），传 `none` 显示全部 |
 | `keyword` | string | 否 | -- | 对取值模糊搜索 |
 | `limit` | int | 否 | `20` | 分页大小，上限 `100000` |
 | `offset` | int | 否 | `0` | 分页偏移 |
@@ -218,7 +220,7 @@
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `type` | string | 否 | -- | `local` / `remote` / `radio` / `music`；`music` 排除电台和有声书歌单 |
+| `type` | string | 否 | -- | 已存储类型，支持逗号分隔组合，例如 `local,remote` |
 | `keyword` | string | 否 | -- | 搜索关键词 |
 | `path_prefix` | string | 否 | -- | 按 `file_path` 前缀过滤 |
 | `exclude_playlist_labels` | string | 否 | -- | 排除带指定 label 的歌单内歌曲（逗号分隔） |
@@ -274,6 +276,8 @@
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `field` | string | 是 | `title`（歌名）或 `artist`（歌手名） |
+| `type` | string | 否 | 已存储类型，支持逗号分隔组合，例如 `local,remote` |
+| `exclude_playlist_labels` | string | 否 | 排除带指定 label 的歌单内歌曲（逗号分隔），传 `none` 显示全部 |
 
 **成功响应 (200):** `{"field": "artist", "names": ["周杰伦", "林俊杰"], "total": 2}`
 

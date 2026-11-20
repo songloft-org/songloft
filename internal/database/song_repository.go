@@ -688,7 +688,7 @@ func songSelectBuilder() sq.SelectBuilder {
 
 func applySongFilter(sb sq.SelectBuilder, filter *SongFilter) sq.SelectBuilder {
 	if filter.Type != "" {
-		sb = applySongTypeScope(sb, "type", "id", filter.Type)
+		sb = applySongTypeFilter(sb, "type", filter.Type)
 	}
 	if filter.Keyword != "" {
 		kw := "%" + filter.Keyword + "%"
@@ -747,32 +747,33 @@ func applySongFilter(sb sq.SelectBuilder, filter *SongFilter) sq.SelectBuilder {
 	if filter.TagName != "" {
 		sb = sb.Where(`id IN (SELECT l.song_id FROM song_tag_links l JOIN song_tags t ON l.tag_id = t.id WHERE t.name LIKE ?)`, "%"+filter.TagName+"%")
 	}
-	// 排除属于「带指定 label 的歌单」的歌曲：只要歌在任一匹配歌单里就被过滤掉。
-	for _, label := range filter.ExcludePlaylistLabels {
-		sb = sb.Where(`id NOT IN (
+	return applySongPlaylistLabelExclusions(sb, "id", filter.ExcludePlaylistLabels)
+}
+
+// applySongPlaylistLabelExclusions removes songs that belong to any playlist
+// carrying one of the requested labels.
+func applySongPlaylistLabelExclusions(sb sq.SelectBuilder, idColumn string, labels []string) sq.SelectBuilder {
+	for _, label := range labels {
+		sb = sb.Where(fmt.Sprintf(`%s NOT IN (
 			SELECT ps.song_id FROM playlist_songs ps
 			JOIN playlists p ON p.id = ps.playlist_id
-			WHERE EXISTS (SELECT 1 FROM json_each(p.labels) WHERE value = ?))`, label)
+			WHERE EXISTS (SELECT 1 FROM json_each(p.labels) WHERE value = ?))`, idColumn), label)
 	}
 	return sb
 }
 
-// applySongTypeScope applies the public song query type. "music" is a
-// virtual scope covering local and remote songs that do not belong to an
-// audiobook playlist. Other values continue to use exact stored types.
-func applySongTypeScope(sb sq.SelectBuilder, typeColumn, idColumn, songType string) sq.SelectBuilder {
-	if songType == models.TypeMusicQuery {
-		sb = sb.Where(sq.Or{
-			sq.Eq{typeColumn: models.TypeLocal},
-			sq.Eq{typeColumn: models.TypeRemote},
-		})
-		return sb.Where(sq.Expr(fmt.Sprintf(`%s NOT IN (
-			SELECT ps.song_id FROM playlist_songs ps
-			JOIN playlists p ON p.id = ps.playlist_id
-			WHERE EXISTS (SELECT 1 FROM json_each(p.labels) WHERE value = ?)
-			)`, idColumn), models.PlaylistLabelAudiobook))
+// applySongTypeFilter applies the public comma-separated song type filter.
+// Invalid values are left to the HTTP handler's validation and produce no rows
+// when a repository caller bypasses that validation.
+func applySongTypeFilter(sb sq.SelectBuilder, typeColumn, songTypes string) sq.SelectBuilder {
+	types, err := ParseSongTypes(songTypes)
+	if err != nil {
+		return sb.Where(sq.Expr("1 = 0"))
 	}
-	return sb.Where(sq.Eq{typeColumn: songType})
+	if len(types) == 0 {
+		return sb
+	}
+	return sb.Where(sq.Eq{typeColumn: types})
 }
 
 // escapeLikeLiteral 转义 LIKE 表达式中的通配符 % _ \，用于把字符串当字面量匹配。
@@ -1228,7 +1229,10 @@ func buildFacetSelect(field string, f *FacetFilter) (sq.SelectBuilder, error) {
 		"MAX(CASE WHEN cover_path != '' OR cover_url != '' THEN id END) AS cover_song_id",
 	).From("songs").Where(facetBaseCond(field, col))
 	if f != nil && f.Type != "" {
-		sb = applySongTypeScope(sb, "type", "id", f.Type)
+		sb = applySongTypeFilter(sb, "type", f.Type)
+	}
+	if f != nil {
+		sb = applySongPlaylistLabelExclusions(sb, "id", f.ExcludePlaylistLabels)
 	}
 
 	if f != nil && f.Keyword != "" {
@@ -1261,7 +1265,10 @@ func buildTagFacetSelect(f *FacetFilter) sq.SelectBuilder {
 		sb = sb.Where(sq.Like{"t.name": "%" + f.Keyword + "%"})
 	}
 	if f != nil && f.Type != "" {
-		sb = applySongTypeScope(sb, "s.type", "s.id", f.Type)
+		sb = applySongTypeFilter(sb, "s.type", f.Type)
+	}
+	if f != nil {
+		sb = applySongPlaylistLabelExclusions(sb, "s.id", f.ExcludePlaylistLabels)
 	}
 	sb = sb.GroupBy("t.id", "t.name")
 	sb = applyFacetOrder(sb, f)
@@ -1288,7 +1295,10 @@ func buildArtistFacetSelect(f *FacetFilter) sq.SelectBuilder {
 		sb = sb.Where(sq.Like{"a.name": "%" + f.Keyword + "%"})
 	}
 	if f != nil && f.Type != "" {
-		sb = applySongTypeScope(sb, "s.type", "s.id", f.Type)
+		sb = applySongTypeFilter(sb, "s.type", f.Type)
+	}
+	if f != nil {
+		sb = applySongPlaylistLabelExclusions(sb, "s.id", f.ExcludePlaylistLabels)
 	}
 	sb = sb.GroupBy("a.id", "a.name")
 	sb = applyFacetOrder(sb, f)
@@ -1355,10 +1365,13 @@ func (r *SongRepository) CountFacetFiltered(ctx context.Context, field string, f
 		inner = sq.Select("1").
 			From("song_tags t").
 			Join("song_tag_links l ON t.id = l.tag_id")
-		if f.Type != "" {
+		if f.Type != "" || len(f.ExcludePlaylistLabels) > 0 {
 			inner = inner.Join("songs s ON s.id = l.song_id")
-			inner = applySongTypeScope(inner, "s.type", "s.id", f.Type)
+			if f.Type != "" {
+				inner = applySongTypeFilter(inner, "s.type", f.Type)
+			}
 		}
+		inner = applySongPlaylistLabelExclusions(inner, "s.id", f.ExcludePlaylistLabels)
 		if f.Keyword != "" {
 			inner = inner.Where(sq.Like{"t.name": "%" + f.Keyword + "%"})
 		}
@@ -1369,10 +1382,13 @@ func (r *SongRepository) CountFacetFiltered(ctx context.Context, field string, f
 			From("song_artists sa").
 			Join("artists a ON a.id = sa.artist_id").
 			Where(sq.Eq{"sa.role": models.ArtistRoleArtist})
-		if f.Type != "" {
+		if f.Type != "" || len(f.ExcludePlaylistLabels) > 0 {
 			inner = inner.Join("songs s ON s.id = sa.song_id")
-			inner = applySongTypeScope(inner, "s.type", "s.id", f.Type)
+			if f.Type != "" {
+				inner = applySongTypeFilter(inner, "s.type", f.Type)
+			}
 		}
+		inner = applySongPlaylistLabelExclusions(inner, "s.id", f.ExcludePlaylistLabels)
 		if f.Keyword != "" {
 			inner = inner.Where(sq.Like{"a.name": "%" + f.Keyword + "%"})
 		}
@@ -1384,8 +1400,9 @@ func (r *SongRepository) CountFacetFiltered(ctx context.Context, field string, f
 		}
 		inner = sq.Select("1").From("songs").Where(facetBaseCond(field, col))
 		if f.Type != "" {
-			inner = applySongTypeScope(inner, "type", "id", f.Type)
+			inner = applySongTypeFilter(inner, "type", f.Type)
 		}
+		inner = applySongPlaylistLabelExclusions(inner, "id", f.ExcludePlaylistLabels)
 		if f.Keyword != "" {
 			inner = inner.Where(sq.Expr("CAST("+col+" AS TEXT) LIKE ?", "%"+f.Keyword+"%"))
 		}
@@ -1407,15 +1424,27 @@ func (r *SongRepository) CountFacetFiltered(ctx context.Context, field string, f
 // 不分页、不带计数与封面，供第三方客户端一次性拉取曲库歌名/歌手名做本地搜索匹配。
 // 未知 field 返回 ErrNotFound，交由 handler 转 400。
 func (r *SongRepository) ListDistinctNames(ctx context.Context, field string) ([]string, error) {
+	return r.ListDistinctNamesFiltered(ctx, field, nil)
+}
+
+// ListDistinctNamesFiltered returns distinct names matching the optional song
+// type and playlist-label filters.
+func (r *SongRepository) ListDistinctNamesFiltered(ctx context.Context, field string, filter *SongFilter) ([]string, error) {
 	// artist 维度走 song_artists 关联表：返回逐个参与歌手（多值已拆开），而非
 	// songs.artist 整串去重。仅 role='artist'。
 	if field == "artist" {
-		query, args, err := sq.Select("DISTINCT a.name").
+		artistQuery := sq.Select("DISTINCT a.name").
 			From("song_artists sa").
 			Join("artists a ON a.id = sa.artist_id").
-			Where(sq.Eq{"sa.role": models.ArtistRoleArtist}).
-			OrderBy("a.name COLLATE NOCASE ASC").
-			ToSql()
+			Join("songs s ON s.id = sa.song_id").
+			Where(sq.Eq{"sa.role": models.ArtistRoleArtist})
+		if filter != nil && filter.Type != "" {
+			artistQuery = applySongTypeFilter(artistQuery, "s.type", filter.Type)
+		}
+		if filter != nil {
+			artistQuery = applySongPlaylistLabelExclusions(artistQuery, "s.id", filter.ExcludePlaylistLabels)
+		}
+		query, args, err := artistQuery.OrderBy("a.name COLLATE NOCASE ASC").ToSql()
 		if err != nil {
 			return nil, fmt.Errorf("build distinct artist sql: %w", err)
 		}
@@ -1447,6 +1476,12 @@ func (r *SongRepository) ListDistinctNames(ctx context.Context, field string) ([
 		From("songs").
 		Where(sq.NotEq{col: ""}).
 		OrderBy(col + " ASC")
+	if filter != nil && filter.Type != "" {
+		sb = applySongTypeFilter(sb, "type", filter.Type)
+	}
+	if filter != nil {
+		sb = applySongPlaylistLabelExclusions(sb, "id", filter.ExcludePlaylistLabels)
+	}
 
 	query, args, err := sb.ToSql()
 	if err != nil {

@@ -361,13 +361,22 @@ func parseExcludePlaylistLabels(raw string) []string {
 	return strings.Split(raw, ",")
 }
 
+// parseSongTypeQuery validates the comma-separated songs type filter while
+// preserving the raw value for the repository filter.
+func parseSongTypeQuery(r *http.Request) (string, error) {
+	values := r.URL.Query()["type"]
+	raw := strings.Join(values, ",")
+	_, err := database.ParseSongTypes(raw)
+	return raw, err
+}
+
 // ListSongs 获取歌曲列表
 // @Summary 获取歌曲列表
 // @Description 获取歌曲列表，支持按类型过滤、关键词搜索和分页。默认排除隐藏歌单里的歌，传 exclude_playlist_labels=none 显示全部
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
-// @Param type query string false "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单" Enums(local, remote, radio, music)
+// @Param type query string false "歌曲类型，支持 local、remote、radio 的逗号分隔组合；不传表示全部类型"
 // @Param keyword query string false "搜索关键词"
 // @Param path_prefix query string false "按 file_path 前缀过滤（如 music/Pop）"
 // @Param genre query string false "按流派精确过滤"
@@ -385,6 +394,7 @@ func parseExcludePlaylistLabels(raw string) []string {
 // @Param sort query string false "排序字段；指定 album 时缺省 track（碟号、音轨号数字排序），其他情况缺省 added_at；未知轨号排在同碟末尾" Enums(id, title, artist, album, duration, added_at, updated_at, file_modified_at, year, genre, file_size, track, rating)
 // @Param order query string false "排序方向，track/rating 缺省 asc，其他字段缺省 desc" Enums(asc, desc)
 // @Success 200 {object} map[string]any "成功返回歌曲列表"
+// @Failure 400 {object} map[string]string "歌曲类型参数无效"
 // @Failure 500 {object} map[string]string "服务器错误"
 // @Security BearerAuth
 // @Router /songs [get]
@@ -392,7 +402,11 @@ func (h *SongHandler) ListSongs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// 解析查询参数
-	songType := r.URL.Query().Get("type")
+	songType, err := parseSongTypeQuery(r)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "歌曲类型参数无效", err)
+		return
+	}
 	keyword := r.URL.Query().Get("keyword")
 	pathPrefix := r.URL.Query().Get("path_prefix")
 	orderBy, order := parseSongSort(r.URL.Query().Get("sort"), r.URL.Query().Get("order"))
@@ -441,7 +455,7 @@ func (h *SongHandler) ListSongs(w http.ResponseWriter, r *http.Request) {
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
-// @Param type query string false "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单" Enums(local, remote, radio, music)
+// @Param type query string false "歌曲类型，支持 local、remote、radio 的逗号分隔组合；不传表示全部类型"
 // @Param keyword query string false "搜索关键词"
 // @Param path_prefix query string false "按 file_path 前缀过滤"
 // @Param genre query string false "按流派精确过滤"
@@ -454,16 +468,22 @@ func (h *SongHandler) ListSongs(w http.ResponseWriter, r *http.Request) {
 // @Param exclude_playlist_labels query string false "排除属于这些 label 歌单的歌曲(逗号分隔), 默认 hidden; 传 none 显示全部" default(hidden)
 // @Param limit query int false "随机返回数量，默认 50，上限 500" default(50)
 // @Success 200 {object} map[string]any "成功返回随机歌曲列表"
+// @Failure 400 {object} map[string]string "歌曲类型参数无效"
 // @Failure 500 {object} map[string]string "服务器错误"
 // @Security BearerAuth
 // @Router /songs/random [get]
 func (h *SongHandler) ListRandomSongs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	songType, err := parseSongTypeQuery(r)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "歌曲类型参数无效", err)
+		return
+	}
 
 	limit, _ := parsePagination(r, 50, 500)
 
 	filter := &database.SongFilter{
-		Type:                  r.URL.Query().Get("type"),
+		Type:                  songType,
 		Keyword:               r.URL.Query().Get("keyword"),
 		PathPrefix:            r.URL.Query().Get("path_prefix"),
 		ExcludePlaylistLabels: parseExcludePlaylistLabels(r.URL.Query().Get("exclude_playlist_labels")),
@@ -489,7 +509,7 @@ func (h *SongHandler) ListRandomSongs(w http.ResponseWriter, r *http.Request) {
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
-// @Param type query string false "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单" Enums(local, remote, radio, music)
+// @Param type query string false "歌曲类型，支持 local、remote、radio 的逗号分隔组合；不传表示全部类型"
 // @Param keyword query string false "搜索关键词"
 // @Param path_prefix query string false "按 file_path 前缀过滤"
 // @Param genre query string false "按流派精确过滤"
@@ -503,15 +523,21 @@ func (h *SongHandler) ListRandomSongs(w http.ResponseWriter, r *http.Request) {
 // @Param sort query string false "排序字段；指定 album 时缺省 track（碟号、音轨号数字排序），其他情况缺省 added_at；未知轨号排在同碟末尾" Enums(id, title, artist, album, duration, added_at, updated_at, file_modified_at, year, genre, file_size, track)
 // @Param order query string false "排序方向，track 缺省 asc，其他字段缺省 desc" Enums(asc, desc)
 // @Success 200 {object} map[string]any "成功返回 ID 列表"
+// @Failure 400 {object} map[string]string "歌曲类型参数无效"
 // @Failure 500 {object} map[string]string "服务器错误"
 // @Security BearerAuth
 // @Router /songs/ids [get]
 func (h *SongHandler) ListSongIDs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	songType, err := parseSongTypeQuery(r)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "歌曲类型参数无效", err)
+		return
+	}
 
 	orderBy, order := parseSongSort(r.URL.Query().Get("sort"), r.URL.Query().Get("order"))
 	filter := &database.SongFilter{
-		Type:                  r.URL.Query().Get("type"),
+		Type:                  songType,
 		Keyword:               r.URL.Query().Get("keyword"),
 		PathPrefix:            r.URL.Query().Get("path_prefix"),
 		ExcludePlaylistLabels: parseExcludePlaylistLabels(r.URL.Query().Get("exclude_playlist_labels")),
@@ -588,19 +614,25 @@ var songFacetFields = map[string]struct{}{
 // @Tags 歌曲管理
 // @Produce json
 // @Param field query string true "聚合维度" Enums(genre, artist, album, language, style, year, decade, rating, tag)
-// @Param type query string false "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单" Enums(local, remote, radio, music)
+// @Param type query string false "歌曲类型，支持 local、remote、radio 的逗号分隔组合；不传表示全部类型"
+// @Param exclude_playlist_labels query string false "排除属于这些 label 歌单的歌曲(逗号分隔), 默认 hidden; 传 none 显示全部"
 // @Param keyword query string false "对取值模糊搜索"
 // @Param limit query int false "分页大小，缺省 20，上限 100000"
 // @Param offset query int false "分页偏移，缺省 0"
 // @Param sort query string false "排序维度，缺省 count" Enums(count, name)
 // @Param order query string false "排序方向；count 缺省 desc，name 缺省 asc" Enums(asc, desc)
 // @Success 200 {object} map[string]any "成功返回聚合结果 {field, facets:[{value,count,cover_url}], total, limit, offset}"
-// @Failure 400 {object} map[string]string "缺少或不支持的 field"
+// @Failure 400 {object} map[string]string "缺少或不支持的 field，或歌曲类型参数无效"
 // @Failure 500 {object} map[string]string "服务器错误"
 // @Security BearerAuth
 // @Router /songs/facets [get]
 func (h *SongHandler) ListSongFacets(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	songType, err := parseSongTypeQuery(r)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "歌曲类型参数无效", err)
+		return
+	}
 
 	field := r.URL.Query().Get("field")
 	if _, ok := songFacetFields[field]; !ok {
@@ -612,12 +644,13 @@ func (h *SongHandler) ListSongFacets(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r, models.DefaultPaginationLimit, models.MaxPaginationLimit)
 
 	filter := &database.FacetFilter{
-		Type:    r.URL.Query().Get("type"),
-		Keyword: keyword,
-		OrderBy: r.URL.Query().Get("sort"),
-		Order:   r.URL.Query().Get("order"),
-		Limit:   limit,
-		Offset:  offset,
+		Type:                  songType,
+		ExcludePlaylistLabels: parseExcludePlaylistLabels(r.URL.Query().Get("exclude_playlist_labels")),
+		Keyword:               keyword,
+		OrderBy:               r.URL.Query().Get("sort"),
+		Order:                 r.URL.Query().Get("order"),
+		Limit:                 limit,
+		Offset:                offset,
 	}
 
 	facets, err := h.songService.ListFacet(ctx, field, filter)
@@ -657,13 +690,20 @@ var songNameFields = map[string]struct{}{
 // @Tags 歌曲管理
 // @Produce json
 // @Param field query string true "维度" Enums(title, artist)
+// @Param type query string false "歌曲类型，支持 local、remote、radio 的逗号分隔组合；不传表示全部类型"
+// @Param exclude_playlist_labels query string false "排除属于这些 label 歌单的歌曲(逗号分隔), 默认 hidden; 传 none 显示全部"
 // @Success 200 {object} map[string]any "成功返回 {field, names:[...], total}"
-// @Failure 400 {object} map[string]string "缺少或不支持的 field"
+// @Failure 400 {object} map[string]string "缺少或不支持的 field，或歌曲类型参数无效"
 // @Failure 500 {object} map[string]string "服务器错误"
 // @Security BearerAuth
 // @Router /songs/names [get]
 func (h *SongHandler) ListSongNames(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	songType, err := parseSongTypeQuery(r)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "歌曲类型参数无效", err)
+		return
+	}
 
 	field := r.URL.Query().Get("field")
 	if _, ok := songNameFields[field]; !ok {
@@ -671,7 +711,10 @@ func (h *SongHandler) ListSongNames(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	names, err := h.songService.ListDistinctNames(ctx, field)
+	names, err := h.songService.ListDistinctNamesFiltered(ctx, field, &database.SongFilter{
+		Type:                  songType,
+		ExcludePlaylistLabels: parseExcludePlaylistLabels(r.URL.Query().Get("exclude_playlist_labels")),
+	})
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "获取曲库名录失败", err)
 		return

@@ -7760,14 +7760,8 @@ const docTemplate = `{
                 "summary": "获取歌曲列表",
                 "parameters": [
                     {
-                        "enum": [
-                            "local",
-                            "remote",
-                            "radio",
-                            "music"
-                        ],
                         "type": "string",
-                        "description": "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单",
+                        "description": "歌曲类型，支持 local、remote、radio 的逗号分隔组合；不传表示全部类型",
                         "name": "type",
                         "in": "query"
                     },
@@ -7896,6 +7890,15 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "歌曲类型参数无效",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "500": {
@@ -8123,15 +8126,15 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "enum": [
-                            "local",
-                            "remote",
-                            "radio",
-                            "music"
-                        ],
                         "type": "string",
-                        "description": "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单",
+                        "description": "歌曲类型，支持 local、remote、radio 的逗号分隔组合；不传表示全部类型",
                         "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排除属于这些 label 歌单的歌曲(逗号分隔), 默认 hidden; 传 none 显示全部",
+                        "name": "exclude_playlist_labels",
                         "in": "query"
                     },
                     {
@@ -8182,7 +8185,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "缺少或不支持的 field",
+                        "description": "缺少或不支持的 field，或歌曲类型参数无效",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -8280,14 +8283,8 @@ const docTemplate = `{
                 "summary": "获取匹配歌曲的 ID 列表",
                 "parameters": [
                     {
-                        "enum": [
-                            "local",
-                            "remote",
-                            "radio",
-                            "music"
-                        ],
                         "type": "string",
-                        "description": "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单",
+                        "description": "歌曲类型，支持 local、remote、radio 的逗号分隔组合；不传表示全部类型",
                         "name": "type",
                         "in": "query"
                     },
@@ -8391,6 +8388,15 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "400": {
+                        "description": "歌曲类型参数无效",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "服务器错误",
                         "schema": {
@@ -8429,6 +8435,18 @@ const docTemplate = `{
                         "name": "field",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "歌曲类型，支持 local、remote、radio 的逗号分隔组合；不传表示全部类型",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排除属于这些 label 歌单的歌曲(逗号分隔), 默认 hidden; 传 none 显示全部",
+                        "name": "exclude_playlist_labels",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8440,7 +8458,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "缺少或不支持的 field",
+                        "description": "缺少或不支持的 field，或歌曲类型参数无效",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -8679,14 +8697,8 @@ const docTemplate = `{
                 "summary": "随机获取歌曲",
                 "parameters": [
                     {
-                        "enum": [
-                            "local",
-                            "remote",
-                            "radio",
-                            "music"
-                        ],
                         "type": "string",
-                        "description": "歌曲类型；music 表示本地和网络歌曲且排除有声书歌单",
+                        "description": "歌曲类型，支持 local、remote、radio 的逗号分隔组合；不传表示全部类型",
                         "name": "type",
                         "in": "query"
                     },
@@ -8765,6 +8777,15 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "歌曲类型参数无效",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "500": {

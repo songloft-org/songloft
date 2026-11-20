@@ -108,6 +108,45 @@ func TestListSongsWithFilter(t *testing.T) {
 	}
 }
 
+func TestListSongsWithCommaSeparatedTypes(t *testing.T) {
+	repo := newTestSongRepo(t)
+	songService := services.NewSongService(repo, nil, nil, nil, nil, nil)
+	handler := NewSongHandler(songService, nil, nil, nil, nil, nil)
+
+	seedSong(t, repo, &models.Song{Type: models.TypeLocal, Title: "本地", FilePath: "/music/local.mp3"})
+	seedSong(t, repo, &models.Song{Type: models.TypeRemote, Title: "网络", URL: "https://example.com/remote.mp3"})
+	seedSong(t, repo, &models.Song{Type: models.TypeRadio, Title: "电台", URL: "https://example.com/radio.m3u8"})
+
+	req := httptest.NewRequest("GET", "/api/v1/songs?type=local,remote", nil)
+	rr := httptest.NewRecorder()
+	handler.ListSongs(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("handler returned status %d, want %d", rr.Code, http.StatusOK)
+	}
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := int(resp["total"].(float64)); got != 2 {
+		t.Fatalf("total = %d, want 2", got)
+	}
+}
+
+func TestListSongsRejectsUnsupportedType(t *testing.T) {
+	repo := newTestSongRepo(t)
+	songService := services.NewSongService(repo, nil, nil, nil, nil, nil)
+	handler := NewSongHandler(songService, nil, nil, nil, nil, nil)
+
+	req := httptest.NewRequest("GET", "/api/v1/songs?type=unsupported", nil)
+	rr := httptest.NewRecorder()
+	handler.ListSongs(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("handler returned status %d, want %d", rr.Code, http.StatusBadRequest)
+	}
+}
+
 // TestGetSong 测试获取单个歌曲
 func TestGetSong(t *testing.T) {
 	repo := newTestSongRepo(t)

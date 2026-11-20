@@ -16,9 +16,6 @@ const (
 	TypeLocal  = "local"  // 本地歌曲
 	TypeRemote = "remote" // 网络歌曲
 	TypeRadio  = "radio"  // 电台
-	// TypeMusicQuery is a virtual query-only type matching ordinary music.
-	// It is never stored in songs.type.
-	TypeMusicQuery = "music"
 )
 
 // 歌单类型常量

@@ -269,7 +269,7 @@ func TestSongFilterByTag(t *testing.T) {
 	}
 }
 
-func TestMusicFacetExcludesRadioAndAudiobookSongs(t *testing.T) {
+func TestCombinedTypeFacetExcludesRadioAndAudiobookSongs(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -294,10 +294,13 @@ func TestMusicFacetExcludesRadioAndAudiobookSongs(t *testing.T) {
 		t.Fatalf("add audiobook song: %v", err)
 	}
 
-	filter := &FacetFilter{Type: models.TypeMusicQuery}
+	filter := &FacetFilter{
+		Type:                  models.TypeLocal + "," + models.TypeRemote,
+		ExcludePlaylistLabels: []string{models.PlaylistLabelAudiobook},
+	}
 	facets, err := db.SongRepository().ListFacet(ctx, "genre", filter)
 	if err != nil {
-		t.Fatalf("list music facets: %v", err)
+		t.Fatalf("list combined type facets: %v", err)
 	}
 	if len(facets) != 1 || facets[0].Count != 1 {
 		t.Fatalf("music facets = %+v, want one value with count 1", facets)

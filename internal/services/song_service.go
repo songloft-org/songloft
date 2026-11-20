@@ -64,6 +64,7 @@ type SongRepository interface {
 	CountFacet(ctx context.Context, field, keyword string) (int64, error)
 	CountFacetFiltered(ctx context.Context, field string, f *database.FacetFilter) (int64, error)
 	ListDistinctNames(ctx context.Context, field string) ([]string, error)
+	ListDistinctNamesFiltered(ctx context.Context, field string, filter *database.SongFilter) ([]string, error)
 	GetLibraryStats(ctx context.Context) (*database.LibraryStats, error)
 	ListFolders(ctx context.Context, absPrefix, keyword string) ([]database.FolderInfo, error)
 	ListDirectSongs(ctx context.Context, absPrefix, keyword string) ([]*models.Song, error)
@@ -483,7 +484,13 @@ func (s *SongService) CountFacetFiltered(ctx context.Context, field string, f *d
 // ListDistinctNames 返回某维度（title/artist）下曲库全部去重、非空取值。
 // field 支持 title/artist；未知 field 返回 database.ErrNotFound。
 func (s *SongService) ListDistinctNames(ctx context.Context, field string) ([]string, error) {
-	names, err := s.songs.ListDistinctNames(ctx, field)
+	return s.ListDistinctNamesFiltered(ctx, field, nil)
+}
+
+// ListDistinctNamesFiltered returns distinct names matching the optional song
+// type and playlist-label filters.
+func (s *SongService) ListDistinctNamesFiltered(ctx context.Context, field string, filter *database.SongFilter) ([]string, error) {
+	names, err := s.songs.ListDistinctNamesFiltered(ctx, field, filter)
 	if err != nil {
 		if errors.Is(err, database.ErrNotFound) {
 			return nil, err

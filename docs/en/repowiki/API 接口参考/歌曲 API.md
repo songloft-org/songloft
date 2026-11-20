@@ -51,7 +51,7 @@ This document is based on the following source files:
 
 The song management module is Songloft's core API, covering song CRUD, playback stream distribution, covers/lyrics, audio tag writing, file organization, and duplicate detection. All endpoints require JWT authentication (`BearerAuth`), with the base path `/api/v1`.
 
-**Song types**: `local` (local files), `remote` (external URL / plugin source), and `radio` (online broadcast / live stream). Query parameters also accept the virtual type `music`, which means local and remote songs outside radio and audiobook playlists. `music` is never written into a Song object.
+**Song types**: `local` (local files), `remote` (external URL / plugin source), and `radio` (online broadcast / live stream). The `type` query accepts comma-separated stored types such as `local,remote`. Clients can combine it with `exclude_playlist_labels=hidden,audiobook` to omit hidden and audiobook-playlist songs. Type values are query filters and are never written into a Song object.
 
 **Song JSON serialization rules** (handled uniformly by `MarshalJSON`):
 - `url` -- Unified to `/api/v1/songs/{id}/play` (HLS radio uses `.../play.m3u8`)
@@ -81,9 +81,10 @@ Gets the song list, supporting filtering by type, keyword search, path-prefix fi
 
 | Parameter | Type | Required | Default | Description |
 |------|------|------|--------|------|
-| `type` | string | No | -- | `local` / `remote` / `radio` / `music`; `music` excludes radio and audiobook-playlist songs |
+| `type` | string | No | -- | Stored types, with comma-separated combinations such as `local,remote` |
 | `keyword` | string | No | -- | Search keyword (matches title, artist, album) |
 | `path_prefix` | string | No | -- | Filter by `file_path` prefix |
+| `exclude_playlist_labels` | string | No | `hidden` | Exclude songs in playlists carrying these labels, comma-separated. Use `none` to include all |
 | `limit` | int | No | `20` | Items per page, upper limit `100000` |
 | `offset` | int | No | `0` | Offset |
 
@@ -97,7 +98,7 @@ Gets the song list, supporting filtering by type, keyword search, path-prefix fi
 
 **Path:** `/api/v1/songs/ids` | **Authentication:** BearerAuth
 
-Shares filter conditions with `/songs` (`type`, `keyword`, `path_prefix`), but returns only IDs. Used for batch operation scenarios such as "select all within the current filter range"; not paginated.
+Shares filter conditions with `/songs` (`type`, `keyword`, `path_prefix`, and `exclude_playlist_labels`), but returns only IDs. Used for batch operation scenarios such as "select all within the current filter range"; not paginated.
 
 **Success response (200):** `{"ids": [1, 2, 3], "total": 3}`
 
@@ -146,7 +147,8 @@ Aggregates the library by a specified dimension, returning the non-empty values 
 | Parameter | Type | Required | Default | Description |
 |------|------|------|--------|------|
 | `field` | string | Yes | -- | Aggregation dimension: `genre` / `artist` / `album` / `language` / `style` / `year` / `decade` (the value for `year`/`decade` is a numeric string; a decade such as `"1990"` means 1990-1999) |
-| `type` | string | No | -- | `local` / `remote` / `radio` / `music`; `music` excludes radio and audiobook-playlist songs |
+| `type` | string | No | -- | Stored types, with comma-separated combinations such as `local,remote` |
+| `exclude_playlist_labels` | string | No | `hidden` | Exclude songs in playlists carrying these labels, comma-separated. Use `none` to include all |
 | `keyword` | string | No | -- | Fuzzy search over values |
 | `limit` | int | No | `20` | Page size, upper limit `100000` |
 | `offset` | int | No | `0` | Pagination offset |
@@ -639,6 +641,8 @@ Get distinct nonempty song or artist names. Requires a Bearer token.
 | Parameter | Location | Type | Required |
 | --- | --- | --- | --- |
 | `field` | query | `string` | true |
+| `type` | query | `string` | false |
+| `exclude_playlist_labels` | query | `string` | false |
 
 Request and response details are defined by the corresponding handler and Swagger.
 
@@ -672,7 +676,7 @@ Get random songs. Requires a Bearer token.
 | `exclude_playlist_labels` | query | `string` | false |
 | `limit` | query | `integer` | false |
 
-`type=music` returns local and remote songs while excluding radio and audiobook-playlist songs.
+`type=local,remote` returns local and remote songs. Add `exclude_playlist_labels=hidden,audiobook` when the client should omit hidden and audiobook-playlist songs.
 
 Request and response details are defined by the corresponding handler and Swagger.
 
