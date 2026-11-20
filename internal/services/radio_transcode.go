@@ -9,11 +9,11 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os/exec"
 	"strings"
 	"time"
 
 	"songloft/internal/httputil"
+	"songloft/internal/mediaexec"
 )
 
 // ErrRadioTranscodeUnavailable 表示电台实时转码无法开始（ffmpeg 未配置、启动失败，或进程在吐出
@@ -75,7 +75,7 @@ func (c *CacheService) StreamTranscodedRadio(ctx context.Context, w io.Writer, o
 func streamRadio(ctx context.Context, w io.Writer, ffmpegPath string, args []string, startupTimeout time.Duration) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, ffmpegPath, args...)
+	cmd := mediaexec.FFmpeg(ctx, ffmpegPath, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("%w: stdout pipe: %v", ErrRadioTranscodeUnavailable, err)

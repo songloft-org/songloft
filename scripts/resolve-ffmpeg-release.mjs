@@ -89,6 +89,10 @@ function validateManifest(manifest, release, channel, targets) {
   for (const target of targets) {
     const record = manifest.assets.find((asset) => asset.target === target)
     if (!record) throw new Error(`release manifest has no ${target} asset`)
+    const [platform, ...abi] = target.split('-')
+    const kind = platform === 'ios' ? 'static-library' : 'executable'
+    if (record.platform !== platform || record.architecture !== abi.join('-') || record.kind !== kind)
+      throw new Error(`FFmpeg asset platform, ABI, or kind mismatch for ${target}`)
     if (typeof record.name !== 'string' || record.name !== `ffmpeg-${manifest.ffmpeg_version}-${target}.tar.gz` && record.name !== `ffmpeg-${manifest.ffmpeg_version}-${target}.zip`)
       throw new Error(`asset name does not bind to ${target}`)
     if (!/^[a-f0-9]{64}$/.test(record.sha256) || !Number.isSafeInteger(record.size) || record.size <= 0)
@@ -125,7 +129,10 @@ async function resolveRelease(options) {
     const content = current && digest(current) === record.sha256 ? current : await bytes(releaseAsset.browser_download_url)
     if (content.length !== record.size || digest(content) !== record.sha256) throw new Error(`asset digest mismatch for ${target}`)
     await writeFile(path, content, { mode: 0o644 })
-    records.push({ ...record, path })
+    // Store a path relative to ffmpeg-resolution.json. The file is uploaded as
+    // an artifact and consumed on another runner, so absolute runner paths
+    // cannot be part of the build contract.
+    records.push({ ...record, path: basename(path) })
   }
   const resolution = {
     schema: 1,

@@ -43,6 +43,27 @@ type mobileServer struct {
 //
 // 返回实际监听端口号。
 func Start(dataDir, musicDir string, port int) (int, error) {
+	return start(dataDir, musicDir, port, "", "")
+}
+
+// StartWithMediaTools starts the backend with the FFmpeg tools installed by the app package.
+func StartWithMediaTools(dataDir, musicDir string, port int, ffmpegPath, ffprobePath string) (int, error) {
+	for _, path := range []string{ffmpegPath, ffprobePath} {
+		if !filepath.IsAbs(path) {
+			return -1, fmt.Errorf("expected an absolute media tool path: %q", path)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			return -1, err
+		}
+		if !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 {
+			return -1, fmt.Errorf("media tool is not executable: %q", path)
+		}
+	}
+	return start(dataDir, musicDir, port, ffmpegPath, ffprobePath)
+}
+
+func start(dataDir, musicDir string, port int, ffmpegPath, ffprobePath string) (int, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -88,6 +109,8 @@ func Start(dataDir, musicDir string, port int) (int, error) {
 
 	cfg := config.NewAppConfig(portStr, dbPath, "admin", adminPassword, "")
 	cfg.MusicDir = musicDir
+	cfg.FFmpegPath = ffmpegPath
+	cfg.FFprobePath = ffprobePath
 
 	// Reserve the listener before App.Init starts the asynchronous plugin
 	// manager. Bundle mode uses port 0, so components initialized first could

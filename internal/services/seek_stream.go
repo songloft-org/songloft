@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os/exec"
 	"path/filepath"
+	"songloft/internal/mediaexec"
 	"strings"
 	"time"
 )
@@ -254,7 +254,7 @@ func (c *CacheService) StreamSeekedMP3(ctx, connCtx context.Context, w io.Writer
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(runCtx, ffmpegPath, args...)
+	cmd := mediaexec.FFmpeg(runCtx, ffmpegPath, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("%w: stdout pipe: %v", ErrSeekStreamUnavailable, err)

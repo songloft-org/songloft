@@ -67,7 +67,7 @@ make build-frontend-{linux,windows,macos,android,ios,all}
 
 # Go mobile binding reference targets (client workflows select the latest root main SHA when packaging starts)
 make build-go-mobile-android       # Android .aar (gomobile bind, arm64 + arm + x86_64)
-make build-go-mobile-ios           # iOS .xcframework (gomobile bind, arm64, macOS only)
+make build-go-mobile-ios SONGLOFT_FFMPEG_IOS_ASSET=/path/to/staged/ios-ffmpeg  # iOS arm64 .xcframework, macOS only
 make build-go-desktop-linux        # Linux executable
 make build-go-desktop-windows      # Windows .exe
 make build-go-desktop-macos        # macOS x86_64

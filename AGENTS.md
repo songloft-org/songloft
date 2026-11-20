@@ -67,7 +67,7 @@ make build-frontend-{linux,windows,macos,android,ios,all}
 
 # Go 移动绑定参考目标（客户端流水线开始打包时解析主仓库 main 的最新 SHA）
 make build-go-mobile-android       # Android .aar（gomobile bind，arm64 + arm + x86_64）
-make build-go-mobile-ios           # iOS .xcframework（gomobile bind，arm64，仅 macOS）
+make build-go-mobile-ios SONGLOFT_FFMPEG_IOS_ASSET=/path/to/staged/ios-ffmpeg  # iOS arm64 .xcframework，仅 macOS
 make build-go-desktop-linux        # Linux 可执行文件
 make build-go-desktop-windows      # Windows .exe
 make build-go-desktop-macos        # macOS x86_64

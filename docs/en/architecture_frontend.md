@@ -598,7 +598,7 @@ make build-frontend-all
 # Flutter source local-mode build reference (not used by root Releases)
 # 1. Compile the Go backend into a mobile library / desktop executable
 make build-go-mobile-android       # → clients/player-flutter/android/app/libs/songloft.aar
-make build-go-mobile-ios           # → clients/player-flutter/ios/Songloft.xcframework (macOS only)
+make build-go-mobile-ios SONGLOFT_FFMPEG_IOS_ASSET=/path/to/staged/ios-ffmpeg   # macOS only
 make build-go-desktop-linux        # → clients/player-flutter/linux/songloft-server
 make build-go-desktop-windows      # → clients/player-flutter/windows/songloft-server.exe
 make build-go-desktop-macos-arm64  # → clients/player-flutter/macos/Runner/songloft-server

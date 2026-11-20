@@ -10,6 +10,20 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### BUNDLE-FFMPEG-001: Multi-platform assets must bind to one Release identity
+
+- Scope: Flutter/Lynx Bundle builds in the backend Release and assets from `tools/ffmpeg-builder`.
+- Rule: resolve one concrete Release tag for `dev` or stable at build start, validate the manifest source commit, platform, ABI, size, and SHA-256, then give `ffmpeg-resolution.json` to every matrix job. Platform jobs must not download a rolling `latest` file directly.
+- Correct example: the resolution records `release_tag`, `source_commit`, `manifest_sha256`, and each asset digest. Retries reuse the recorded URL and digest.
+- Seen 1× (2026-11-20). Status: local implementation; remote multi-platform publication and device installation remain to be accepted.
+
+### BUNDLE-FFMPEG-002: Preserve empty input options in the native FFmpeg runner
+
+- Scope: the iOS Bundle FFmpeg runner and its loopback radio and HLS gateway.
+- Evidence: on the backend worktree based on `c6eb437`, the Linux native `TestHLSTranscodeRealFFmpeg` failed when the runner parsed FFmpeg options from a string. The HLS gateway supplied an empty `http_proxy`. Setting the `AVDictionary` directly restored real TS, HLS, AES-128 HLS, and cancellation coverage.
+- Correct example: use `av_dict_set` to pass values verbatim, including an empty proxy and HTTP headers with trailing CRLF, and retain the input protocol and format allowlists.
+- Seen 1× (2026-11-20). Status: verified through the Linux native runner. iOS device acceptance is pending.
+
 ### BUNDLE-PORT-001: Synchronize dynamic ports to every URL generator after listening
 
 - Scope: Bundle mobile backends, JS plugin host addresses and internal plugin proxy URLs; [songloft-org/songloft-player-lynx#16](https://github.com/songloft-org/songloft-player-lynx/issues/16), parent baseline `dff636c`, Lynx baseline `c403ea0`.

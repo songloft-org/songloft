@@ -13,6 +13,12 @@ Bundle mode installs the Go backend with the client, so users do not need to dep
 
 The backend Release also publishes `bundle-index.json`, `bundle-flutter-version.json`, `bundle-flutter-backend-manifest-<abi>.json`, `bundle-lynx-version.json`, `bundle-lynx-version.json.sig`, and `desktop-bundled-<target>.json`. Each `bundle-index.json` record includes `client`, `edition`, platform, asset name, full client SHA, full backend SHA, version, build time, and SHA-256. The server's own `version.json` remains separate.
 
+At the start of a Bundle build, the workflow resolves one concrete Release from the `dev` or stable channel of `hanxi/ffmpeg-builder` and writes `ffmpeg_release_tag`, `ffmpeg_source_commit`, and `ffmpeg_manifest_sha256` into the Bundle manifests. Every platform reuses that resolution and verifies the platform, ABI, size, and SHA-256 again after download.
+
+- Android APKs ship FFmpeg and FFprobe for arm64-v8a, armeabi-v7a, and x86_64. Android installs them as native files and the backend runs them from the app's `nativeLibraryDir`. Flutter backend patches still check the gomobile interface signature. Older APKs need a full app update to get the bundled tools.
+- Desktop launchers pass the bundled FFmpeg and FFprobe paths to the Go backend. The Flutter macOS Bundle includes signed tools.
+- iOS links arm64 FFmpeg into the gomobile backend. Metadata, covers and video frames, file and stream transcoding, seek, loudness normalization, speed, radio, HLS, and Chromaprint run inside the app process. The IPA still requires signing for installation. The build needs a new FFmpeg Release asset with the static library, headers, and linker flags.
+
 Flutter standard reads the Flutter Release. Flutter Bundle reads the backend Release. Lynx standard reads the Lynx Release. Lynx Bundle reads the backend Release. The desktop updater selects the repository and signed manifest by `variant`, and desktop asset names contain no `dev` or `stable` segment.
 
 ## Android and iOS local mode

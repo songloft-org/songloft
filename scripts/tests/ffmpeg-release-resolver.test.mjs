@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -27,7 +27,7 @@ async function fixtureServer(release, files) {
   return { server, base: `http://127.0.0.1:${port}` }
 }
 
-test('resolves and verifies an immutable release asset', async () => {
+test('resolves and verifies an immutable release asset', async (t) => {
   const archive = Buffer.from('tarball')
   const manifest = {
     schema: 1,
@@ -38,6 +38,7 @@ test('resolves and verifies an immutable release asset', async () => {
     license: 'GPL-3.0-or-later',
     assets: [{
       target: 'linux-x86_64',
+      platform: 'linux', architecture: 'x86_64', kind: 'executable',
       name: 'ffmpeg-8.0.1-linux-x86_64.tar.gz',
       size: archive.length,
       sha256: digest(archive),
@@ -63,7 +64,9 @@ test('resolves and verifies an immutable release asset', async () => {
   release.assets[0].browser_download_url = `${baseURL}manifest.json`
   release.assets[1].browser_download_url = `${baseURL}asset.tar.gz`
   files.set('/repos/hanxi/ffmpeg-builder/releases/tags/dev', Buffer.from(JSON.stringify(release)))
+  t.after(() => fixture.server.close())
   const output = await mkdtemp(join(tmpdir(), 'ffmpeg-resolver-'))
+  t.after(() => rm(output, { recursive: true, force: true }))
   const result = await resolveRelease({
     channel: 'dev',
     targets: ['linux-x86_64'],
@@ -71,11 +74,11 @@ test('resolves and verifies an immutable release asset', async () => {
     apiBase: fixture.base,
   })
   assert.equal(result.release_tag, 'dev')
+  assert.equal(result.assets[0].path, manifest.assets[0].name)
   assert.deepEqual(await readFile(join(output, manifest.assets[0].name)), archive)
-  fixture.server.close()
 })
 
-test('rejects a release asset URL that is not bound to the resolved tag', async () => {
+test('rejects a release asset URL that is not bound to the resolved tag', async (t) => {
   const archive = Buffer.from('tarball')
   const manifest = {
     schema: 1,
@@ -83,7 +86,7 @@ test('rejects a release asset URL that is not bound to the resolved tag', async 
     release_tag: 'dev',
     ffmpeg_version: '8.0.1',
     source_commit: 'a'.repeat(40),
-    assets: [{ target: 'linux-x86_64', name: 'ffmpeg-8.0.1-linux-x86_64.tar.gz', size: archive.length, sha256: digest(archive) }],
+    assets: [{ target: 'linux-x86_64', platform: 'linux', architecture: 'x86_64', kind: 'executable', name: 'ffmpeg-8.0.1-linux-x86_64.tar.gz', size: archive.length, sha256: digest(archive) }],
   }
   const files = new Map([
     ['/manifest.json', Buffer.from(JSON.stringify(manifest))],
@@ -97,10 +100,11 @@ test('rejects a release asset URL that is not bound to the resolved tag', async 
     ],
   }
   const fixture = await fixtureServer(release, files)
+  t.after(() => fixture.server.close())
   const output = await mkdtemp(join(tmpdir(), 'ffmpeg-resolver-'))
+  t.after(() => rm(output, { recursive: true, force: true }))
   await assert.rejects(
     resolveRelease({ channel: 'dev', targets: ['linux-x86_64'], outputDir: output, apiBase: fixture.base }),
     /manifest URL is not bound/,
   )
-  fixture.server.close()
 })

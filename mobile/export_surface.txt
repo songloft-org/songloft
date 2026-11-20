@@ -1,4 +1,5 @@
 func GetPort() int
 func IsRunning() bool
 func Start(dataDir, musicDir string, port int) (int, error)
+func StartWithMediaTools(dataDir, musicDir string, port int, ffmpegPath, ffprobePath string) (int, error)
 func Stop()

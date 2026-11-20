@@ -149,7 +149,7 @@ songloft/
 | `make build-prod` | No tag | Production full build (default), embeds Lynx Web |
 | `make build-prod-lite` | `-tags lite` | Production lite build, without the frontend |
 | `make build-go-mobile-android` | `-tags lite` | Compiles the Go backend into an Android .aar (gomobile bind) |
-| `make build-go-mobile-ios` | `-tags lite` | Compiles the Go backend into an iOS .xcframework (gomobile bind) |
+| `make build-go-mobile-ios` | `-tags lite,bundle_ffmpeg` | gomobile packages the Go backend and verified FFmpeg static library into an iOS .xcframework. Set `SONGLOFT_FFMPEG_IOS_ASSET` to the staging directory. |
 | `make build-go-desktop-{linux,windows,macos}` | `-tags lite` | Compiles the Go backend into a desktop executable (for Bundle mode) |
 
 ### Build Parameters and Embedding

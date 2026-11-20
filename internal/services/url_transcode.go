@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os/exec"
 	"strings"
 
 	"songloft/internal/httputil"
+	"songloft/internal/mediaexec"
 )
 
 // ErrURLTranscodeUnavailable 表示远程 URL 转码在吐出任何音频字节之前失败
@@ -99,7 +99,7 @@ func (c *CacheService) StreamTranscodedURL(ctx context.Context, w io.Writer, opt
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(runCtx, ffmpegPath, args...)
+	cmd := mediaexec.FFmpeg(runCtx, ffmpegPath, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("%w: stdout pipe: %v", ErrURLTranscodeUnavailable, err)

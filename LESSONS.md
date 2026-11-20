@@ -10,6 +10,20 @@
 
 ## 条目
 
+### BUNDLE-FFMPEG-001：多平台资产必须绑定具体 Release 身份
+
+- 范围：后端 Release 的 Flutter/Lynx Bundle 构建与 `tools/ffmpeg-builder` 资产解析。
+- 规则：构建开始时按 `dev` 或稳定通道解析具体 Release tag，校验 manifest 的源码提交、平台、ABI、大小和 SHA-256，并把 `ffmpeg-resolution.json` 交给所有矩阵 job。不要在单个平台 job 直接下载滚动 `latest` 文件。
+- 正确示例：解析记录同时保存 `release_tag`、`source_commit`、`manifest_sha256` 和资产摘要；重试只复用记录中的固定 URL 与摘要。
+- Seen 1× (2026-11-20)。状态：本地实现，远端多平台发布与设备安装待验收。
+
+### BUNDLE-FFMPEG-002：原生转码应保留拉流选项中的空值
+
+- 范围：iOS Bundle 的 FFmpeg 原生运行器及电台、HLS 回环网关。
+- 证据：在主仓库基线 `c6eb437` 的工作树中，Linux 下的 `TestHLSTranscodeRealFFmpeg` 在原生运行器使用字符串解析 FFmpeg 参数时失败。HLS 网关传入了空的 `http_proxy`。改为直接设置 `AVDictionary` 后，实际 TS、HLS 和 AES-128 HLS 转码及取消回归通过。
+- 正确示例：用 `av_dict_set` 传递原值，包括空代理和以 CRLF 结束的 HTTP 请求头，同时保留输入协议及格式白名单。
+- Seen 1× (2026-11-20)。状态：Linux 原生分支已验证。iOS 真机待验收。
+
 ### BUNDLE-PORT-001：动态端口必须在监听后同步到所有 URL 生成器
 
 - 范围：Bundle 移动后端、JS 插件宿主地址和内部插件代理 URL；[songloft-org/songloft-player-lynx#16](https://github.com/songloft-org/songloft-player-lynx/issues/16)，父仓库基线 `dff636c`，Lynx 基线 `c403ea0`。

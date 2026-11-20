@@ -251,6 +251,9 @@ func (a *App) Init() error {
 		slog.Warn("读取 ffprobe 配置失败，使用默认值", "error", err)
 		ffprobeConfig.Path = "ffprobe"
 	}
+	if a.config.FFprobePath != "" {
+		ffprobeConfig.Path = a.config.FFprobePath
+	}
 
 	// 从数据库读取封面存储路径配置
 	var coverStorageConfig struct {
@@ -323,7 +326,11 @@ func (a *App) Init() error {
 		slog.Debug("读取 ffmpeg 配置失败，使用默认值", "error", err)
 		ffmpegConfig.Path = "ffmpeg"
 	}
+	if a.config.FFmpegPath != "" {
+		ffmpegConfig.Path = a.config.FFmpegPath
+	}
 	a.cacheService.SetFFmpegPath(ffmpegConfig.Path)
+	a.cacheService.SetBundledFFprobePath(a.config.FFprobePath)
 	proxySettings := handlers.NewProxyHandler(a.configService)
 	a.hlsTranscodeService, err = services.NewHLSTranscodeService(a.cacheService, proxySettings.GetPrivateAllowlist)
 	if err != nil {
@@ -843,5 +850,7 @@ func ParseConfig() (*config.AppConfig, error) {
 		UsingDefaultCredentials: usingDefaultCredentials,
 		MusicDir:                finalMusicDir,
 		ParentWatchStdin:        *parentWatch,
+		FFmpegPath:              os.Getenv("SONGLOFT_BUNDLE_FFMPEG"),
+		FFprobePath:             os.Getenv("SONGLOFT_BUNDLE_FFPROBE"),
 	}, nil
 }

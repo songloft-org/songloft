@@ -598,7 +598,7 @@ make build-frontend-all
 # Flutter 源码本地模式构建参考（不是主仓库 Release 流程）
 # 1. 编译 Go 后端为移动端库 / 桌面端可执行文件
 make build-go-mobile-android       # → clients/player-flutter/android/app/libs/songloft.aar
-make build-go-mobile-ios           # → clients/player-flutter/ios/Songloft.xcframework（仅 macOS）
+make build-go-mobile-ios SONGLOFT_FFMPEG_IOS_ASSET=/path/to/staged/ios-ffmpeg   # 仅 macOS
 make build-go-desktop-linux        # → clients/player-flutter/linux/songloft-server
 make build-go-desktop-windows      # → clients/player-flutter/windows/songloft-server.exe
 make build-go-desktop-macos-arm64  # → clients/player-flutter/macos/Runner/songloft-server

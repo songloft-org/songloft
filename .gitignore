@@ -108,3 +108,6 @@ hostc/
 plugins/src/songloft-plugin-bili
 cloudflare-github-proxy
 plugins/src/pcyear-bridge
+
+# FFmpeg files staged from verified Release assets
+/internal/mediaexec/ffmpeg

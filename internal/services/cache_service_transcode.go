@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"songloft/internal/mediaexec"
 	"songloft/internal/models"
 )
 
@@ -110,6 +110,11 @@ func (c *CacheService) SetFFmpegPath(path string) {
 	} else {
 		c.ffmpegPath.Store("")
 	}
+}
+
+// SetBundledFFprobePath sets the host-supplied probe before starting the HTTP server.
+func (c *CacheService) SetBundledFFprobePath(path string) {
+	c.ffprobePath = path
 }
 
 // ParseBitrate 解析 quality 参数值为 kbps int。
@@ -345,7 +350,7 @@ func (c *CacheService) runFFmpeg(ctx context.Context, srcPath, dstPath string, s
 		defer func() { <-c.transcodeSem }()
 	}
 
-	cmd := exec.CommandContext(ctx, ffmpegPath, args...)
+	cmd := mediaexec.FFmpeg(ctx, ffmpegPath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		slog.Warn("ffmpeg failed", "args", args, "output", string(output), "error", err)
@@ -393,6 +398,9 @@ type AudioTrackInfo struct {
 // CacheService 仅持有 ffmpegPath（由 app.go 注入）；ffprobe 通常与 ffmpeg 同目录，
 // 故优先取其同级 ffprobe，其次在 PATH 中查找，最后回退裸名 "ffprobe"。
 func (c *CacheService) resolveFFprobePath() string {
+	if c.ffprobePath != "" {
+		return c.ffprobePath
+	}
 	if fp := c.getFFmpegPath(); fp != "" {
 		dir := filepath.Dir(fp)
 		base := filepath.Base(fp)
@@ -412,7 +420,7 @@ func (c *CacheService) resolveFFprobePath() string {
 // ListAudioTracks 用 ffprobe 探测文件的音频流列表（songloft-org/songloft#298）。
 // 只枚举音频流（-select_streams a），返回的 Index 即 audio-relative 0-based 序号。
 func (c *CacheService) ListAudioTracks(ctx context.Context, filePath string) ([]AudioTrackInfo, error) {
-	cmd := exec.CommandContext(ctx, c.resolveFFprobePath(),
+	cmd := mediaexec.FFprobe(ctx, c.resolveFFprobePath(),
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_streams",

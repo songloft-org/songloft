@@ -147,14 +147,16 @@ Flutter Bundle 和 Lynx Bundle 由后端仓库的 Release 统一发布。Flutter
 | Flutter · Android | ARM64 / ARMv7 / x86_64 | `songloft-bundled-android.apk` |
 | Flutter · iOS | ARM64（未签名，需自行重签） | `songloft-bundled-ios-nosign.ipa` |
 | Flutter · Linux | x86_64 | `songloft-bundled-linux-x64.tar.gz` |
-| Flutter · macOS | Intel / Apple Silicon | `songloft-bundled-macos.zip` |
+| Flutter · macOS | Apple Silicon | `songloft-bundled-macos.zip` |
 | Flutter · Windows | x86_64 | `songloft-bundled-windows-x64.zip` |
-| Lynx · Android 6.0+ | ARM64 / ARMv7 / x86_64 / x86 | `songloft-lynx-bundled-android.apk` |
+| Lynx · Android 6.0+ | ARM64 / ARMv7 / x86_64 | `songloft-lynx-bundled-android.apk` |
 | Lynx · iOS | ARM64（未签名，需自行重签） | `songloft-lynx-bundled-ios-nosign.ipa` |
 | Lynx · Windows | x86_64 | `songloft-lynx-bundled-win32-x64.exe` |
 | Lynx · macOS | Apple Silicon / Intel | `songloft-lynx-bundled-darwin-arm64.dmg` / `songloft-lynx-bundled-darwin-x64.dmg` |
 
 Lynx HarmonyOS 和 Web 仍属于非 Bundle 产物。Bundle 资产的客户端 SHA、后端 SHA、版本、构建时间和 SHA-256 记录在后端 Release 的 `bundle-index.json`。详见[Bundle 模式说明](docs/bundle-mode.md)。
+
+Bundle 构建使用 `hanxi/ffmpeg-builder` 发布的多平台资产。流水线先解析 `dev` 或正式通道的具体 Release，再校验 manifest 中的平台、ABI、版本、源码提交和 SHA-256，并把同一解析结果复用到整个构建矩阵。Android 与桌面 Bundle 内置 `ffmpeg` 和 `ffprobe`。iOS Bundle 将 FFmpeg 静态链接进 Go 后端，在应用进程内完成探测和转码。
 
 ### 🐳 Docker 镜像
 

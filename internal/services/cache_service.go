@@ -70,6 +70,7 @@ type CacheService struct {
 	lruIndex        map[string]time.Time
 	lruMu           sync.RWMutex
 	orchestrator    CacheSongFetcher // 下载编排器(按 song.ID),由 app.go 注入
+	ffprobePath     string           // immutable after construction by App.Init
 	ffmpegPath      atomic.Value     // string；ffmpeg 可执行文件路径,由 app.go 注入（SetFFmpegPath 并发写）
 	transcodeSem    chan struct{}    // 转码串行信号量（默认 size=1），防止并发 ffmpeg 争抢 CPU
 

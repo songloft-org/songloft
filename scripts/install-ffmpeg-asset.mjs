@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto'
-import { mkdtemp, mkdir, readFile, readdir, cp, writeFile, rm } from 'node:fs/promises'
-import { join, resolve, basename } from 'node:path'
+import { mkdtemp, mkdir, readFile, readdir, cp, chmod, stat, writeFile, rm } from 'node:fs/promises'
+import { join, resolve, basename, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 
@@ -39,7 +39,8 @@ async function findFiles(directory) {
     for (const entry of await readdir(path, { withFileTypes: true })) {
       const child = join(path, entry.name)
       if (entry.isDirectory()) await visit(child)
-      else result.push(child)
+      else if (entry.isFile()) result.push(child)
+      else throw new Error("FFmpeg archive contains a non-regular file")
     }
   }
   await visit(directory)
@@ -52,28 +53,43 @@ const output = resolve(option('output-dir'))
 const resolution = JSON.parse(await readFile(resolutionPath, 'utf8'))
 const asset = resolution.assets?.find((item) => item.target === target)
 if (!asset || !/^[a-f0-9]{64}$/.test(asset.sha256)) throw new Error(`resolution has no verified ${target} asset`)
-const archive = resolve(asset.path)
+const archive = resolve(asset.path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(asset.path)
+  ? asset.path
+  : join(dirname(resolutionPath), asset.path))
 const content = await readFile(archive)
 if (content.length !== asset.size || sha256(content) !== asset.sha256) throw new Error(`FFmpeg asset digest mismatch for ${target}`)
 const entries = archiveEntries(archive)
 if (!safeEntries(entries)) throw new Error('FFmpeg archive contains an unsafe path')
 const staging = await mkdtemp(join(process.env.TMPDIR ?? tmpdir(), 'songloft-ffmpeg-'))
-if (archive.endsWith('.zip')) run('unzip', ['-q', archive, '-d', staging])
-else run('tar', ['-xzf', archive, '-C', staging])
-const files = await findFiles(staging)
-const extension = target.startsWith('windows-') ? '.exe' : ''
-const ffmpeg = target.startsWith('ios-') ? null : files.find((path) => basename(path) === `ffmpeg${extension}`)
-const ffprobe = target.startsWith('ios-') ? null : files.find((path) => basename(path) === `ffprobe${extension}`)
-if (!target.startsWith('ios-') && (!ffmpeg || !ffprobe)) throw new Error(`FFmpeg archive for ${target} is missing ffmpeg/ffprobe`)
-await mkdir(output, { recursive: true })
-if (target.startsWith('ios-')) {
-  const framework = files.find((path) => path.endsWith('.a') || path.endsWith('.framework'))
-  if (!framework) throw new Error('iOS FFmpeg asset has no static library or framework')
-  await cp(framework, join(output, basename(framework)), { recursive: true })
-} else {
-  await cp(ffmpeg, join(output, basename(ffmpeg)))
-  await cp(ffprobe, join(output, basename(ffprobe)))
+try {
+  if (archive.endsWith('.zip')) run('unzip', ['-q', archive, '-d', staging])
+  else run('tar', ['-xzf', archive, '-C', staging])
+  const files = await findFiles(staging)
+  await mkdir(output, { recursive: true })
+  if (target === 'ios-arm64') {
+    const libraries = files.filter((path) => basename(path) === 'libsongloft_ffmpeg.a')
+    if (libraries.length !== 1) throw new Error('iOS FFmpeg asset must contain one libsongloft_ffmpeg.a')
+    const framework = dirname(libraries[0])
+    if (!(await stat(join(framework, 'include/libavformat/avformat.h'))).isFile() ||
+        !(await stat(join(framework, 'link-flags.txt'))).isFile()) {
+      throw new Error('iOS FFmpeg asset is missing headers or linker information')
+    }
+    await cp(framework, output, { recursive: true })
+  } else {
+    const android = target.startsWith('android-')
+    const extension = target.startsWith('windows-') ? '.exe' : ''
+    for (const tool of ['ffmpeg', 'ffprobe']) {
+      const sources = files.filter((path) => basename(path) === `${tool}${extension}`)
+      if (sources.length !== 1) throw new Error(`FFmpeg asset for ${target} must contain one ${tool}`)
+      const destination = join(output, android ? `lib${tool}.so` : `${tool}${extension}`)
+      await cp(sources[0], destination)
+      if (!extension) await chmod(destination, 0o755)
+    }
+  }
+  if (!target.startsWith('android-')) {
+    await writeFile(join(output, 'ffmpeg-asset.json'), `${JSON.stringify({ ...resolution, selected_target: target }, null, 2)}\n`)
+  }
+} finally {
+  await rm(staging, { recursive: true, force: true })
 }
-await writeFile(join(output, 'ffmpeg-asset.json'), `${JSON.stringify({ ...resolution, selected_target: target }, null, 2)}\n`)
-await rm(staging, { recursive: true, force: true })
 console.log(JSON.stringify({ target, release_tag: resolution.release_tag, source_commit: resolution.source_commit, sha256: asset.sha256, output }))

@@ -147,14 +147,16 @@ Flutter Bundle and Lynx Bundle packages are published together in the backend re
 | Flutter · Android | ARM64 / ARMv7 / x86_64 | `songloft-bundled-android.apk` |
 | Flutter · iOS | ARM64 (unsigned; re-sign required) | `songloft-bundled-ios-nosign.ipa` |
 | Flutter · Linux | x86_64 | `songloft-bundled-linux-x64.tar.gz` |
-| Flutter · macOS | Intel / Apple Silicon | `songloft-bundled-macos.zip` |
+| Flutter · macOS | Apple Silicon | `songloft-bundled-macos.zip` |
 | Flutter · Windows | x86_64 | `songloft-bundled-windows-x64.zip` |
-| Lynx · Android 6.0+ | ARM64 / ARMv7 / x86_64 / x86 | `songloft-lynx-bundled-android.apk` |
+| Lynx · Android 6.0+ | ARM64 / ARMv7 / x86_64 | `songloft-lynx-bundled-android.apk` |
 | Lynx · iOS | ARM64 (unsigned; re-sign required) | `songloft-lynx-bundled-ios-nosign.ipa` |
 | Lynx · Windows | x86_64 | `songloft-lynx-bundled-win32-x64.exe` |
 | Lynx · macOS | Apple Silicon / Intel | `songloft-lynx-bundled-darwin-arm64.dmg` / `songloft-lynx-bundled-darwin-x64.dmg` |
 
 Lynx HarmonyOS and Web remain non-Bundle outputs. The backend Release's `bundle-index.json` records the client SHA, backend SHA, version, build time and SHA-256 for every Bundle asset. See [Bundle Mode](docs/en/bundle-mode.md).
+
+Bundle builds use the multi-platform assets published by `hanxi/ffmpeg-builder`. The workflow resolves a concrete Release for the `dev` or stable channel, validates the manifest's platform, ABI, version, source commit and SHA-256, then reuses that resolution across the whole build matrix. Android and desktop Bundles ship `ffmpeg` and `ffprobe`. The iOS Bundle links FFmpeg into its Go backend and probes and transcodes media inside the app process.
 
 ### 🐳 Docker Images
 

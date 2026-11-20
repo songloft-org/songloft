@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"songloft/internal/database"
+	"songloft/internal/mediaexec"
 )
 
 var (
@@ -48,7 +48,7 @@ func IsChromaprintAvailable() bool {
 		if err != nil {
 			return
 		}
-		out, err := exec.Command(path, "-hide_banner", "-muxers").Output()
+		out, err := mediaexec.FFmpeg(context.Background(), path, "-hide_banner", "-muxers").Output()
 		if err == nil && strings.Contains(string(out), "chromaprint") {
 			chromaprintAvailable = true
 			resolvedFFmpegPath = path
@@ -103,7 +103,7 @@ func ExtractFingerprint(ctx context.Context, filePath string, startSeconds, endS
 	args = append(args, "-t", strconv.FormatFloat(sample, 'f', 3, 64),
 		"-f", "chromaprint", "-fp_format", "base64", "-")
 
-	cmd := exec.CommandContext(ctx, resolvedFFmpegPath, args...)
+	cmd := mediaexec.FFmpeg(ctx, resolvedFFmpegPath, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

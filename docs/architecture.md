@@ -150,7 +150,7 @@ songloft/
 | `make build-prod` | 无标签 | 生产完整版（默认），嵌入 Lynx Web |
 | `make build-prod-lite` | `-tags lite` | 生产精简版，不含前端 |
 | `make build-go-mobile-android` | `-tags lite` | Go 后端编译为 Android .aar（gomobile bind） |
-| `make build-go-mobile-ios` | `-tags lite` | Go 后端编译为 iOS .xcframework（gomobile bind） |
+| `make build-go-mobile-ios` | `-tags lite,bundle_ffmpeg` | gomobile 将 Go 后端和已验证的 FFmpeg 静态库打包为 iOS .xcframework。设置 `SONGLOFT_FFMPEG_IOS_ASSET` 指向解包目录。 |
 | `make build-go-desktop-{linux,windows,macos}` | `-tags lite` | Go 后端编译为桌面可执行文件（Bundle 用） |
 
 ### 构建参数与嵌入

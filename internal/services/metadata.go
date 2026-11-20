@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -21,6 +20,7 @@ import (
 	"github.com/hanxi/tag"
 
 	"songloft/internal/httputil"
+	"songloft/internal/mediaexec"
 	"songloft/internal/models"
 )
 
@@ -105,6 +105,9 @@ type FFProbeStream struct {
 // Unlike exec.LookPath, it avoids the faccessat2 syscall which triggers
 // SIGSYS on platforms with restrictive seccomp filters (e.g., Termux on Android).
 func safeLookPath(name string) (string, error) {
+	if mediaexec.Native && name != "" {
+		return name, nil
+	}
 	exts := pathExts()
 
 	if strings.Contains(name, string(filepath.Separator)) {
@@ -679,7 +682,7 @@ func (m *MetadataExtractor) runFFProbeOnURL(ctx context.Context, rawURL string, 
 		args = append(args, "-headers", h)
 	}
 	args = append(args, rawURL)
-	cmd := exec.CommandContext(ctx, cfg.FFProbePath, args...)
+	cmd := mediaexec.FFprobe(ctx, cfg.FFProbePath, args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("ffprobe url: %w", err)
@@ -748,7 +751,7 @@ func (m *MetadataExtractor) ExtractCoverFromURL(ctx context.Context, url string,
 		args = append(args, "-headers", h)
 	}
 	args = append(args, "-i", url, "-an", "-vcodec", "copy", "-f", "image2pipe", "pipe:1")
-	cmd := exec.CommandContext(coverCtx, cfg.FFMpegPath, args...)
+	cmd := mediaexec.FFmpeg(coverCtx, cfg.FFMpegPath, args...)
 
 	var buf bytes.Buffer
 	cmd.Stdout = &limitedWriter{w: &buf, limit: maxCoverSize}
@@ -798,7 +801,7 @@ func (m *MetadataExtractor) ExtractCoverFromVideoFile(ctx context.Context, fileP
 		"-vcodec", "mjpeg",
 		"pipe:1",
 	)
-	cmd := exec.CommandContext(frameCtx, cfg.FFMpegPath, args...)
+	cmd := mediaexec.FFmpeg(frameCtx, cfg.FFMpegPath, args...)
 
 	var buf bytes.Buffer
 	cmd.Stdout = &limitedWriter{w: &buf, limit: maxCoverSize}
@@ -957,8 +960,8 @@ func (m *MetadataExtractor) IsFFProbeAvailable() bool {
 }
 
 // buildFFProbeCommandContext 构建带上下文的 ffprobe 命令
-func (m *MetadataExtractor) buildFFProbeCommandContext(ctx context.Context, filePath string) *exec.Cmd {
-	return exec.CommandContext(
+func (m *MetadataExtractor) buildFFProbeCommandContext(ctx context.Context, filePath string) *mediaexec.Command {
+	return mediaexec.FFprobe(
 		ctx,
 		m.config.Load().FFProbePath,
 		"-v", "quiet",

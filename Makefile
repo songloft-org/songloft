@@ -104,15 +104,9 @@ build-go-mobile-android: ## 编译 Go 后端为 Android .aar（gomobile bind）
 build-go-mobile-ios: ## 编译 Go 后端为 iOS .xcframework（gomobile bind，仅 macOS）
 	@echo "$(BLUE)正在编译 Go 后端为 iOS .xcframework...$(NC)"
 	@which gomobile > /dev/null || (echo "$(RED)错误: gomobile 未安装，请运行: go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init$(NC)" && exit 1)
-	gomobile bind -v -target=ios/arm64 \
-		-tags lite \
-		-ldflags="$(LDFLAGS)" \
-		-o clients/player-flutter/ios/Songloft.xcframework ./mobile
-	@printf '%s\n' \
-		'SWIFT_ACTIVE_COMPILATION_CONDITIONS = $$(inherited) HAS_SONGLOFT_BACKEND' \
-		'FRAMEWORK_SEARCH_PATHS = $$(inherited) "$$(SRCROOT)/Songloft.xcframework/ios-arm64"' \
-		'OTHER_LDFLAGS = $$(inherited) -framework Songloft' \
-		> clients/player-flutter/ios/Flutter/SongloftBackend.xcconfig
+	bash scripts/build-bundle-ios-backend.sh "$(SONGLOFT_FFMPEG_IOS_ASSET)" \
+		"$(CURDIR)/clients/player-flutter/ios/Songloft.xcframework" \
+		"$(CURDIR)/clients/player-flutter/ios/Flutter/SongloftBackend.xcconfig" "$(LDFLAGS)"
 	@echo "$(GREEN)✓ Go iOS .xcframework 编译完成$(NC)"
 
 # 桌面端 Go 后端编译（编译为独立可执行文件，与 Flutter 桌面应用打包在一起）

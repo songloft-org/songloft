@@ -18,6 +18,22 @@ for (const key of ['version', 'build_time', 'backend_sha', 'flutter_sha', 'lynx_
 for (const key of ['backend_sha', 'flutter_sha', 'lynx_sha']) {
   if (!/^[a-f0-9]{40}$/.test(metadata[key])) throw new Error(`Invalid ${key}`)
 }
+const hasFfmpegMetadata = ['ffmpeg_release_tag', 'ffmpeg_source_commit', 'ffmpeg_manifest_sha256']
+  .some((key) => metadata[key] !== undefined)
+if (hasFfmpegMetadata) {
+  for (const key of ['ffmpeg_release_tag', 'ffmpeg_source_commit', 'ffmpeg_manifest_sha256']) {
+    if (typeof metadata[key] !== 'string' || !metadata[key]) throw new Error(`Missing metadata field: ${key}`)
+  }
+  if (!/^[a-f0-9]{40}$/.test(metadata.ffmpeg_source_commit) || !/^[a-f0-9]{64}$/.test(metadata.ffmpeg_manifest_sha256))
+    throw new Error('Invalid FFmpeg release metadata')
+}
+const ffmpegMetadata = hasFfmpegMetadata
+  ? {
+      ffmpeg_release_tag: metadata.ffmpeg_release_tag,
+      ffmpeg_source_commit: metadata.ffmpeg_source_commit,
+      ffmpeg_manifest_sha256: metadata.ffmpeg_manifest_sha256,
+    }
+  : {}
 
 const sha256 = (path) => createHash('sha256').update(readFileSync(path)).digest('hex')
 const files = () => readdirSync(directory).filter((name) => {
@@ -36,6 +52,7 @@ const asset = (name, client) => {
     backend_sha: metadata.backend_sha,
     version: metadata.version,
     build_time: metadata.build_time,
+    ...ffmpegMetadata,
     sha256: sha256(path),
   }
 }
@@ -79,6 +96,7 @@ if (flutterAssets.length > 0) {
     client_sha: metadata.flutter_sha,
     backend_sha: metadata.backend_sha,
     build_time: metadata.build_time,
+    ...ffmpegMetadata,
     patches,
     assets: [...flutterAssets.map((name) => asset(name, 'flutter')), ...existingPatches],
   }
@@ -109,6 +127,7 @@ if (lynxAssets.length > 0 && existsSync(lynxSource)) {
   body.client_sha = metadata.lynx_sha
   body.backend_sha = metadata.backend_sha
   body.build_time = metadata.build_time
+  Object.assign(body, ffmpegMetadata)
   if (!existsSync(signedLynxManifest)) body.assets = lynxAssets.map((name) => ({
     name,
     size: statSync(join(directory, name)).size,

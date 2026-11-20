@@ -12,9 +12,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
+	"songloft/internal/mediaexec"
 	"strings"
 	"sync"
 	"time"
@@ -270,7 +270,7 @@ func (s *HLSTranscodeService) run(session *hlsSession, opts HLSTranscodeOptions,
 	probeCtx, probeCancel := context.WithTimeout(processCtx, s.startupTimeout)
 	probeArgs := append([]string{"-v", "error"}, inputArgs...)
 	probeArgs = append(probeArgs, "-analyzeduration", "2000000", "-probesize", "2097152", "-show_entries", "stream=codec_type,codec_name,field_order:stream_disposition=attached_pic", "-of", "json", input)
-	probe := exec.CommandContext(probeCtx, s.cache.resolveFFprobePath(), probeArgs...)
+	probe := mediaexec.FFprobe(probeCtx, s.cache.resolveFFprobePath(), probeArgs...)
 	var probeData strings.Builder
 	probe.Stdout = &capWriter{w: &probeData, remaining: 1 << 20}
 	err = probe.Run()
@@ -313,7 +313,7 @@ func (s *HLSTranscodeService) run(session *hlsSession, opts HLSTranscodeOptions,
 	args := append([]string{"-nostdin", "-hide_banner", "-loglevel", "error"}, inputArgs...)
 	args = append(args, "-re", "-i", input, "-map", "0:v:0", "-map", "0:a:0", "-c:v", "copy", "-c:a", "aac", "-profile:a", "aac_low", "-ac", "2", "-ar", "48000", "-b:a", fmt.Sprintf("%dk", opts.AudioBitrate),
 		"-f", "hls", "-hls_segment_type", "mpegts", "-hls_time", "4", "-hls_list_size", "6", "-hls_delete_threshold", "3", "-hls_flags", "delete_segments+temp_file", "-hls_segment_filename", filepath.Join(session.dir, "segment-%09d.ts"), filepath.Join(session.dir, "playlist.m3u8"))
-	cmd := exec.CommandContext(processCtx, s.cache.getFFmpegPath(), args...)
+	cmd := mediaexec.FFmpeg(processCtx, s.cache.getFFmpegPath(), args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &capWriter{w: &stderr, remaining: 4096}
 	if err := cmd.Start(); err != nil {

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"songloft/internal/mediaexec"
 	"songloft/internal/models"
 )
 
@@ -154,7 +154,7 @@ func (c *CacheService) runVideoHLSFFmpeg(ctx context.Context, srcPath, outDir st
 		playlistPath,
 	}
 
-	cmd := exec.CommandContext(ctx, c.getFFmpegPath(), args...)
+	cmd := mediaexec.FFmpeg(ctx, c.getFFmpegPath(), args...)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 
