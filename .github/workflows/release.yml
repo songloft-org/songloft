@@ -1238,8 +1238,8 @@ jobs:
       SONGLOFT_BACKEND_SOURCE: ${{ github.workspace }}/backend-source
       SONGLOFT_DESKTOP_VARIANT: bundled
       SONGLOFT_DESKTOP_CHANNEL: ${{ needs.prepare.outputs.version == 'dev' && 'dev' || 'stable' }}
-      SDK_INDEX_URL: ${{ vars.DESKTOP_SDK_INDEX_URL }}
-      SDK_INDEX_SHA256: ${{ vars.DESKTOP_SDK_INDEX_SHA256 }}
+      SDK_INDEX_URL: ${{ vars.DESKTOP_SDK_INDEX_URL || 'https://github.com/songloft-org/songloft-player-lynx/releases/download/desktop-sdk-0.0.31/desktop-sdk-index.json' }}
+      SDK_INDEX_SHA256: ${{ vars.DESKTOP_SDK_INDEX_SHA256 || '8b40d0eb476b72c0a71fda4ae6f7ecfaae2fefc4ac5df291d94112feaf6cc6b2' }}
       DESKTOP_TARGET: ${{ matrix.target }}
       SONGLOFT_DESKTOP_SDK: ${{ github.workspace }}/clients/player-lynx/desktop-sdk
       SONGLOFT_MPV_ROOT: ${{ github.workspace }}/clients/player-lynx/desktop-sdk/build
@@ -1264,6 +1264,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.x'
+      - uses: actions/setup-java@v4
+        if: matrix.target == 'android'
+        with:
+          distribution: temurin
+          java-version: '17'
       - name: Create Lynx bundle release metadata
         if: matrix.target == 'android'
         working-directory: clients/player-lynx
