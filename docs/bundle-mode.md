@@ -11,7 +11,7 @@ Bundle 将 Go 后端与客户端一起安装，用户不必另外部署服务器
 | Lynx 标准版 | Android/iOS、桌面标准包 | [Lynx Release](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [dev](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev) | Lynx Release 自己固定后端依赖 |
 | Lynx HarmonyOS / Web | HAP 与 Web standalone/embedded | [Lynx Release](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [dev](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev) | 非 Bundle 产物 |
 
-[完整包名清单](release-packages.md)。后端仓库配置 `DESKTOP_UPDATE_PUBLIC_KEY` 和 `DESKTOP_UPDATE_PRIVATE_KEY` 后签署桌面更新清单。缺少密钥时，dev 构建仍上传 Bundle 到 Actions，跳过 GitHub Release 发布。Lynx 移动热更新另使用 `LYNX_UPDATE_PUBLIC_KEY` 和 `LYNX_UPDATE_PRIVATE_KEY`。
+[完整包名清单](release-packages.md)。后端仓库配置 `DESKTOP_UPDATE_PUBLIC_KEY` 和 `DESKTOP_UPDATE_PRIVATE_KEY` 后签署桌面更新清单。Android Bundle 使用与 Lynx 标准版相同的签名身份，需配置 `LYNX_ANDROID_KEYSTORE_BASE64`、`LYNX_ANDROID_KEYSTORE_PASSWORD`、`LYNX_ANDROID_KEY_ALIAS` 和 `LYNX_ANDROID_KEY_PASSWORD`。缺少桌面或 Android 签名配置时，dev 构建把 Bundle 上传到 Actions，Lynx APK 使用调试签名，GitHub Release 保持原版本。Lynx 移动热更新另使用 `LYNX_UPDATE_PUBLIC_KEY` 和 `LYNX_UPDATE_PRIVATE_KEY`。
 
 后端 Release 同时发布 `bundle-index.json`、`bundle-flutter-version.json`、`bundle-flutter-backend-manifest-<abi>.json`、`bundle-lynx-version.json`、`bundle-lynx-version.json.sig` 和 `desktop-bundled-<target>.json`。`bundle-index.json` 的每条记录包含 `client`、`edition`、平台、资产名、完整客户端 SHA、完整后端 SHA、版本、构建时间和 SHA-256。服务端自己的 `version.json` 保留独立名称。
 

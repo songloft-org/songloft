@@ -57,7 +57,7 @@ jobs:
       lynx_sha: ${{ steps.snapshot.outputs.lynx_sha }}
       tag_sha: ${{ steps.snapshot.outputs.tag_sha }}
       should_run: ${{ steps.gate.outputs.should_run }}
-      desktop_signing_ready: ${{ steps.desktop-signing.outputs.ready }}
+      lynx_signing_ready: ${{ steps.lynx-signing.outputs.ready }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -147,21 +147,27 @@ jobs:
           echo "pkg/tag SHA: $tag_sha"
 
 
-      - name: Check Lynx Desktop signing configuration
-        id: desktop-signing
+      - name: Check Lynx release signing configuration
+        id: lynx-signing
         if: steps.gate.outputs.should_run == 'true'
         env:
           DESKTOP_UPDATE_PUBLIC_KEY: ${{ secrets.DESKTOP_UPDATE_PUBLIC_KEY }}
           DESKTOP_UPDATE_PRIVATE_KEY: ${{ secrets.DESKTOP_UPDATE_PRIVATE_KEY }}
+          LYNX_ANDROID_KEYSTORE_BASE64: ${{ secrets.LYNX_ANDROID_KEYSTORE_BASE64 }}
+          LYNX_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.LYNX_ANDROID_KEYSTORE_PASSWORD }}
+          LYNX_ANDROID_KEY_ALIAS: ${{ secrets.LYNX_ANDROID_KEY_ALIAS }}
+          LYNX_ANDROID_KEY_PASSWORD: ${{ secrets.LYNX_ANDROID_KEY_PASSWORD }}
           VERSION: ${{ steps.parse.outputs.version }}
         run: |
-          if [[ -n "$DESKTOP_UPDATE_PUBLIC_KEY" && -n "$DESKTOP_UPDATE_PRIVATE_KEY" ]]; then
+          if [[ -n "$DESKTOP_UPDATE_PUBLIC_KEY" && -n "$DESKTOP_UPDATE_PRIVATE_KEY" &&
+                -n "$LYNX_ANDROID_KEYSTORE_BASE64" && -n "$LYNX_ANDROID_KEYSTORE_PASSWORD" &&
+                -n "$LYNX_ANDROID_KEY_ALIAS" && -n "$LYNX_ANDROID_KEY_PASSWORD" ]]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           elif [[ "$VERSION" == dev ]]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Lynx Desktop signing secrets are missing. Bundle packages will be available as Actions artifacts."
+            echo "::notice::Lynx Desktop or Android signing secrets are missing. Bundle packages will be available as Actions artifacts."
           else
-            echo "::error::Configure DESKTOP_UPDATE_PUBLIC_KEY and DESKTOP_UPDATE_PRIVATE_KEY to publish Lynx Desktop Bundles."
+            echo "::error::Configure the Lynx Desktop and Android signing secrets documented in docs/bundle-mode.md."
             exit 1
           fi
 
@@ -1441,6 +1447,11 @@ jobs:
         env:
           SONGLOFT_BUILD_METADATA: ${{ github.workspace }}/clients/player-lynx/.build/version.json
           SONGLOFT_UPDATE_PUBLIC_KEY: ${{ vars.LYNX_UPDATE_PUBLIC_KEY }}
+          SONGLOFT_REQUIRE_SIGNING: ${{ needs.prepare.outputs.lynx_signing_ready }}
+          LYNX_ANDROID_KEYSTORE_BASE64: ${{ secrets.LYNX_ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.LYNX_ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.LYNX_ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.LYNX_ANDROID_KEY_PASSWORD }}
         run: |
           for pair in 'android-arm64-v8a:arm64-v8a' 'android-armeabi-v7a:armeabi-v7a' 'android-x86_64:x86_64'; do
             target=${pair%%:*}; abi=${pair##*:}
@@ -1455,6 +1466,12 @@ jobs:
           cd clients/player-lynx
           pnpm install --frozen-lockfile
           pnpm run build:android-bundle
+          if [[ "$SONGLOFT_REQUIRE_SIGNING" == true ]]; then
+            umask 077
+            export ANDROID_KEYSTORE_PATH="$(mktemp "$RUNNER_TEMP/lynx-signing.XXXXXX")"
+            trap 'rm -f "$ANDROID_KEYSTORE_PATH"' EXIT
+            printf '%s' "$LYNX_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          fi
           (cd android && ./gradlew --no-daemon assembleRelease)
           apk=android/app/build/outputs/apk/release/app-release.apk
           cp "$apk" "$GITHUB_WORKSPACE/songloft-lynx-bundled-android.apk"
@@ -1500,8 +1517,8 @@ jobs:
         if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
         working-directory: clients/player-lynx
         env:
-          UPDATE_PUBLIC_KEY: ${{ needs.prepare.outputs.desktop_signing_ready == 'true' && secrets.DESKTOP_UPDATE_PUBLIC_KEY || '' }}
-          REQUIRE_UPDATE_KEY: ${{ needs.prepare.outputs.desktop_signing_ready }}
+          UPDATE_PUBLIC_KEY: ${{ needs.prepare.outputs.lynx_signing_ready == 'true' && secrets.DESKTOP_UPDATE_PUBLIC_KEY || '' }}
+          REQUIRE_UPDATE_KEY: ${{ needs.prepare.outputs.lynx_signing_ready }}
         run: node desktop/scripts/ci-signing.mjs
       - name: Fetch desktop SDK
         if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
@@ -1578,7 +1595,7 @@ jobs:
       always() &&
       needs.prepare.outputs.should_run == 'true' &&
       needs.prepare.result == 'success' &&
-      needs.prepare.outputs.desktop_signing_ready == 'true' &&
+      needs.prepare.outputs.lynx_signing_ready == 'true' &&
       needs.resolve-ffmpeg-assets.result == 'success' &&
       needs.build-binaries.result == 'success' &&
       needs.docker-build-push.result == 'success' &&
