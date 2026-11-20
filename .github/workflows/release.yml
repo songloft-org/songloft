@@ -208,6 +208,55 @@ jobs:
       - name: Test automation scripts
         run: node --test scripts/tests/*.test.mjs
 
+  # Resolve the FFmpeg channel once. Every Bundle job downloads the exact
+  # assets from this artifact, so a moving dev/latest release cannot change
+  # the platform matrix halfway through a build.
+  resolve-ffmpeg-assets:
+    name: Resolve FFmpeg release assets
+    needs: [prepare, quality]
+    if: needs.prepare.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.resolution.outputs.release_tag }}
+      source_commit: ${{ steps.resolution.outputs.source_commit }}
+      manifest_sha256: ${{ steps.resolution.outputs.manifest_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Resolve and verify pinned FFmpeg assets
+        id: resolution
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CHANNEL: ${{ needs.prepare.outputs.version == 'dev' && 'dev' || 'stable' }}
+          FFMPEG_RELEASE_REPO: ${{ vars.FFMPEG_RELEASE_REPO || 'hanxi/ffmpeg-builder' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ffmpeg-release"
+          node scripts/resolve-ffmpeg-release.mjs \
+            --channel "$CHANNEL" \
+            --repository "$FFMPEG_RELEASE_REPO" \
+            --targets linux-x86_64,windows-x86_64,macos-arm64,macos-x86_64,android-arm64-v8a,android-armeabi-v7a,android-x86_64,ios-arm64 \
+            --output-dir "$RUNNER_TEMP/ffmpeg-release"
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs'
+          const value = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/ffmpeg-release/ffmpeg-resolution.json', 'utf8'))
+          for (const [key, name] of [['release_tag', 'release_tag'], ['source_commit', 'source_commit'], ['manifest_sha256', 'manifest_sha256']]) {
+            if (!value[key]) throw new Error(`missing ${key}`)
+            console.log(`${name}=${value[key]}`)
+          }
+          NODE
+          resolution="$RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json"
+          echo "release_tag=$(node -p "JSON.parse(require('fs').readFileSync('$resolution')).release_tag")" >> "$GITHUB_OUTPUT"
+          echo "source_commit=$(node -p "JSON.parse(require('fs').readFileSync('$resolution')).source_commit")" >> "$GITHUB_OUTPUT"
+          echo "manifest_sha256=$(node -p "JSON.parse(require('fs').readFileSync('$resolution')).manifest_sha256")" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-assets
+          path: ${{ runner.temp }}/ffmpeg-release
+          include-hidden-files: true
+          retention-days: 1
+
   mirror-docker-bases:
     name: Mirror Docker base images
     # 质量通过后才写 GHCR；后续构建复用镜像，降低 Docker Hub 查询次数。
@@ -721,7 +770,7 @@ jobs:
   # ============================================================
   build-bundled-flutter-android:
     name: Flutter Bundle Android
-    needs: [prepare, quality]
+    needs: [prepare, quality, resolve-ffmpeg-assets]
     if: needs.prepare.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -743,6 +792,23 @@ jobs:
           git submodule update --init --recursive -- clients/player-flutter
           test "$(git -C clients/player-flutter rev-parse HEAD)" = "${{ needs.prepare.outputs.flutter_sha }}"
           git submodule update --init --recursive -- pkg/tag
+
+      - name: Download and stage pinned FFmpeg Android assets
+        uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-assets
+          path: ${{ runner.temp }}/ffmpeg-release
+      - name: Verify and stage FFmpeg Android assets
+        run: |
+          set -euo pipefail
+          for pair in 'android-arm64-v8a:arm64-v8a' 'android-armeabi-v7a:armeabi-v7a' 'android-x86_64:x86_64'; do
+            target=${pair%%:*}
+            abi=${pair##*:}
+            node scripts/install-ffmpeg-asset.mjs \
+              --resolution "$RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json" \
+              --target "$target" \
+              --output-dir "clients/player-flutter/android/app/src/main/assets/ffmpeg/$abi"
+          done
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -942,7 +1008,7 @@ jobs:
 
   build-bundled-flutter-linux:
     name: Flutter Bundle Linux
-    needs: [prepare, quality]
+    needs: [prepare, quality, resolve-ffmpeg-assets]
     if: needs.prepare.outputs.should_run == 'true'
     # Match the standalone Flutter Linux release environment and runtime baseline.
     runs-on: ubuntu-24.04
@@ -957,6 +1023,14 @@ jobs:
           git submodule update --init --recursive -- clients/player-flutter
           test "$(git -C clients/player-flutter rev-parse HEAD)" = "${{ needs.prepare.outputs.flutter_sha }}"
           git submodule update --init --recursive -- pkg/tag
+
+      - name: Download and stage pinned FFmpeg Linux asset
+        uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-assets
+          path: ${{ runner.temp }}/ffmpeg-release
+      - name: Verify and stage FFmpeg Linux asset
+        run: node scripts/install-ffmpeg-asset.mjs --resolution "$RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json" --target linux-x86_64 --output-dir clients/player-flutter/linux/runner/tools
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -1012,7 +1086,7 @@ jobs:
 
   build-bundled-flutter-apple:
     name: Flutter Bundle macOS + iOS
-    needs: [prepare, quality]
+    needs: [prepare, quality, resolve-ffmpeg-assets]
     if: needs.prepare.outputs.should_run == 'true'
     runs-on: macos-latest
     steps:
@@ -1026,6 +1100,16 @@ jobs:
           git submodule update --init --recursive -- clients/player-flutter
           test "$(git -C clients/player-flutter rev-parse HEAD)" = "${{ needs.prepare.outputs.flutter_sha }}"
           git submodule update --init --recursive -- pkg/tag
+
+      - name: Download and stage pinned FFmpeg Apple assets
+        uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-assets
+          path: ${{ runner.temp }}/ffmpeg-release
+      - name: Verify and stage FFmpeg macOS asset
+        run: node scripts/install-ffmpeg-asset.mjs --resolution "$RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json" --target macos-arm64 --output-dir clients/player-flutter/macos/Runner/tools
+      - name: Verify and stage FFmpeg iOS static library
+        run: node scripts/install-ffmpeg-asset.mjs --resolution "$RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json" --target ios-arm64 --output-dir clients/player-flutter/ios/Runner/ffmpeg-release
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -1080,6 +1164,9 @@ jobs:
           cd clients/player-flutter
           sign_identity="${MACOS_CODESIGN_IDENTITY:--}"
           for app_dir in build/macos/Build/Products/Release/*.app; do
+            mkdir -p "$app_dir/Contents/MacOS/tools"
+            cp macos/Runner/tools/ffmpeg macos/Runner/tools/ffprobe "$app_dir/Contents/MacOS/tools/"
+            chmod +x "$app_dir/Contents/MacOS/tools/ffmpeg" "$app_dir/Contents/MacOS/tools/ffprobe"
             if [ ! -x "$app_dir/Contents/MacOS/songloft-server" ]; then
               cp macos/Runner/songloft-server "$app_dir/Contents/MacOS/songloft-server"
               chmod +x "$app_dir/Contents/MacOS/songloft-server"
@@ -1129,7 +1216,7 @@ jobs:
 
   build-bundled-flutter-windows:
     name: Flutter Bundle Windows
-    needs: [prepare, quality]
+    needs: [prepare, quality, resolve-ffmpeg-assets]
     if: needs.prepare.outputs.should_run == 'true'
     runs-on: windows-latest
     steps:
@@ -1143,6 +1230,14 @@ jobs:
           git submodule update --init --recursive -- clients/player-flutter
           test "$(git -C clients/player-flutter rev-parse HEAD)" = "${{ needs.prepare.outputs.flutter_sha }}"
           git submodule update --init --recursive -- pkg/tag
+
+      - name: Download and stage pinned FFmpeg Windows asset
+        uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-assets
+          path: ${{ runner.temp }}/ffmpeg-release
+      - name: Verify and stage FFmpeg Windows asset
+        run: node scripts/install-ffmpeg-asset.mjs --resolution "$env:RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json" --target windows-x86_64 --output-dir clients/player-flutter/windows/runner/tools
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -1213,7 +1308,7 @@ jobs:
   # workflow builds only standard, HarmonyOS, and Web packages.
   build-bundled-lynx:
     name: Lynx Bundle (${{ matrix.target }})
-    needs: [prepare, quality]
+    needs: [prepare, quality, resolve-ffmpeg-assets]
     if: needs.prepare.outputs.should_run == 'true'
     strategy:
       fail-fast: false
@@ -1255,6 +1350,26 @@ jobs:
           git -C backend-source checkout --detach "$SONGLOFT_BACKEND_COMMIT"
           git -C backend-source submodule update --init --depth 1 pkg/tag
           test "$(git -C backend-source rev-parse HEAD)" = "$SONGLOFT_BACKEND_COMMIT"
+      - name: Download pinned FFmpeg release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-assets
+          path: ${{ runner.temp }}/ffmpeg-release
+      - name: Select FFmpeg asset for this target
+        if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
+        shell: bash
+        run: |
+          case '${{ matrix.target }}' in
+            win32-x64) asset='windows-x86_64' ;;
+            darwin-arm64) asset='macos-arm64' ;;
+            darwin-x64) asset='macos-x86_64' ;;
+          esac
+          version=$(node -p "JSON.parse(require('fs').readFileSync('$RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json')).ffmpeg_version")
+          echo "SONGLOFT_FFMPEG_ASSET=$RUNNER_TEMP/ffmpeg-release/ffmpeg-$version-$asset.tar.gz" >> "$GITHUB_ENV"
+          if [[ "$asset" == windows-* ]]; then
+            echo "SONGLOFT_FFMPEG_ASSET=$RUNNER_TEMP/ffmpeg-release/ffmpeg-$version-$asset.zip" >> "$GITHUB_ENV"
+          fi
+          echo "SONGLOFT_FFMPEG_RESOLUTION=$RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: '22.18.0'
@@ -1295,6 +1410,10 @@ jobs:
       - name: Build Android Bundle
         if: matrix.target == 'android'
         run: |
+          for pair in 'android-arm64-v8a:arm64-v8a' 'android-armeabi-v7a:armeabi-v7a' 'android-x86_64:x86_64'; do
+            target=${pair%%:*}; abi=${pair##*:}
+            node scripts/install-ffmpeg-asset.mjs --resolution "$RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json" --target "$target" --output-dir "clients/player-lynx/android/app/src/main/assets/ffmpeg/$abi"
+          done
           export GOFLAGS=-buildvcs=false
           go install golang.org/x/mobile/cmd/gomobile@latest golang.org/x/mobile/cmd/gobind@latest
           mkdir -p clients/player-lynx/android/app/libs
@@ -1310,10 +1429,11 @@ jobs:
             SONGLOFT_UPDATE_PUBLIC_KEY="${{ vars.LYNX_UPDATE_PUBLIC_KEY }}" \
             node scripts/bundle-host.mjs
           cp dist/main.lynx.bundle "$GITHUB_WORKSPACE/songloft-lynx-main.lynx.bundle"
-          cp .build/native-host.json "$GITHUB_WORKSPACE/lynx-native-host.json"
+          cp .build/bundle-host.json "$GITHUB_WORKSPACE/lynx-native-host.json"
       - name: Build iOS Bundle
         if: matrix.target == 'ios'
         run: |
+          node scripts/install-ffmpeg-asset.mjs --resolution "$RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json" --target ios-arm64 --output-dir clients/player-lynx/ios/ffmpeg-release
           export GOFLAGS=-buildvcs=false
           go install golang.org/x/mobile/cmd/gomobile@latest golang.org/x/mobile/cmd/gobind@latest
           mkdir -p clients/player-lynx/ios
@@ -1331,13 +1451,17 @@ jobs:
           mkdir -p Payload
           cp -R ios/build/DerivedData/Build/Products/Release-iphoneos/SongloftLynx.app Payload/
           zip -qry "$GITHUB_WORKSPACE/songloft-lynx-bundled-ios-nosign.ipa" Payload
+      - name: Fetch desktop SDK
+        if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
+        working-directory: clients/player-lynx
+        run: |
+          node desktop/scripts/fetch-sdk.mjs
       - name: Build desktop Bundle
         if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
         working-directory: clients/player-lynx
         run: |
           pnpm install --frozen-lockfile
           pnpm --dir desktop install --frozen-lockfile
-          node desktop/scripts/fetch-sdk.mjs
           pnpm run desktop:build
           pnpm --dir desktop build:native
           pnpm --dir desktop build:resources
@@ -1377,6 +1501,7 @@ jobs:
     needs:
       [
         prepare,
+        resolve-ffmpeg-assets,
         build-binaries,
         docker-build-push,
         build-bundled-flutter-android,
@@ -1391,6 +1516,7 @@ jobs:
       always() &&
       needs.prepare.outputs.should_run == 'true' &&
       needs.prepare.result == 'success' &&
+      needs.resolve-ffmpeg-assets.result == 'success' &&
       needs.build-binaries.result == 'success' &&
       needs.docker-build-push.result == 'success' &&
       needs.build-bundled-flutter-android.result == 'success' &&
@@ -1443,6 +1569,9 @@ jobs:
           BACKEND_SHA: ${{ needs.prepare.outputs.backend_sha }}
           FLUTTER_SHA: ${{ needs.prepare.outputs.flutter_sha }}
           LYNX_SHA: ${{ needs.prepare.outputs.lynx_sha }}
+          FFMPEG_RELEASE_TAG: ${{ needs.resolve-ffmpeg-assets.outputs.release_tag }}
+          FFMPEG_SOURCE_COMMIT: ${{ needs.resolve-ffmpeg-assets.outputs.source_commit }}
+          FFMPEG_MANIFEST_SHA256: ${{ needs.resolve-ffmpeg-assets.outputs.manifest_sha256 }}
         run: |
           if [ -f release-files/lynx-native-host.json ] && [ -f release-files/songloft-lynx-main.lynx.bundle ]; then
             mkdir -p "$RUNNER_TEMP/lynx-bundle-release"
@@ -1465,7 +1594,10 @@ jobs:
             "build_time": "${BUILD_TIME}",
             "backend_sha": "${BACKEND_SHA}",
             "flutter_sha": "${FLUTTER_SHA}",
-            "lynx_sha": "${LYNX_SHA}"
+            "lynx_sha": "${LYNX_SHA}",
+            "ffmpeg_release_tag": "${FFMPEG_RELEASE_TAG}",
+            "ffmpeg_source_commit": "${FFMPEG_SOURCE_COMMIT}",
+            "ffmpeg_manifest_sha256": "${FFMPEG_MANIFEST_SHA256}"
           }
           EOF
           node scripts/generate-bundle-manifests.mjs release-files "$RUNNER_TEMP/bundle-metadata.json"
