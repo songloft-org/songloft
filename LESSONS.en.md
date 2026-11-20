@@ -24,6 +24,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 - Correct example: use `av_dict_set` to pass values verbatim, including an empty proxy and HTTP headers with trailing CRLF, and retain the input protocol and format allowlists.
 - Seen 1× (2026-11-20). Status: verified through the Linux native runner. iOS device acceptance is pending.
 
+### BUNDLE-FFMPEG-003: Compile the native bridge against the release FFmpeg headers
+
+- Scope: the iOS Bundle native bridge and the backend's Linux quality checks.
+- Evidence: `b786eca` compiled locally with FFmpeg 5.1. The newer headers in Release CI run `44745510791` had removed `FF_PROFILE_AAC_LOW`.
+- Rule: use `AV_PROFILE_AAC_LOW` with a conditional compatibility definition for older headers. Keep the native CI tests to catch FFmpeg version differences between local and release environments.
+- Seen 1× (2026-11-20).
+
 ### BUNDLE-PORT-001: Synchronize dynamic ports to every URL generator after listening
 
 - Scope: Bundle mobile backends, JS plugin host addresses and internal plugin proxy URLs; [songloft-org/songloft-player-lynx#16](https://github.com/songloft-org/songloft-player-lynx/issues/16), parent baseline `dff636c`, Lynx baseline `c403ea0`.

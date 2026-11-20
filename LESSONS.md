@@ -24,6 +24,13 @@
 - 正确示例：用 `av_dict_set` 传递原值，包括空代理和以 CRLF 结束的 HTTP 请求头，同时保留输入协议及格式白名单。
 - Seen 1× (2026-11-20)。状态：Linux 原生分支已验证。iOS 真机待验收。
 
+### BUNDLE-FFMPEG-003：原生桥接需编译验证发布使用的 FFmpeg 头文件
+
+- 范围：iOS Bundle 原生桥接与后端 Linux 质量检查。
+- 证据：`b786eca` 在本地 FFmpeg 5.1 编译通过，Release CI `44745510791` 的较新 FFmpeg 头文件已删除 `FF_PROFILE_AAC_LOW`。
+- 规则：优先使用 `AV_PROFILE_AAC_LOW`，旧版头文件通过条件定义兼容。保留 CI 原生测试，覆盖本机与发布环境之间的 FFmpeg 版本差异。
+- Seen 1× (2026-11-20)。
+
 ### BUNDLE-PORT-001：动态端口必须在监听后同步到所有 URL 生成器
 
 - 范围：Bundle 移动后端、JS 插件宿主地址和内部插件代理 URL；[songloft-org/songloft-player-lynx#16](https://github.com/songloft-org/songloft-player-lynx/issues/16)，父仓库基线 `dff636c`，Lynx 基线 `c403ea0`。

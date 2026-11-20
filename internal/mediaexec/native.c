@@ -12,6 +12,11 @@
 #include <libavutil/opt.h>
 #include <libavutil/time.h>
 
+// FFmpeg 5 exposed codec profiles with the FF_PROFILE prefix.
+#ifndef AV_PROFILE_AAC_LOW
+#define AV_PROFILE_AAC_LOW FF_PROFILE_AAC_LOW
+#endif
+
 typedef struct {
     AVStream *input;
     AVStream *output;
@@ -158,7 +163,7 @@ static int open_track(SLTrack *track, AVStream *stream, AVFormatContext *output,
         AVDictionaryEntry *profile = av_dict_get(*mux_options, "profile:a", NULL, 0);
         if (profile) {
             if (!strcmp(profile->value, "aac_low"))
-                enc->profile = FF_PROFILE_AAC_LOW;
+                enc->profile = AV_PROFILE_AAC_LOW;
             av_dict_set(mux_options, "profile:a", NULL, 0);
         }
         track->filters = options->audio_filter;
