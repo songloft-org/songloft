@@ -1214,7 +1214,9 @@ jobs:
   build-bundled-lynx:
     name: Lynx Bundle (${{ matrix.target }})
     needs: [prepare, quality]
-    if: needs.prepare.outputs.should_run == 'true'
+    if: >-
+      needs.prepare.outputs.should_run == 'true' &&
+      (matrix.target == 'android' || matrix.target == 'ios' || vars.DESKTOP_SDK_INDEX_URL != '')
     strategy:
       fail-fast: false
       matrix:
@@ -1238,6 +1240,10 @@ jobs:
       SONGLOFT_BACKEND_SOURCE: ${{ github.workspace }}/backend-source
       SONGLOFT_DESKTOP_VARIANT: bundled
       SONGLOFT_DESKTOP_CHANNEL: ${{ needs.prepare.outputs.version == 'dev' && 'dev' || 'stable' }}
+      SDK_INDEX_URL: ${{ vars.DESKTOP_SDK_INDEX_URL }}
+      SDK_INDEX_SHA256: ${{ vars.DESKTOP_SDK_INDEX_SHA256 }}
+      SONGLOFT_DESKTOP_SDK: ${{ github.workspace }}/clients/player-lynx/desktop-sdk
+      SONGLOFT_MPV_ROOT: ${{ github.workspace }}/clients/player-lynx/desktop-sdk/build
     steps:
       - uses: actions/checkout@v4
         with:
@@ -1322,6 +1328,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm --dir desktop install --frozen-lockfile --ignore-scripts
+          node desktop/scripts/fetch-sdk.mjs
           pnpm run build
           pnpm --dir desktop build:native
           pnpm --dir desktop build:resources
