@@ -1240,6 +1240,7 @@ jobs:
       SONGLOFT_DESKTOP_CHANNEL: ${{ needs.prepare.outputs.version == 'dev' && 'dev' || 'stable' }}
       SDK_INDEX_URL: ${{ vars.DESKTOP_SDK_INDEX_URL }}
       SDK_INDEX_SHA256: ${{ vars.DESKTOP_SDK_INDEX_SHA256 }}
+      DESKTOP_TARGET: ${{ matrix.target }}
       SONGLOFT_DESKTOP_SDK: ${{ github.workspace }}/clients/player-lynx/desktop-sdk
       SONGLOFT_MPV_ROOT: ${{ github.workspace }}/clients/player-lynx/desktop-sdk/build
     steps:
