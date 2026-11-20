@@ -13,7 +13,7 @@ Bundle 将 Go 后端与客户端一起安装，用户不必另外部署服务器
 
 [完整包名清单](release-packages.md)。后端仓库配置 `DESKTOP_UPDATE_PUBLIC_KEY` 和 `DESKTOP_UPDATE_PRIVATE_KEY` 后签署桌面更新清单。Android Bundle 使用与 Lynx 标准版相同的签名身份，需配置 `LYNX_ANDROID_KEYSTORE_BASE64`、`LYNX_ANDROID_KEYSTORE_PASSWORD`、`LYNX_ANDROID_KEY_ALIAS` 和 `LYNX_ANDROID_KEY_PASSWORD`。缺少桌面或 Android 签名配置时，dev 构建把 Bundle 上传到 Actions，Lynx APK 使用调试签名，GitHub Release 保持原版本。Lynx 移动热更新另使用 `LYNX_UPDATE_PUBLIC_KEY` 和 `LYNX_UPDATE_PRIVATE_KEY`。
 
-后端 Release 同时发布 `bundle-index.json`、`bundle-flutter-version.json`、`bundle-flutter-backend-manifest-<abi>.json`、`bundle-lynx-version.json`、`bundle-lynx-version.json.sig` 和 `desktop-bundled-<target>.json`。`bundle-index.json` 的每条记录包含 `client`、`edition`、平台、资产名、完整客户端 SHA、完整后端 SHA、版本、构建时间和 SHA-256。服务端自己的 `version.json` 保留独立名称。
+后端 Release 同时发布 `bundle-index.json`、`bundle-flutter-version.json`、`bundle-flutter-backend-manifest-<abi>.json`、`bundle-lynx-version.json` 和 `desktop-bundled-<target>.json`。配置了 Lynx 移动热更新的签名密钥对时，还发布 `bundle-lynx-version.json.sig` 和 `songloft-lynx-main.lynx.bundle`。`bundle-index.json` 的每条记录包含 `client`、`edition`、平台、资产名、完整客户端 SHA、完整后端 SHA、版本、构建时间和 SHA-256。服务端自己的 `version.json` 保留独立名称。
 
 Bundle 构建开始时从 `hanxi/ffmpeg-builder` 的 `dev` 或正式通道解析一个具体 Release，并把 `ffmpeg_release_tag`、`ffmpeg_source_commit` 与 `ffmpeg_manifest_sha256` 写入 Bundle 清单。所有平台复用同一解析记录，下载后再次校验平台、ABI、大小和 SHA-256。
 
@@ -32,7 +32,7 @@ Flutter 标准版继续读取 Flutter Release。Flutter Bundle 读取后端 Rele
 - 两端共用 Lynx 的模式切换与会话恢复逻辑。后端使用动态端口，端口健康后才建立本地登录会话；管理员密码由本地后端生成并保存在应用数据目录。
 - 切换远程服务器时，客户端停止本地会话和后端，再连接用户配置的服务器。选择远程模式不会删除本地曲库数据。
 
-设备目录权限、扫描播放、干净安装和升级按平台统一验收。请通过各客户端 Release 核对已发布的包和对应版本。
+设备目录权限、扫描播放、干净安装和升级按平台验收。请通过后端 Release 核对已发布的 Bundle 包和对应版本。
 
 ## 相关资料
 

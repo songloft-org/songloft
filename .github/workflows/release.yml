@@ -1375,7 +1375,7 @@ jobs:
           const now = new Date(process.env.BUILD_TIME.replace('_', 'T') + 'Z')
           const ref = process.env.RELEASE_TAG === 'dev' ? '' : `refs/tags/${process.env.RELEASE_TAG}`
           const metadata = createBuildMetadata({ packageVersion, now, ref, sha: process.env.CLIENT_SHA })
-          writeFileSync('.build/version.json', JSON.stringify({ ...metadata, assets: [], bundle_update: null }, null, 2) + '\n')
+          writeFileSync('.build/version.json', JSON.stringify(metadata, null, 2) + '\n')
           NODE
           pnpm install --frozen-lockfile
           pnpm run desktop:build --without-probe
@@ -1525,11 +1525,8 @@ jobs:
           done
           cp dist/main.lynx.bundle "$GITHUB_WORKSPACE/songloft-lynx-main.lynx.bundle"
           cp .build/bundle-host.json "$GITHUB_WORKSPACE/lynx-native-host.json"
-      - name: Build iOS Bundle
+      - name: Bind the Go backend for Lynx iOS
         if: matrix.target == 'ios'
-        env:
-          SONGLOFT_BUILD_METADATA: ${{ github.workspace }}/clients/player-lynx/.build/version.json
-          SONGLOFT_UPDATE_PUBLIC_KEY: ${{ vars.LYNX_UPDATE_PUBLIC_KEY }}
         run: |
           node scripts/install-ffmpeg-asset.mjs --resolution "$RUNNER_TEMP/ffmpeg-release/ffmpeg-resolution.json" --target ios-arm64 --output-dir "$RUNNER_TEMP/ffmpeg-ios"
           export GOFLAGS=-buildvcs=false
@@ -1539,22 +1536,45 @@ jobs:
             "$GITHUB_WORKSPACE/clients/player-lynx/ios/Songloft.xcframework" \
             "$GITHUB_WORKSPACE/clients/player-lynx/ios/SongloftBackend.xcconfig" \
             "-s -w -X songloft/internal/version.GitCommit=$SONGLOFT_BACKEND_COMMIT"
-          cd clients/player-lynx
-          pnpm install --frozen-lockfile
+      - uses: ruby/setup-ruby@v1
+        if: matrix.target == 'ios'
+        with:
+          ruby-version: '3.3'
+      - name: Install locked CocoaPods version
+        if: matrix.target == 'ios'
+        run: gem install cocoapods -v 1.16.2 --no-document
+      - name: Install Lynx CocoaPods dependencies from lockfile
+        if: matrix.target == 'ios'
+        working-directory: clients/player-lynx/ios/release
+        run: pod _1.16.2_ install --deployment
+      - name: Build unsigned Lynx iOS app
+        if: matrix.target == 'ios'
+        working-directory: clients/player-lynx
+        run: |
           node scripts/copy-bundle-ios.mjs
-          pnpm run ios:pods
+          native_version=$(node -p 'require("./.build/version.json").native_version')
+          build_number=$(node -p 'require("./.build/version.json").build_number')
           (cd ios && xcodebuild -workspace SongloftLynx.xcworkspace -scheme SongloftLynx \
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
             -xcconfig SongloftBackend.xcconfig \
             -derivedDataPath build/DerivedData \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build)
+            MARKETING_VERSION="$native_version" CURRENT_PROJECT_VERSION="$build_number" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
+            CODE_SIGN_ENTITLEMENTS='' CODE_SIGN_STYLE=Manual AD_HOC_CODE_SIGNING_ALLOWED=NO build)
+      - name: Package and verify the Lynx iOS Bundle
+        if: matrix.target == 'ios'
+        working-directory: clients/player-lynx
+        run: |
           mkdir -p Payload
           app=ios/build/DerivedData/Build/Products/Release-iphoneos/SongloftLynx.app
           nm "$app/SongloftLynx" > "$RUNNER_TEMP/lynx-bundle-symbols"
           grep -E ' [Tt] _MobileStart$' "$RUNNER_TEMP/lynx-bundle-symbols"
           grep -E ' [Tt] _sl_transcode$' "$RUNNER_TEMP/lynx-bundle-symbols"
           cp -R "$app" Payload/
-          zip -qry "$GITHUB_WORKSPACE/songloft-lynx-bundled-ios-nosign.ipa" Payload
+          ipa="$GITHUB_WORKSPACE/songloft-lynx-bundled-ios-nosign.ipa"
+          zip -qry "$ipa" Payload
+          cp .build/bundle-host.json .build/native-host.json
+          python3 scripts/verify-package.py ios "$ipa" .build/version.json --variant bundled --backend-sha "$SONGLOFT_BACKEND_COMMIT"
       - name: Configure Lynx Desktop update key
         if: matrix.target == 'win32-x64' || startsWith(matrix.target, 'darwin-')
         working-directory: clients/player-lynx

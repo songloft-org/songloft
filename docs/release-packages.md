@@ -1,6 +1,6 @@
 # Release 包名清单
 
-这是公开 Release 的文件名清单。dev 和正式版各用自己的 tag，同一包在两个通道中的文件名一致。iOS IPA 安装前需要重签。Flutter 标准版的 Linux DEB、RPM 和 macOS DMG 取决于对应打包步骤是否产出。
+这是公开 Release 的文件名清单。dev 和正式版各用自己的 tag，同一包在两个通道中的文件名一致。iOS IPA 安装前需要重签。Flutter 标准版的 Linux DEB、RPM、macOS DMG 和 dev 通道的 AppImage 以对应打包步骤的产出为准。正式版必须产出 AppImage。
 
 [后端 Releases](https://github.com/songloft-org/songloft/releases) · [Flutter Releases](https://github.com/songloft-org/songloft-player-flutter/releases) · [Lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases) · [FFmpeg Releases](https://github.com/hanxi/ffmpeg-builder/releases)
 

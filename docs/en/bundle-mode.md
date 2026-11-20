@@ -13,7 +13,7 @@ Bundle mode installs the Go backend with the client, so users do not need to dep
 
 See [all package names](release-packages.md). Configure `DESKTOP_UPDATE_PUBLIC_KEY` and `DESKTOP_UPDATE_PRIVATE_KEY` in the backend repository for desktop update manifests. Android Bundle uses the same signing identity as Lynx Standard. Configure `LYNX_ANDROID_KEYSTORE_BASE64`, `LYNX_ANDROID_KEYSTORE_PASSWORD`, `LYNX_ANDROID_KEY_ALIAS`, and `LYNX_ANDROID_KEY_PASSWORD`. With either signing configuration missing, dev CI uploads Bundles as Actions artifacts, uses debug signing for the Lynx APK, and leaves the GitHub Release on its existing version. Lynx mobile hot updates use `LYNX_UPDATE_PUBLIC_KEY` and `LYNX_UPDATE_PRIVATE_KEY`.
 
-The backend Release also publishes `bundle-index.json`, `bundle-flutter-version.json`, `bundle-flutter-backend-manifest-<abi>.json`, `bundle-lynx-version.json`, `bundle-lynx-version.json.sig`, and `desktop-bundled-<target>.json`. Each `bundle-index.json` record includes `client`, `edition`, platform, asset name, full client SHA, full backend SHA, version, build time, and SHA-256. The server's own `version.json` remains separate.
+The backend Release also publishes `bundle-index.json`, `bundle-flutter-version.json`, `bundle-flutter-backend-manifest-<abi>.json`, `bundle-lynx-version.json`, and `desktop-bundled-<target>.json`. With the Lynx mobile hot-update signing key pair configured, it also publishes `bundle-lynx-version.json.sig` and `songloft-lynx-main.lynx.bundle`. Each `bundle-index.json` record includes `client`, `edition`, platform, asset name, full client SHA, full backend SHA, version, build time, and SHA-256. The server's own `version.json` remains separate.
 
 At the start of a Bundle build, the workflow resolves one concrete Release from the `dev` or stable channel of `hanxi/ffmpeg-builder` and writes `ffmpeg_release_tag`, `ffmpeg_source_commit`, and `ffmpeg_manifest_sha256` into the Bundle manifests. Every platform reuses that resolution and verifies the platform, ABI, size, and SHA-256 again after download.
 
@@ -32,7 +32,7 @@ Flutter standard reads the Flutter Release. Flutter Bundle reads the backend Rel
 - Both platforms share Lynx mode-switching and session-restore logic. The backend chooses a dynamic port; local login starts only after its health check succeeds. The local backend generates and stores its administrator password in the app data directory.
 - When switching to a remote server, the client stops the local session and backend before connecting to the configured server. Choosing remote mode does not delete local library data.
 
-Device directory permissions, scanning and playback, clean installs, and upgrades are verified per platform. Check each client's Releases for the published packages and versions.
+Device directory permissions, scanning and playback, clean installs, and upgrades are verified per platform. Check the backend Release for the published Bundle packages and versions.
 
 ## Related documentation
 
