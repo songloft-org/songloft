@@ -126,18 +126,6 @@ jobs:
           echo "Git Commit: ${GIT_COMMIT}"
           echo "Release Title: ${RELEASE_TITLE}"
 
-      - name: Get previous published stable release
-        id: prev-tag
-        if: steps.gate.outputs.should_run == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CURRENT_TAG: ${{ steps.parse.outputs.version }}
-        run: |
-          # 失败构建遗留的 tag 不能作为起点，否则会漏掉该版本全部变更。
-          PREV_TAG=$(node scripts/previous-release.mjs "$CURRENT_TAG" "$RELEASE_REPO")
-          echo "Previous published stable release (or first commit): ${PREV_TAG}"
-          echo "previous_tag=${PREV_TAG}" >> "$GITHUB_OUTPUT"
-
       - name: Record immutable release snapshot
         id: snapshot
         if: steps.gate.outputs.should_run == 'true'
@@ -156,6 +144,20 @@ jobs:
           echo "Flutter SHA: $flutter_sha"
           echo "Lynx SHA: $lynx_sha"
           echo "pkg/tag SHA: $tag_sha"
+
+
+      - name: Get previous published stable release
+        id: prev-tag
+        if: steps.gate.outputs.should_run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_TAG: ${{ steps.parse.outputs.version }}
+        run: |
+          # 失败构建遗留的 tag 不能作为起点，否则会漏掉该版本全部变更。
+          PREV_TAG=$(node scripts/previous-release.mjs "$CURRENT_TAG" "$RELEASE_REPO")
+          echo "Previous published stable release (or first commit): ${PREV_TAG}"
+          echo "previous_tag=${PREV_TAG}" >> "$GITHUB_OUTPUT"
+
 
   # ============================================================
   # 发布前质量闸门：固定为本轮 checkout 的 SHA，失败则构建/发布不继续。
