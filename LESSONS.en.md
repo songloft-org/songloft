@@ -15,7 +15,7 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 - Scope: Flutter/Lynx Bundle builds in the backend Release and assets from `tools/ffmpeg-builder`.
 - Rule: resolve one concrete Release tag for `dev` or stable at build start, validate the manifest source commit, platform, ABI, size, and SHA-256, then give `ffmpeg-resolution.json` to every matrix job. Platform jobs must not download a rolling `latest` file directly.
 - Correct example: the resolution records `release_tag`, `source_commit`, `manifest_sha256`, and each asset digest. Retries reuse the recorded URL and digest.
-- Seen 1× (2026-11-20). Status: local implementation; remote multi-platform publication and device installation remain to be accepted.
+- Seen 1× (2026-11-20). [FFmpeg dev CI](https://github.com/hanxi/ffmpeg-builder/actions/runs/44751699585) published assets for ten targets. [Backend CI](https://github.com/songloft-org/songloft/actions/runs/44754365874) verified the same manifest and produced Lynx installers for Android, iOS, Windows, and both macOS architectures. Device installation and playback remain to be verified.
 
 ### BUNDLE-FFMPEG-002: Preserve empty input options in the native FFmpeg runner
 

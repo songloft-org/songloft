@@ -2,7 +2,7 @@
 
 > **独立仓库**: [https://github.com/songloft-org/songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter)
 
-本文描述 Flutter 客户端自身的架构与本地模式实现。后端 Release 统一发布 Flutter Bundle 和 Lynx Bundle，Flutter/Lynx 标准版、Lynx HarmonyOS 与 Web 仍由各自客户端 Release 发布。Lynx Android/iOS/Windows/macOS 的本地模式入口位于登录页和设置页，详见 [Bundle 模式说明](bundle-mode.md)及 [Lynx 指南](player-lynx/index.md)。Windows/macOS 桌面包已接入客户端共享发布流程，最终设备验收仍在进行。
+本文描述 Flutter 客户端自身的架构与本地模式实现。后端 Release 统一发布 Flutter Bundle 和 Lynx Bundle，Flutter/Lynx 标准版、Lynx HarmonyOS 与 Web 由各自客户端 Release 发布。Lynx Android/iOS/Windows/macOS 可从登录页和设置页进入本地模式。Windows/macOS 桌面 Bundle 已通过后端 CI 打包，设备安装和播放待验收。参见 [Bundle 模式说明](bundle-mode.md)及 [Lynx 指南](player-lynx/index.md)。
 
 Songloft Flutter 客户端支持 **Android、iOS、macOS、Windows、Linux、Web** 六个平台。完整版服务器默认嵌入独立的 Lynx Web（`clients/player-lynx`）；旧 Flutter Web 嵌入版仍可显式选择。Flutter 仓库保留标准版发布，Lynx 仓库保留标准版、HarmonyOS 和 Web 发布。后端 Release 固定客户端与后端完整 SHA 后发布 Bundle。
 

@@ -2,7 +2,7 @@
 
 Songloft 是一个自托管的本地音乐服务器，采用前后端分离架构。支持两种运行模式：**服务器模式**（独立部署 Go 后端）和 **Bundle 本地模式**（Go 后端随客户端安装，无需单独部署服务器）。后端 Release 固定主仓库与客户端子模块完整 SHA，统一发布 Flutter Bundle 和 Lynx Bundle；标准版、HarmonyOS 和 Web 继续由各自客户端 Release 发布。
 
-服务器模式支持 Flutter、ReactLynx、官方 Electron Desktop 与 Android TV 客户端。Flutter 客户端支持 Android/iOS/macOS/Windows/Linux Bundle；Lynx Android/iOS/Windows/macOS 支持 Bundle。Lynx 桌面包由客户端仓库在共享工作流中发布，最终设备验收仍在进行。下方的客户端架构图描述 Flutter 客户端自身的架构。
+服务器模式支持 Flutter、ReactLynx、官方 Electron Desktop 与 Android TV 客户端。Flutter Bundle 覆盖 Android/iOS/macOS/Windows/Linux，Lynx Bundle 覆盖 Android/iOS/Windows/macOS。Lynx 桌面 Bundle 在后端 CI 完成打包，设备安装和播放待验收。下方的客户端架构图描述 Flutter 客户端自身的架构。
 
 ## 架构文档导航
 

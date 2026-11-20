@@ -2,7 +2,7 @@
 
 > **Standalone repository**: [https://github.com/songloft-org/songloft-player-flutter](https://github.com/songloft-org/songloft-player-flutter)
 
-This page describes the Flutter client's own architecture and local-mode implementation. The backend Release publishes Flutter and Lynx Bundles, while Flutter/Lynx standard, Lynx HarmonyOS, and Web remain in their client Releases. Lynx Android/iOS/Windows/macOS expose local mode from the login and settings screens. See [Bundle Mode](bundle-mode.md) and the [Lynx guides](player-lynx/index.md). Windows/macOS desktop packages now use the client shared publishing workflow, with final device acceptance still in progress.
+This page describes the Flutter client's own architecture and local-mode implementation. The backend Release publishes Flutter and Lynx Bundles. Flutter/Lynx Standard, Lynx HarmonyOS, and Web come from their client Releases. Lynx Android/iOS/Windows/macOS expose local mode from the login and settings screens. Backend CI builds the Windows and macOS Bundles. Device installation and playback remain to be verified. See [Bundle Mode](bundle-mode.md) and the [Lynx guides](player-lynx/index.md).
 
 The Songloft Flutter client supports six platforms: **Android, iOS, macOS, Windows, Linux, and Web**. The full server defaults to the separate Lynx Web client (`clients/player-lynx`); legacy embedded Flutter Web remains an explicit option. The Flutter repository retains standard-edition releases, and the Lynx repository retains standard, HarmonyOS, and Web releases. The backend Release fixes full client and backend SHAs before publishing Bundles.
 

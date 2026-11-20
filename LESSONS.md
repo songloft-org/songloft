@@ -15,7 +15,7 @@
 - 范围：后端 Release 的 Flutter/Lynx Bundle 构建与 `tools/ffmpeg-builder` 资产解析。
 - 规则：构建开始时按 `dev` 或稳定通道解析具体 Release tag，校验 manifest 的源码提交、平台、ABI、大小和 SHA-256，并把 `ffmpeg-resolution.json` 交给所有矩阵 job。不要在单个平台 job 直接下载滚动 `latest` 文件。
 - 正确示例：解析记录同时保存 `release_tag`、`source_commit`、`manifest_sha256` 和资产摘要；重试只复用记录中的固定 URL 与摘要。
-- Seen 1× (2026-11-20)。状态：本地实现，远端多平台发布与设备安装待验收。
+- Seen 1× (2026-11-20)。[FFmpeg dev CI](https://github.com/hanxi/ffmpeg-builder/actions/runs/44751699585) 发布了十个平台资产。[后端 CI](https://github.com/songloft-org/songloft/actions/runs/44754365874) 校验了同一份清单，并生成了 Lynx Android、iOS、Windows 和两种 macOS 架构的安装包。真机安装与播放待验收。
 
 ### BUNDLE-FFMPEG-002：原生转码应保留拉流选项中的空值
 

@@ -25,8 +25,8 @@ Songloft 是自托管本地音乐服务器，支持**服务器部署**和 **Bund
 |------|------|------|
 | `/` | Go 1.26 + Chi v5 + SQLite | 后端 API 服务（默认端口 58091，账号 admin/admin） |
 | `/mobile` | Go + gomobile | Go 后端的移动端绑定入口（gomobile bind，导出 Start/Stop/IsRunning/GetPort） |
-| `/clients/player-flutter` ([独立仓库](https://github.com/songloft-org/songloft-player-flutter)) | Flutter 3.41+ / Dart 3.7+ | 跨平台前端（6 平台）；由 Flutter 仓库构建自己的 Bundle 客户端包 |
-| `/clients/player-lynx` ([独立仓库](https://github.com/songloft-org/songloft-player-lynx)) | TS + ReactLynx | Android/iOS/HarmonyOS/Web 客户端；由 Lynx 仓库构建 Android/iOS Bundle，Windows/macOS 候选待统一验收；独立 main dev 构建与 v* 发版（子模块） |
+| `/clients/player-flutter` ([独立仓库](https://github.com/songloft-org/songloft-player-flutter)) | Flutter 3.41+ / Dart 3.7+ | 跨平台前端（6 平台）；客户端仓库发布标准版，后端仓库发布 Bundle |
+| `/clients/player-lynx` ([独立仓库](https://github.com/songloft-org/songloft-player-lynx)) | TS + ReactLynx | 客户端仓库发布标准版、HarmonyOS 和 Web；后端仓库发布 Android/iOS/Windows/macOS Bundle |
 | `/clients/tv` ([独立仓库](https://github.com/songloft-org/songloft-tv)) | Kotlin | Android TV 客户端（子模块） |
 | `/plugins/toolchain` ([独立仓库](https://github.com/songloft-org/plugin-toolchain)) | TS + pnpm | JS 插件开发工具链（SDK / Builder / 脚手架） |
 | `/plugins/src` | TS | JS 插件源码（子模块集合，各插件在自己仓库分发 release） |
@@ -65,7 +65,7 @@ make build-frontend-web            # 独立部署 Flutter Web
 make build-frontend-flutter-web-embedded # 旧 Flutter 嵌入版（覆盖同目录产物）
 make build-frontend-{linux,windows,macos,android,ios,all}
 
-# Go 移动绑定参考目标（客户端流水线开始打包时解析主仓库 main 的最新 SHA）
+# Go 移动绑定参考目标（后端 Bundle 流水线固定发布提交及客户端子模块 SHA）
 make build-go-mobile-android       # Android .aar（gomobile bind，arm64 + arm + x86_64）
 make build-go-mobile-ios SONGLOFT_FFMPEG_IOS_ASSET=/path/to/staged/ios-ffmpeg  # iOS arm64 .xcframework，仅 macOS
 make build-go-desktop-linux        # Linux 可执行文件

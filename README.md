@@ -207,7 +207,7 @@ Bundle 构建使用 `hanxi/ffmpeg-builder` 发布的多平台资产。流水线�
 - [Bundle 开发/正式版本](https://github.com/songloft-org/songloft/releases/tag/dev) · [正式版](https://github.com/songloft-org/songloft/releases/latest)：Lynx Bundle 和 Flutter Bundle。
 - [安装指南](https://songloft.hanxi.cc/player-lynx/installation) · [构建与运行](https://songloft.hanxi.cc/player-lynx/build-and-run) · [发版指南](https://songloft.hanxi.cc/player-lynx/releasing)。
 
-后端 Release 发布 Flutter Bundle、Lynx Bundle 以及 `bundle-index.json` 和客户端专用 manifest。Lynx 仓库 Release 发布标准版、签名 HAP（设备范围由 profile 决定）和 Web standalone/embedded 包。HarmonyOS 为实验性支持；Web 需 HTTPS 与 COOP/COEP 响应头，子路径部署未验证。桌面包在没有 Windows Authenticode、Apple Developer ID 和公证的情况下构建，更新清单仍使用独立 Ed25519 签名。详见[客户端选择](docs/clients.md)和[Bundle 模式说明](docs/bundle-mode.md)。
+后端 Release 发布 Flutter Bundle、Lynx Bundle 以及 `bundle-index.json` 和客户端专用 manifest。Lynx 仓库 Release 发布标准版、签名 HAP（设备范围由 profile 决定）和 Web standalone/embedded 包。HarmonyOS 为实验性支持。Web 核心流程支持普通 HTTP，已验证根路径和子路径部署。桌面包在没有 Windows Authenticode、Apple Developer ID 和公证的情况下构建，更新清单使用独立 Ed25519 签名。详见[客户端选择](docs/clients.md)和[Bundle 模式说明](docs/bundle-mode.md)。
 
 ### 🖥️ Songloft Desktop（Electron 客户端）
 

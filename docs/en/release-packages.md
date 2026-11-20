@@ -1,6 +1,6 @@
 # Release package names
 
-These are the public Release filenames. The dev and stable channels use the same names within their respective tags. iOS IPAs require re-signing before installation. Flutter Standard provides Linux DEB, RPM, macOS DMG, and dev AppImage packages when those packaging steps produce them. Stable releases require AppImage.
+These are the filenames defined by the release workflows. The dev and stable channels use the same names within their respective tags. Historical Releases keep their original filenames. While signing is unconfigured, dev Bundles are available as artifacts of the corresponding backend Actions run. iOS IPAs require re-signing before installation. Flutter Standard provides Linux DEB, RPM, macOS DMG, and dev AppImage packages when those packaging steps produce them. Stable releases require AppImage.
 
 [Backend Releases](https://github.com/songloft-org/songloft/releases) · [Flutter Releases](https://github.com/songloft-org/songloft-player-flutter/releases) · [Lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases) · [FFmpeg Releases](https://github.com/hanxi/ffmpeg-builder/releases)
 
