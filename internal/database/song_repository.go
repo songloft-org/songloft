@@ -150,6 +150,41 @@ func (r *SongRepository) UpdateRatingBatch(ctx context.Context, ids []int64, rat
 	return rows, nil
 }
 
+// UpdateRadioModeBatch 批量更新电台播放模式，返回实际更新行数。
+// 调用方负责在写入前校验歌曲类型和模式对源地址的适用性。
+func (r *SongRepository) UpdateRadioModeBatch(ctx context.Context, ids []int64, mode models.RadioMode, isVideo *bool) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	update := sq.Update("songs").
+		Set("radio_mode", string(mode)).
+		Set("updated_at", "CURRENT_TIMESTAMP").
+		Where(sq.And{
+			sq.Eq{"id": ids},
+			sq.Eq{"type": models.TypeRadio},
+		})
+	if mode == models.RadioModeAudioOnly {
+		update = update.Set("is_video", false)
+	} else if isVideo != nil {
+		update = update.Set("is_video", *isVideo)
+	}
+
+	query, args, err := update.ToSql()
+	if err != nil {
+		return 0, fmt.Errorf("build batch radio mode sql: %w", err)
+	}
+	result, err := r.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("batch update radio mode: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("batch radio mode rows affected: %w", err)
+	}
+	return rows, nil
+}
+
 // UpdateDuration 仅在原 duration 为 0 时回填时长。
 func (r *SongRepository) UpdateDuration(ctx context.Context, id int64, duration float64) error {
 	if err := r.queries.UpdateSongDuration(ctx, sqlc.UpdateSongDurationParams{

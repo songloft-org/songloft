@@ -3152,6 +3152,44 @@ func (h *SongHandler) BatchUpdateSongRating(w http.ResponseWriter, r *http.Reque
 	respondJSON(w, http.StatusOK, models.BatchUpdateRatingResponse{Updated: int(updated)})
 }
 
+// BatchUpdateRadioMode 批量设置电台播放模式。
+// @Summary 批量设置电台播放模式
+// @Description 按 ID 列表批量设置电台播放模式。radio_mode 支持空字符串（自动）、hls、flv、audio_only；is_video 省略时保留各电台原值，仅音频模式始终清除视频内容。不存在的 ID 静默跳过，非电台歌曲或无效模式会拒绝整批更新。
+// @Tags 歌曲管理
+// @Accept json
+// @Produce json
+// @Param request body models.BatchUpdateRadioModeRequest true "批量电台模式请求"
+// @Success 200 {object} models.BatchUpdateRadioModeResponse "更新成功"
+// @Failure 400 {object} map[string]string "请求数据错误或包含非电台歌曲"
+// @Failure 500 {object} map[string]string "更新失败"
+// @Security BearerAuth
+// @Router /songs/batch-radio-mode [post]
+func (h *SongHandler) BatchUpdateRadioMode(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var req models.BatchUpdateRadioModeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "无效的请求数据", err)
+		return
+	}
+	if len(req.IDs) == 0 {
+		respondError(w, http.StatusBadRequest, "ID 列表不能为空", nil)
+		return
+	}
+
+	updated, err := h.songService.UpdateRadioModeBatch(ctx, req.IDs, req.RadioMode, req.IsVideo)
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidRadioModeBatch) {
+			respondError(w, http.StatusBadRequest, "电台播放模式或歌曲类型无效", err)
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "批量设置电台播放模式失败", err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, models.BatchUpdateRadioModeResponse{Updated: int(updated)})
+}
+
 func detectImageExt(data []byte) string {
 	if len(data) >= 8 && data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G' {
 		return "png"

@@ -22,6 +22,11 @@ import (
 	"songloft/internal/models"
 )
 
+// ErrInvalidRadioModeBatch indicates that a batch radio-mode update contains
+// a non-radio song or a mode that cannot be applied to one of the selected
+// songs.
+var ErrInvalidRadioModeBatch = errors.New("invalid radio mode batch")
+
 // SongRepository 是 SongService 依赖的歌曲仓储接口。
 type SongRepository interface {
 	GetByID(ctx context.Context, id int64) (*models.Song, error)
@@ -42,6 +47,7 @@ type SongRepository interface {
 	UpdateSource(ctx context.Context, id int64, pluginEntryPath, sourceData string) error
 	UpdateRating(ctx context.Context, id int64, rating int) error
 	UpdateRatingBatch(ctx context.Context, ids []int64, rating int) (int64, error)
+	UpdateRadioModeBatch(ctx context.Context, ids []int64, mode models.RadioMode, isVideo *bool) (int64, error)
 	ListLocalPaths(ctx context.Context) (map[string]database.LocalPathInfo, error)
 	ListLocalSongsWithRelativePaths(ctx context.Context) ([]database.RelativePathSong, error)
 	UpdateSongFilePath(ctx context.Context, id int64, newPath string) error
@@ -1534,6 +1540,38 @@ func (s *SongService) UpdateRatingBatch(ctx context.Context, ids []int64, rating
 		return 0, nil
 	}
 	return s.songs.UpdateRatingBatch(ctx, ids, rating)
+}
+
+// UpdateRadioModeBatch 批量设置电台播放模式，返回实际更新数量。
+// 不存在的 ID 静默跳过，已存在的非电台歌曲或无效模式会使整批拒绝写入。
+func (s *SongService) UpdateRadioModeBatch(ctx context.Context, ids []int64, mode models.RadioMode, isVideo *bool) (int64, error) {
+	switch mode {
+	case models.RadioModeAuto, models.RadioModeHLS, models.RadioModeFLV, models.RadioModeAudioOnly:
+	default:
+		return 0, fmt.Errorf("%w: unsupported mode %q", ErrInvalidRadioModeBatch, mode)
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	songs, err := s.songs.ListByIDs(ctx, ids)
+	if err != nil {
+		return 0, fmt.Errorf("list songs for batch radio mode: %w", err)
+	}
+	for _, song := range songs {
+		if song.Type != models.TypeRadio {
+			return 0, fmt.Errorf("%w: song %d is not a radio", ErrInvalidRadioModeBatch, song.ID)
+		}
+		if !mode.ValidForSource(song.URL) {
+			return 0, fmt.Errorf("%w: mode %q is invalid for song %d", ErrInvalidRadioModeBatch, mode, song.ID)
+		}
+	}
+
+	updated, err := s.songs.UpdateRadioModeBatch(ctx, ids, mode, isVideo)
+	if err != nil {
+		return 0, fmt.Errorf("update radio mode batch: %w", err)
+	}
+	return updated, nil
 }
 
 // SaveCoverFromData 从原始字节保存封面到本地，返回 coverPath。

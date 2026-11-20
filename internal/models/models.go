@@ -714,6 +714,18 @@ type BatchUpdateRatingResponse struct {
 	Updated int `json:"updated" example:"2"` // 实际更新的歌曲数量（不存在的 ID 静默跳过）
 }
 
+// BatchUpdateRadioModeRequest 批量设置电台播放模式请求。
+type BatchUpdateRadioModeRequest struct {
+	IDs       []int64   `json:"ids" example:"1"`                                      // 要设置模式的电台 ID 列表
+	RadioMode RadioMode `json:"radio_mode" example:"hls" enums:",hls,flv,audio_only"` // 电台播放模式
+	IsVideo   *bool     `json:"is_video,omitempty" example:"true"`                    // 是否同步设置视频内容，省略时保留原值
+}
+
+// BatchUpdateRadioModeResponse 批量设置电台播放模式响应。
+type BatchUpdateRadioModeResponse struct {
+	Updated int `json:"updated" example:"2"` // 实际更新的电台数量（不存在的 ID 静默跳过）
+}
+
 // BatchDeleteSongsResponse 批量删除歌曲响应
 type BatchDeleteSongsResponse struct {
 	Deleted int `json:"deleted" example:"3"` // 实际删除的数量

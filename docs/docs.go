@@ -7970,6 +7970,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/songs/batch-radio-mode": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "按 ID 列表批量设置电台播放模式。radio_mode 支持空字符串（自动）、hls、flv、audio_only；is_video 省略时保留各电台原值，仅音频模式始终清除视频内容。不存在的 ID 静默跳过，非电台歌曲或无效模式会拒绝整批更新。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "歌曲管理"
+                ],
+                "summary": "批量设置电台播放模式",
+                "parameters": [
+                    {
+                        "description": "批量电台模式请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.BatchUpdateRadioModeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新成功",
+                        "schema": {
+                            "$ref": "#/definitions/models.BatchUpdateRadioModeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求数据错误或包含非电台歌曲",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "更新失败",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/songs/batch-rating": {
             "post": {
                 "security": [
@@ -12569,6 +12626,51 @@ const docTemplate = `{
                     "description": "实际删除的数量",
                     "type": "integer",
                     "example": 3
+                }
+            }
+        },
+        "models.BatchUpdateRadioModeRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "description": "要设置模式的电台 ID 列表",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1
+                    ]
+                },
+                "is_video": {
+                    "description": "是否同步设置视频内容，省略时保留原值",
+                    "type": "boolean",
+                    "example": true
+                },
+                "radio_mode": {
+                    "description": "电台播放模式",
+                    "enum": [
+                        "",
+                        "hls",
+                        "flv",
+                        "audio_only"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.RadioMode"
+                        }
+                    ],
+                    "example": "hls"
+                }
+            }
+        },
+        "models.BatchUpdateRadioModeResponse": {
+            "type": "object",
+            "properties": {
+                "updated": {
+                    "description": "实际更新的电台数量（不存在的 ID 静默跳过）",
+                    "type": "integer",
+                    "example": 2
                 }
             }
         },
