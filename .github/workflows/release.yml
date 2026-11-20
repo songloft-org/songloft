@@ -1214,9 +1214,7 @@ jobs:
   build-bundled-lynx:
     name: Lynx Bundle (${{ matrix.target }})
     needs: [prepare, quality]
-    if: >-
-      needs.prepare.outputs.should_run == 'true' &&
-      (matrix.target == 'android' || matrix.target == 'ios' || vars.DESKTOP_SDK_INDEX_URL != '')
+    if: needs.prepare.outputs.should_run == 'true'
     strategy:
       fail-fast: false
       matrix:
