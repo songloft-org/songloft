@@ -10,6 +10,13 @@
 
 ## 条目
 
+### CI：签名配置变更需要启动新一轮发布
+
+- [后端 Release](https://github.com/songloft-org/songloft/actions/runs/44754365874)生成了 Bundle 测试包，缺少 Lynx 桌面与 Android 发布签名时跳过 `Create Release`。随后补齐 Secrets，文档 push 只触发文档站。
+- 改签名配置后从对应仓库手动运行工作流，检查实际发布 job 与目标 Release 附件。签名身份和触发规则见 [Bundle 发布指南](docs/bundle-mode.md#发布触发与签名)。
+- 补齐签名后的[首轮构建](https://github.com/songloft-org/songloft/actions/runs/44830577454)在 Android Gradle 解析依赖时收到 Maven Central 的 `429`。[下一轮后端 CI](https://github.com/songloft-org/songloft/actions/runs/44832013772)在相同签名配置下通过，发布了 Bundle 安装包和签名清单。
+- Seen 1× (2026-11-21)。
+
 ### BUNDLE-FFMPEG-001：多平台资产必须绑定具体 Release 身份
 
 - 范围：后端 Release 的 Flutter/Lynx Bundle 构建与 `tools/ffmpeg-builder` 资产解析。

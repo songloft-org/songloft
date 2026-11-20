@@ -21,9 +21,9 @@ const items = ['compliance.i1', 'compliance.i2', 'compliance.i3', 'compliance.i4
         </ul>
         <p class="compliance-more">
           {{ t('compliance.more') }}
-          <a :href="withBase('/NOTICE')">{{ t('compliance.notice') }}</a>
+          <a :href="withBase(lang === 'en' ? '/en/NOTICE' : '/NOTICE')">{{ t('compliance.notice') }}</a>
           ·
-          <a :href="withBase('/PRIVACY')">{{ t('compliance.privacy') }}</a>
+          <a :href="withBase(lang === 'en' ? '/en/PRIVACY' : '/PRIVACY')">{{ t('compliance.privacy') }}</a>
         </p>
       </div>
     </div>

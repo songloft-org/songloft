@@ -25,7 +25,7 @@ const badges = [
         <h1 class="hero-title">{{ t('hero.title') }}</h1>
         <p class="hero-subtitle">{{ t('hero.subtitle') }}</p>
         <div class="hero-actions">
-          <a class="btn btn-primary" :href="withBase('/quick-start')">{{ t('hero.cta.primary') }}</a>
+          <a class="btn btn-primary" :href="withBase(lang === 'en' ? '/en/quick-start' : '/quick-start')">{{ t('hero.cta.primary') }}</a>
           <a class="btn btn-ghost" href="#install">{{ t('hero.cta.secondary') }}</a>
           <a class="btn btn-ghost" href="https://github.com/songloft-org/songloft" target="_blank" rel="noreferrer">
             {{ t('hero.cta.github') }}

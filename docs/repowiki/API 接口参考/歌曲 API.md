@@ -63,7 +63,7 @@
 **歌曲类型**: `local`（本地文件）、`remote`（外部 URL / 插件音源）、`radio`（在线广播/直播流）。查询参数 `type` 支持以逗号分隔的多个已存储类型，例如 `local,remote`。客户端可配合 `exclude_playlist_labels=hidden,audiobook` 排除隐藏和有声书歌单歌曲。类型值只用于查询，不会写入 Song 对象。
 
 **Song JSON 序列化规则**（`MarshalJSON` 统一处理）:
-- `url` -- 统一为 `/api/v1/songs/{id}/play`（HLS 电台为 `.../play.m3u8`）
+- `url` -- 普通播放和仅音频电台使用 `/api/v1/songs/{id}/play`，HLS 电台使用 `.../play.m3u8`，HTTP-FLV 电台使用 `.../play.flv`
 - `cover_url` -- 有封面时 `/api/v1/songs/{id}/cover`，否则空
 - `lyric_url` -- 有歌词时 `/api/v1/songs/{id}/lyric`，否则空
 - `source_url` -- 仅 remote/radio 类型返回原始流地址
@@ -94,6 +94,9 @@
 | `keyword` | string | 否 | -- | 搜索关键词（匹配标题、艺术家、专辑） |
 | `path_prefix` | string | 否 | -- | 按 `file_path` 前缀过滤 |
 | `exclude_playlist_labels` | string | 否 | `hidden` | 排除带指定 label 的歌单内歌曲（逗号分隔），传 `none` 显示全部 |
+| `rating` | int | 否 | -- | 精确匹配 0–100（0 表示未评级），也可用 `-1` 筛选未评级 |
+| `min_rating` | int | 否 | -- | 评级下限（包含该值） |
+| `sort` | string | 否 | -- | 使用 `rating` 按评级排序 |
 | `limit` | int | 否 | `20` | 每页数量，上限 `100000` |
 | `offset` | int | 否 | `0` | 偏移量 |
 
@@ -444,6 +447,11 @@
 
 ---
 
+### 3.9 评级和电台模式
+
+- `PUT /api/v1/songs/{id}/rating` 接收 `{"rating":80}`，`POST /api/v1/songs/batch-rating` 接收 `{"ids":[1,2],"rating":80}`。评级为 0–100 的整数，0 清除评级。批量操作跳过不存在的 ID，返回 `updated`。评级只存数据库。
+- `POST /api/v1/songs/batch-radio-mode` 接收 `{"ids":[1,2],"radio_mode":"hls"}`，可选 `is_video`。模式为 `""`（按 URL 自动识别）、`hls`、`flv` 或 `audio_only`。仅音频模式会清除视频标记。不存在的 ID 会跳过，无效模式或非电台歌曲会拒绝整批更新。
+
 ## 4. 歌词与标签
 
 **章节来源**: `internal/handlers/music.go`、`internal/models/lyric.go`
@@ -642,7 +650,9 @@ dry-run 预览目录整理变更，**不移动任何文件、不改数据库**�
 | `remote`（插件） | CacheService 下载缓存后返回 |
 | `remote`（外链） | 直接代理转发 |
 | `radio`（HLS） | 反代或 302（取决于 hls-proxy 开关） |
-| `radio`（非 HLS） | 直接代理上游流 |
+| `radio`（HTTP-FLV） | `/play.flv` 透传原始 FLV。无法直放的客户端可用 `POST /api/v1/songs/{id}/hls/sessions` 建立 HLS 会话 |
+| `radio`（仅音频） | FFmpeg 提取首条音轨并输出 MP3 |
+| `radio`（其他流） | 直接代理上游流 |
 
 **路径参数:** `id` (int, 必填)
 
@@ -671,7 +681,7 @@ dry-run 预览目录整理变更，**不移动任何文件、不改数据库**�
 
 **路径:** `/api/v1/songs/{id}/cover` | **认证:** BearerAuth
 
-获取封面图片。优先返回本地封面，不存在时代理外部 `CoverURL`。
+获取封面图片。优先返回本地封面，不存在时代理外部 `CoverURL`。本地封面可用 `?w=<像素>` 请求等比缩略图。封面响应以完整图片为单位，忽略字节 Range 并保留缓存验证。
 
 **路径参数:** `id` (int, 必填)
 

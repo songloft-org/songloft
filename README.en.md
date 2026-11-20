@@ -47,13 +47,14 @@
 - 🎵 **Local music management** — Scans local directories and automatically extracts covers and metadata from MP3/FLAC/WAV/APE/OGG/Opus/M4A/M4B/WMA/AIF/AIFF/MKA/DSF (DSD) and other formats
 - 🎬 **Video support** — Scans video containers such as MP4/MOV/M4V/MKV/WebM/AVI/TS/MPG/MPEG/FLV/WMV/RM/RMVB/3GP, detects real video tracks, and renders the picture in-app
 - 🧩 **JS plugin system** — Runs on a QuickJS sandbox with a permission model, health checks, and hot reload; freely extend audio sources / metadata / device control and more
-- 📱 **Cross-platform clients** — The Flutter client supports six platforms: Android, iOS, macOS, Windows, Linux, and Web
+- 📱 **Cross-platform clients** — Flutter covers mobile, desktop, and Web. Lynx covers Android, iOS, Windows, macOS, HarmonyOS, and Web
 - 📦 **Bundle local mode** — The client embeds the Go backend, so no server deployment is needed — play your local music directly on your phone or computer
 - 📺 **Kodi plugin client** — Supports big-screen devices like Xbox, Apple TV, Raspberry Pi, and Android TV, optimized for remote control operation for a smooth living-room media experience
 - 🌐 **Web interface** — The full edition embeds Lynx Web with root and subpath deployment support out of the box
 - 🗂️ **Playlist organization and resume** — Shared custom tags for songs and playlists; normal playlists remember the track, millisecond position and playback mode, with [audiobook resume](docs/en/playlist-resume.md)
 - 🔑 **Authentication and device access** — JWT dual-token login with multi-device management; individually revocable permanent access tokens for integrations
-- 📡 **Network songs & radio** — Add network audio URLs and radio streams, transparently cached to the server during playback
+- 📡 **Remote tracks and radio** — Cache remote tracks and play radio in HLS, HTTP-FLV, or audio-only mode. Change playback mode for several stations at once
+- 🎚️ **Library filters and ratings** — Query multiple track types together, such as local and remote. The server supports track ratings, bulk updates, and filtering
 - 🔌 **Full REST API** — Built-in Swagger documentation for easy integration and further development
 - ⚡ **Lightweight and efficient** — Written in Go, CGO-free, with no external dependencies — ideal for low-power devices like NAS and Raspberry Pi
 

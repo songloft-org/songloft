@@ -54,7 +54,7 @@ The song management module is Songloft's core API, covering song CRUD, playback 
 **Song types**: `local` (local files), `remote` (external URL / plugin source), and `radio` (online broadcast / live stream). The `type` query accepts comma-separated stored types such as `local,remote`. Clients can combine it with `exclude_playlist_labels=hidden,audiobook` to omit hidden and audiobook-playlist songs. Type values are query filters and are never written into a Song object.
 
 **Song JSON serialization rules** (handled uniformly by `MarshalJSON`):
-- `url` -- Unified to `/api/v1/songs/{id}/play` (HLS radio uses `.../play.m3u8`)
+- `url` -- Regular playback and audio-only radio use `/api/v1/songs/{id}/play`. HLS radio uses `.../play.m3u8`, and HTTP-FLV radio uses `.../play.flv`.
 - `cover_url` -- `/api/v1/songs/{id}/cover` when a cover exists, otherwise empty
 - `lyric_url` -- `/api/v1/songs/{id}/lyric` when lyrics exist, otherwise empty
 - `source_url` -- The original stream address, returned only for remote/radio types
@@ -85,6 +85,9 @@ Gets the song list, supporting filtering by type, keyword search, path-prefix fi
 | `keyword` | string | No | -- | Search keyword (matches title, artist, album) |
 | `path_prefix` | string | No | -- | Filter by `file_path` prefix |
 | `exclude_playlist_labels` | string | No | `hidden` | Exclude songs in playlists carrying these labels, comma-separated. Use `none` to include all |
+| `rating` | int | No | -- | Match a rating from 0 to 100 exactly. Both `0` and `-1` select unrated tracks |
+| `min_rating` | int | No | -- | Inclusive minimum rating |
+| `sort` | string | No | -- | Use `rating` to order by rating |
 | `limit` | int | No | `20` | Items per page, upper limit `100000` |
 | `offset` | int | No | `0` | Offset |
 
@@ -334,6 +337,11 @@ For all remote songs with missing metadata, probes duration, bit rate, sample ra
 
 ---
 
+### 3.9 Ratings and radio mode
+
+- `PUT /api/v1/songs/{id}/rating` accepts `{"rating":80}`. `POST /api/v1/songs/batch-rating` accepts `{"ids":[1,2],"rating":80}`. Ratings are integers from 0 to 100. Use 0 to clear a rating. The batch endpoint skips missing IDs and returns `updated`. Ratings are stored in the database.
+- `POST /api/v1/songs/batch-radio-mode` accepts `{"ids":[1,2],"radio_mode":"hls"}` and an optional `is_video` field. Modes are `""` (detect from URL), `hls`, `flv`, and `audio_only`. Audio-only mode clears the video flag. Missing IDs are skipped. An invalid mode or a non-radio track rejects the entire batch.
+
 ## 4. Lyrics and Tags
 
 **Section source**: `internal/handlers/music.go`, `internal/models/lyric.go`
@@ -518,7 +526,9 @@ Streams audio by song ID, internally dispatching automatically by `song.type`:
 | `remote` (plugin) | Returned after CacheService download caching |
 | `remote` (external link) | Directly proxied and forwarded |
 | `radio` (HLS) | Reverse proxy or 302 (depending on the hls-proxy switch) |
-| `radio` (non-HLS) | Directly proxies the upstream stream |
+| `radio` (HTTP-FLV) | `/play.flv` proxies the original FLV stream. Clients that cannot play FLV can open an HLS session with `POST /api/v1/songs/{id}/hls/sessions` |
+| `radio` (audio-only) | FFmpeg extracts the first audio track and outputs MP3 |
+| `radio` (other streams) | Directly proxies the upstream stream |
 
 **Path parameter:** `id` (int, required)
 
@@ -547,7 +557,7 @@ An HLS-radio-specific alias that shares the handler with `/play`. Ending the URL
 
 **Path:** `/api/v1/songs/{id}/cover` | **Authentication:** BearerAuth
 
-Gets the cover image. Returns the local cover first, and proxies the external `CoverURL` when it does not exist.
+Gets the local cover if available and proxies the external `CoverURL` otherwise. Request a proportional thumbnail of a local cover with `?w=<pixels>`. Covers ignore byte ranges and retain cache validation.
 
 **Path parameter:** `id` (int, required)
 

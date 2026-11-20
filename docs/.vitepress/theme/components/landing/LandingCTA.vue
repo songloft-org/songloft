@@ -14,7 +14,7 @@ const t = (k: string) => createT(lang.value)(k)
       <h2 class="cta-title">{{ t('cta.title') }}</h2>
       <p class="cta-subtitle">{{ t('cta.subtitle') }}</p>
       <div class="cta-actions">
-        <a class="btn btn-primary" :href="withBase('/quick-start')">{{ t('cta.primary') }}</a>
+        <a class="btn btn-primary" :href="withBase(lang === 'en' ? '/en/quick-start' : '/quick-start')">{{ t('cta.primary') }}</a>
         <a class="btn btn-ghost" href="https://github.com/songloft-org/songloft" target="_blank" rel="noreferrer">
           ★ {{ t('cta.github') }}
         </a>

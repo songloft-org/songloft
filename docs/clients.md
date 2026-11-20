@@ -5,9 +5,9 @@ Songloft 提供 Flutter、Lynx、Electron 桌面与 TV 客户端，均连接同�
 | 项目 | Flutter | Lynx | Songloft Desktop | Songloft TV |
 | --- | --- | --- | --- | --- |
 | 技术 | Flutter / Dart | ReactLynx / TypeScript | Electron | Kotlin / Jetpack Compose for TV |
-| 平台 | Android、iOS、macOS、Windows、Linux、Web | Android、iOS、HarmonyOS、Web | Windows、macOS、Linux | Android 5.0+ 电视 / 盒子及横屏大屏设备 |
+| 平台 | Android、iOS、macOS、Windows、Linux、Web | Android、iOS、Windows、macOS、HarmonyOS、Web | Windows、macOS、Linux | Android 5.0+ 电视 / 盒子及横屏大屏设备 |
 | Bundle 本地后端 | 后端 Release 发布 Flutter Bundle | 后端 Release 发布 Lynx Bundle，标准版仍由 Lynx Release 发布 | 未实现，需独立服务器 | 未实现，需独立服务器 |
-| 桌面客户端 | 支持 | Windows/macOS 包已接入共享发布流程，最终设备验收进行中 | 专用桌面客户端 | 无桌面版 |
+| 桌面客户端 | 支持 | Windows x64、macOS arm64 与 x64，提供标准版和 Bundle | 专用桌面客户端 | 无桌面版 |
 | 客户端更新 | 以 Flutter 客户端指南为准 | 移动端按 Release 更新，桌面端支持按架构清单的客户端内更新 | 以 Electron 仓库说明为准 | 设置页检查更新 |
 | 核心功能 | 播放、曲库、歌单、歌词、插件、主题等 | 已有对应实现，仍需原生设备回归 | 曲库、歌单、歌词、插件与桌面集成 | 遥控器导航、音乐 / MV、歌词、K 歌与扫码点歌 |
 | 许可证 | Apache-2.0 | Apache-2.0 | Apache-2.0 | Apache-2.0 |
@@ -16,7 +16,7 @@ Songloft 提供 Flutter、Lynx、Electron 桌面与 TV 客户端，均连接同�
 
 - [标准版下载](https://github.com/songloft-org/songloft-player-flutter/releases/latest)：连接独立服务器。
 - [Bundle 下载](https://github.com/songloft-org/songloft/releases/latest)：后端 Release 发布 `songloft-bundled-*` 包。
-- Android 标准版 `songloft-android.apk` 与 Bundle 版 `songloft-bundled-android.apk` 各用一个通用 APK，均支持 ARM64、ARMv7 和 x86_64。通用包从开发版开始提供。[Flutter 开发版](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)
+- Android 标准版 `songloft-android.apk` 与 Bundle 版 `songloft-bundled-android.apk` 各用一个通用 APK，均支持 ARM64、ARMv7 和 x86_64。[Flutter 标准版 dev](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev) · [后端 Bundle dev](https://github.com/songloft-org/songloft/releases/tag/dev)
 - [架构](player/architecture.md) · [构建](player/build_guide.md) · [源码](https://github.com/songloft-org/songloft-player-flutter)。
 
 后端完整镜像与二进制默认嵌入 Lynx Web。Flutter 原生客户端与独立 Web 保留；旧 Flutter 嵌入版可通过 `make build-frontend-flutter-web-embedded` 显式构建。
@@ -32,12 +32,14 @@ Songloft 提供 Flutter、Lynx、Electron 桌面与 TV 客户端，均连接同�
 
 | 平台                     | 产物                                             | 使用边界                                                |
 | ------------------------ | ------------------------------------------------ | ------------------------------------------------------- |
-| Android 6.0+             | `songloft-lynx-android.apk` / `songloft-lynx-bundled-android.apk` | 标准版 / Bundle，Bundle 包含本地后端 |
+| Android                  | `songloft-lynx-android.apk` / `songloft-lynx-bundled-android.apk` | 标准版 Android 5.0+，Bundle Android 6.0+ |
 | iOS 15+                  | `songloft-lynx-ios-nosign.ipa` / `songloft-lynx-bundled-ios-nosign.ipa` | 标准版 / Bundle，均未签名 |
 | HarmonyOS NEXT / API 13+ | `songloft-lynx-harmony.hap`                      | 实验性；签名 profile 决定可安装设备范围，全屏视频未实现 |
 | Web                      | `songloft-lynx-web-{standalone,embedded}.tar.gz` | 需连接服务器；当前核心流程支持普通 HTTP；无 DLNA 或单曲离线缓存 |
 
 后端 Bundle Release 提供 `bundle-index.json`、客户端专用 manifest 和 `checksums.txt`。Lynx 标准版 Release 提供 `version.json` 和 `checksums.txt`。dev 下载包同样是 Release 构建，不开放 TCP/E2E 测试桥。
+
+各平台的完整文件名见[发布包名清单](release-packages.md)。
 
 Web standalone 显示服务器地址输入；embedded 使用同源服务器并隐藏该输入。两者都需要正确的 MIME；当前异步引擎不强制 SAB 或隔离头。根路径与子路径已验证，旧浏览器、插件和长后台覆盖边界请参阅 [Web 指南](player-lynx/web-deployment.md)。
 

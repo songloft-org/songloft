@@ -10,6 +10,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### CI: Start a new release run after changing signing configuration
+
+- [Backend Release](https://github.com/songloft-org/songloft/actions/runs/44754365874) built Bundle test packages and skipped `Create Release` while Lynx desktop and Android signing were missing. After the secrets were added, the docs-only push triggered the documentation site.
+- Run the workflow manually in the repository where signing changed. Verify the publishing job and the target Release assets. See the [Bundle release guide](docs/en/bundle-mode.md#release-triggers-and-signing) for identities and triggers.
+- The [first signed build](https://github.com/songloft-org/songloft/actions/runs/44830577454) hit a Maven Central `429` during Android Gradle dependency resolution. The [next backend run](https://github.com/songloft-org/songloft/actions/runs/44832013772) passed with the same signing configuration and published the Bundle installers and signed manifests.
+- Seen 1× (2026-11-21).
+
 ### BUNDLE-FFMPEG-001: Multi-platform assets must bind to one Release identity
 
 - Scope: Flutter/Lynx Bundle builds in the backend Release and assets from `tools/ffmpeg-builder`.

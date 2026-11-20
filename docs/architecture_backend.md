@@ -329,8 +329,8 @@ App 负责从 `database.DB` 获取仓储并装配服务；Service 注入其所�
 - `/api/v1/health` - 健康检查接口
 
 此外，音乐文件、封面图片、歌词通过歌曲 ID 端点访问（需 `access_token` query 参数认证）：
-- `/api/v1/songs/{id}/play` — 流式返回音频（支持 local / remote / radio 三种类型 + Range）
-- `/api/v1/songs/{id}/cover` — 歌曲封面（本地歌曲走本端，网络歌曲由 `MarshalJSON` 直出原始 CDN URL）
+- `/api/v1/songs/{id}/play` — 流式播放本地、网络歌曲和电台。HLS 和 HTTP-FLV 电台分别有 `/play.m3u8` 与 `/play.flv` 别名
+- `/api/v1/songs/{id}/cover` — 歌曲封面，本地文件优先，服务端可代理远程封面。客户端使用 `cover_url`，原始地址可在 `source_cover_url` 查看
 - `/api/v1/songs/{id}/lyric` — 直返 LyricPayload JSON（lyric / tlyric / rlyric / lxlyric）
 
 > 旧的 `/music/*` 和 `/cover/*` Base62 编码短链方案已完全下线，相关 helper 已随路由一并删除（`routers.go` 仅保留废弃注释）。
@@ -367,3 +367,5 @@ App 负责从 `database.DB` 获取仓储并装配服务；Service 注入其所�
 封面支持 `?w=N` 服务端缩略图（CatmullRom 缩放，JPEG 85 质量，不上采样），缩略图通过 `cover_thumb_cache` 磁盘 LRU 缓存（上限 200MB）。
 
 桌面 Bundle 的动态端口、固定构建与可选父进程 stdin EOF 清理契约见[桌面宿主](desktop-host.md)。
+
+服务器及 Android/桌面 Bundle 通过 `internal/mediaexec` 执行 FFmpeg 和 FFprobe。iOS Bundle 使用 `bundle_ffmpeg` 构建标签，将媒体桥接链接到随包的 arm64 FFmpeg 静态库。平台资产和路径见 [Bundle 模式](bundle-mode.md)。

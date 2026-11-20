@@ -33,7 +33,8 @@ npm run docs:preview
 | `quick-start.md / en/quick-start.md` | 同步 | 根 README.md / README.en.md |
 | `changelog.md` | 同步 | 根 CHANGELOG.md |
 | `NOTICE.md / PRIVACY.md / TERMS.md 及英文版` | 同步 | 根目录对应声明 / Corresponding root statements |
-| `player/** / player-lynx/** / addon/** / plugin-toolchain/**` | 子模块同步 | sync-docs.mjs 中的 from 源文件 / from sources in sync-docs.mjs |
+| `player/** / en/player/** / player-lynx/** / en/player-lynx/**` | 客户端子模块同步 | Flutter 的 `docs/cn`、`docs/en` 及 Lynx 公共指南，映射见 `sync-docs.mjs` |
+| `addon/** / plugin-toolchain/**` | 子模块同步 | `sync-docs.mjs` 中的源文件 |
 | `swagger.json / swagger.yaml / docs.go` | swag 生成，入库 | handler 注释 + make swagger / Handler annotations + make swagger |
 | `swagger-api/**` | 构建时生成，忽略 | docs/swagger.json → scripts/swagger-to-md.mjs |
 | `issues/**` | GitHub 读取生成，忽略 | 带「文档」标签的 Issue / Issues labeled 文档 |

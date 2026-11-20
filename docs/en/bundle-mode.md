@@ -11,7 +11,19 @@ Bundle mode installs the Go backend with the client, so users do not need to dep
 | Lynx standard | Android/iOS and standard desktop packages | [Lynx stable](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [dev](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev) | Fixed by the Lynx Release |
 | Lynx HarmonyOS / Web | HAP and standalone/embedded Web | [Lynx stable](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [dev](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev) | Non-Bundle outputs |
 
-See [all package names](release-packages.md). Configure `DESKTOP_UPDATE_PUBLIC_KEY` and `DESKTOP_UPDATE_PRIVATE_KEY` in the backend repository for desktop update manifests. Android Bundle uses the same signing identity as Lynx Standard. Configure `LYNX_ANDROID_KEYSTORE_BASE64`, `LYNX_ANDROID_KEYSTORE_PASSWORD`, `LYNX_ANDROID_KEY_ALIAS`, and `LYNX_ANDROID_KEY_PASSWORD`. With either signing configuration missing, dev CI uploads Bundles as Actions artifacts, uses debug signing for the Lynx APK, and leaves the GitHub Release on its existing version. Lynx mobile hot updates use `LYNX_UPDATE_PUBLIC_KEY` and `LYNX_UPDATE_PRIVATE_KEY`.
+See [all package names](release-packages.md).
+
+## Release triggers and signing
+
+The backend repository's `Release` workflow updates `dev` when build-related changes land on `main` and publishes versioned releases on `v*` tag pushes. Changing Actions secrets or variables or pushing only documentation does not start the workflow. After configuring signing, select `main` under **Actions → Release → Run workflow** in the backend repository to build and update `dev` with the new configuration.
+
+| Purpose | Backend repository configuration |
+|---|---|
+| Lynx desktop update manifests | Secrets `DESKTOP_UPDATE_PUBLIC_KEY` and `DESKTOP_UPDATE_PRIVATE_KEY` |
+| Lynx Android Bundle | Secrets `LYNX_ANDROID_KEYSTORE_BASE64`, `LYNX_ANDROID_KEYSTORE_PASSWORD`, `LYNX_ANDROID_KEY_ALIAS`, and `LYNX_ANDROID_KEY_PASSWORD`. The values correspond to the `ANDROID_*` secrets in the Lynx repository. |
+| Lynx mobile hot updates | Variable `LYNX_UPDATE_PUBLIC_KEY` and secret `LYNX_UPDATE_PRIVATE_KEY` |
+
+Lynx Android Bundle shares its signing identity with Standard to support in-place upgrades. The backend repository's `ANDROID_*` secrets are for Flutter. When desktop or Lynx Android signing is missing, dev CI uploads test packages to Actions with a debug-signed Lynx APK and skips `Create Release`. Version tags fail during preparation when required signing is missing. Verify that `Create Release` ran successfully and check the assets on the target Release.
 
 The backend Release also publishes `bundle-index.json`, `bundle-flutter-version.json`, `bundle-flutter-backend-manifest-<abi>.json`, `bundle-lynx-version.json`, and `desktop-bundled-<target>.json`. With the Lynx mobile hot-update signing key pair configured, it also publishes `bundle-lynx-version.json.sig` and `songloft-lynx-main.lynx.bundle`. Each `bundle-index.json` record includes `client`, `edition`, platform, asset name, full client SHA, full backend SHA, version, build time, and SHA-256. The server's own `version.json` remains separate.
 
@@ -38,6 +50,6 @@ Device directory permissions, scanning and playback, clean installs, and upgrade
 
 - [Choosing a client](clients.md)
 - [Frontend architecture · Deployment modes](architecture_frontend.md#deployment-modes)
-- [Flutter client Bundle documentation](/player/architecture)
+- [Flutter client Bundle documentation](player/architecture.md)
 - [Lynx installation guide](player-lynx/installation.md)
 - [Lynx release guide](player-lynx/releasing.md)

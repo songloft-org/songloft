@@ -56,13 +56,13 @@ const syncItems = [
   { from: 'PRIVACY.en.md', to: 'docs/en/PRIVACY.md',     en: true },
   { from: 'TERMS.en.md',   to: 'docs/en/TERMS.md',       en: true },
 
-  // ── songloft-player-flutter 客户端文档 → docs/player/ ──
-  { from: 'clients/player-flutter/docs/cn/architecture.md',    to: 'docs/player/architecture.md',    subdir: 'clients/player-flutter/docs/cn' },
-  { from: 'clients/player-flutter/docs/cn/build_guide.md',     to: 'docs/player/build_guide.md',     subdir: 'clients/player-flutter/docs/cn' },
-  { from: 'clients/player-flutter/docs/cn/development.md',     to: 'docs/player/development.md',     subdir: 'clients/player-flutter/docs/cn' },
-  { from: 'clients/player-flutter/docs/cn/platform-notes.md',  to: 'docs/player/platform-notes.md',  subdir: 'clients/player-flutter/docs/cn' },
-  { from: 'clients/player-flutter/docs/cn/flutter_patcher_hotupdate.md',  to: 'docs/player/flutter_patcher_hotupdate.md',  subdir: 'clients/player-flutter/docs/cn' },
-  { from: 'clients/player-flutter/docs/cn/backend_hotupdate.md',  to: 'docs/player/backend_hotupdate.md',  subdir: 'clients/player-flutter/docs/cn' },
+  // Flutter 公共指南保持中英对应，保留已有中文 /player/ URL。
+  ...['cn', 'en'].flatMap((lang) => {
+    const source = `clients/player-flutter/docs/${lang}`;
+    const target = `docs/${lang === 'en' ? 'en/' : ''}player`;
+    return ['architecture', 'build_guide', 'development', 'platform-notes', 'flutter_patcher_hotupdate', 'backend_hotupdate']
+      .map((name) => ({ from: `${source}/${name}.md`, to: `${target}/${name}.md`, subdir: source }));
+  }),
 
   // Lynx 公共指南保持中英对应；内部审计和历史进展继续链接源仓库。
   ...['zh', 'en'].flatMap((lang) => {

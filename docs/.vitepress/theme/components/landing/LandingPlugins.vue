@@ -9,8 +9,8 @@ const t = (k: string) => createT(lang.value)(k)
 
 const links = [
   { key: 'plugins.cta.list', href: 'https://github.com/songloft-org/songloft/issues/4', external: true, icon: '🧩' },
-  { key: 'plugins.cta.dev', href: withBase('/js-plugin-development-guide'), external: false, icon: '🛠️' },
-  { key: 'plugins.cta.registry', href: withBase('/plugin_registry'), external: false, icon: '📦' },
+  { key: 'plugins.cta.dev', href: '/js-plugin-development-guide', external: false, icon: '🛠️' },
+  { key: 'plugins.cta.registry', href: '/plugin_registry', external: false, icon: '📦' },
 ]
 </script>
 
@@ -26,7 +26,7 @@ const links = [
           v-for="l in links"
           :key="l.key"
           class="plugin-card"
-          :href="l.href"
+          :href="l.external ? l.href : withBase(lang === 'en' ? '/en' + l.href : l.href)"
           :target="l.external ? '_blank' : undefined"
           :rel="l.external ? 'noreferrer' : undefined"
         >

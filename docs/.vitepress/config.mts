@@ -43,8 +43,10 @@ export default async () => {
               text: 'More',
               items: [
                 { text: 'API Docs', link: '/swagger-api/' },
+                { text: 'Flutter Client', link: '/en/player/architecture' },
                 { text: 'Lynx Client', link: '/en/player-lynx/' },
                 { text: 'Bundle Mode', link: '/en/bundle-mode' },
+                { text: 'Package Names', link: '/en/release-packages' },
                 { text: 'Docker Hub', link: 'https://hub.docker.com/r/songloft/songloft' },
                 { text: 'Privacy', link: '/en/PRIVACY' },
                 { text: 'NOTICE', link: '/en/NOTICE' },
@@ -89,6 +91,7 @@ export default async () => {
             { text: 'Flutter 客户端', link: '/player/architecture' },
             { text: 'Lynx 客户端', link: '/player-lynx/' },
             { text: 'Bundle 本地模式', link: '/bundle-mode' },
+            { text: '发布包名', link: '/release-packages' },
             { text: 'HA 加载项', link: '/addon/' },
             { text: 'Docker Hub', link: 'https://hub.docker.com/r/songloft/songloft' },
             { text: '隐私说明', link: '/PRIVACY' },

@@ -329,8 +329,8 @@ The backend provides a RESTful API, mainly including:
 - `/api/v1/health` - Health check endpoint
 
 In addition, music files, cover images, and lyrics are accessed via song-ID endpoints (which require the `access_token` query parameter for authentication):
-- `/api/v1/songs/{id}/play` — Streams the audio (supports the local / remote / radio types + Range)
-- `/api/v1/songs/{id}/cover` — Song cover (local songs are served by this backend; for network songs, `MarshalJSON` returns the original CDN URL directly)
+- `/api/v1/songs/{id}/play` — Streams local tracks, remote tracks, and radio. HLS and HTTP-FLV radio use the respective `/play.m3u8` and `/play.flv` aliases
+- `/api/v1/songs/{id}/cover` — Serves local covers first and can proxy remote covers. Clients use `cover_url`. The original address is in `source_cover_url`
 - `/api/v1/songs/{id}/lyric` — Direct LyricPayload JSON (lyric / tlyric / rlyric / lxlyric)
 
 > The old `/music/*` and `/cover/*` Base62-encoded short-link scheme has been fully retired; the related helper was removed along with the routes (`routers.go` only keeps a deprecation comment).
@@ -367,3 +367,5 @@ Playlist cover endpoint `/api/v1/playlists/{id}/cover` priority: existing local 
 Covers support `?w=N` server-side thumbnailing (CatmullRom scaling, JPEG quality 85, no upscaling), with thumbnails cached via `cover_thumb_cache` disk LRU (200 MB cap).
 
 See the [desktop host contract](desktop-host.md) for Bundle dynamic ports, pinned builds and optional parent-stdin EOF cleanup.
+
+The server and Android/desktop Bundles run FFmpeg and FFprobe through `internal/mediaexec`. The iOS Bundle uses the `bundle_ffmpeg` build tag to link the media bridge to the packaged arm64 FFmpeg static library. See [Bundle mode](bundle-mode.md) for platform assets and paths.

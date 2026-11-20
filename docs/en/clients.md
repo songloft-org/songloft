@@ -5,9 +5,9 @@ Songloft offers Flutter, Lynx, Electron desktop, and TV clients connecting to th
 | Item | Flutter | Lynx | Songloft Desktop | Songloft TV |
 | --- | --- | --- | --- | --- |
 | Technology | Flutter / Dart | ReactLynx / TypeScript | Electron | Kotlin / Jetpack Compose for TV |
-| Platforms | Android, iOS, macOS, Windows, Linux, Web | Android, iOS, HarmonyOS, Web | Windows, macOS, Linux | Android 5.0+ TVs / boxes and landscape large-screen devices |
+| Platforms | Android, iOS, macOS, Windows, Linux, Web | Android, iOS, Windows, macOS, HarmonyOS, Web | Windows, macOS, Linux | Android 5.0+ TVs / boxes and landscape large-screen devices |
 | Bundled local backend | Backend Release publishes Flutter Bundle packages | Backend Release publishes Lynx Bundle packages; standard remains in the Lynx Release | Not implemented; requires a separate server | Not implemented; requires a separate server |
-| Desktop client | Supported | Windows/macOS packages use the shared release workflow. Final device acceptance is in progress | Dedicated desktop client | No desktop edition |
+| Desktop client | Supported | Standard and Bundle for Windows x64 and macOS arm64/x64 | Dedicated desktop client | No desktop edition |
 | Client updates | See Flutter's client guides | Mobile packages use Releases. Desktop packages support in-app updates through per-architecture manifests | See the Electron repository instructions | Update checks in settings |
 | Core features | Playback, library, playlists, lyrics, plugins, themes | Implemented, with native device regression still required | Library, playlists, lyrics, plugins, desktop integration | Remote navigation, music / MV, lyrics, karaoke, QR song requests |
 | License | Apache-2.0 | Apache-2.0 | Apache-2.0 | Apache-2.0 |
@@ -16,8 +16,8 @@ Songloft offers Flutter, Lynx, Electron desktop, and TV clients connecting to th
 
 - [Standalone downloads](https://github.com/songloft-org/songloft-player-flutter/releases/latest): connect to a separate server.
 - [Bundle downloads](https://github.com/songloft-org/songloft/releases/latest): the backend Release publishes `songloft-bundled-*` packages.
-- The standard `songloft-android.apk` and Bundle `songloft-bundled-android.apk` each support ARM64, ARMv7, and x86_64 in one APK. Universal packages appear first in the dev release. [Flutter dev release](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)
-- [Architecture (Chinese)](../player/architecture.md) · [Build guide (Chinese)](../player/build_guide.md) · [Source](https://github.com/songloft-org/songloft-player-flutter).
+- The Standard `songloft-android.apk` and Bundle `songloft-bundled-android.apk` each support ARM64, ARMv7, and x86_64 in one APK. [Flutter Standard dev](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev) · [Backend Bundle dev](https://github.com/songloft-org/songloft/releases/tag/dev)
+- [Architecture](player/architecture.md) · [Build guide](player/build_guide.md) · [Source](https://github.com/songloft-org/songloft-player-flutter).
 
 Full backend images/binaries embed Lynx Web by default. Native Flutter and standalone Web remain available; explicitly build legacy embedded Flutter Web with `make build-frontend-flutter-web-embedded`.
 
@@ -32,12 +32,14 @@ Underlying technology: [Lynx official website](https://lynxjs.org/) · [ReactLyn
 
 | Platform                 | Package                                          | Limits                                                                      |
 | ------------------------ | ------------------------------------------------ | --------------------------------------------------------------------------- |
-| Android 6.0+             | `songloft-lynx-android.apk` / `songloft-lynx-bundled-android.apk` | Standard / Bundle, Bundle includes the local backend |
+| Android                  | `songloft-lynx-android.apk` / `songloft-lynx-bundled-android.apk` | Standard requires Android 5.0+ and Bundle requires Android 6.0+ |
 | iOS 15+                  | `songloft-lynx-ios-nosign.ipa` / `songloft-lynx-bundled-ios-nosign.ipa` | Standard / Bundle, both unsigned |
 | HarmonyOS NEXT / API 13+ | `songloft-lynx-harmony.hap`                      | Experimental; profile controls eligible devices. No fullscreen video        |
 | Web                      | `songloft-lynx-web-{standalone,embedded}.tar.gz` | Requires a server; core flows support ordinary HTTP; no DLNA or single-song offline cache |
 
 Backend Bundle Releases include `bundle-index.json`, client-specific manifests, and `checksums.txt`. Lynx standard Releases include `version.json` and `checksums.txt`. Downloadable dev packages are also Release builds with no TCP/E2E bridge.
+
+See the [package inventory](release-packages.md) for filenames on every platform.
 
 Standalone Web shows a server-address field; embedded uses the same-origin server and hides that field. Both require suitable MIME types; the current asynchronous engine does not require SAB or isolation headers. Root and subpath deployments are verified; see [Web deployment](player-lynx/web-deployment.md) for browser, plugin and background-operation limits.
 

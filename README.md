@@ -47,13 +47,14 @@
 - 🎵 **本地音乐管理** — 扫描本地目录，自动提取 MP3/FLAC/WAV/APE/OGG/Opus/M4A/M4B/WMA/AIF/AIFF/MKA/DSF（DSD）等格式的封面和元数据
 - 🎬 **视频支持** — 扫描 MP4/MOV/M4V/MKV/WebM/AVI/TS/MPG/MPEG/FLV/WMV/RM/RMVB/3GP 等视频容器并探测真实视频轨，客户端内渲染画面
 - 🧩 **JS 插件体系** — 基于 QuickJS 沙箱运行，支持权限模型、健康检查、热更新，可自由扩展音源 / 元数据 / 设备控制等能力
-- 📱 **跨平台客户端** — Flutter 客户端支持 Android、iOS、macOS、Windows、Linux、Web 六端
+- 📱 **跨平台客户端** — Flutter 覆盖移动端、桌面与 Web。Lynx 覆盖 Android、iOS、Windows、macOS、HarmonyOS 与 Web
 - 📦 **Bundle 本地模式** — 客户端内嵌 Go 后端，无需部署服务器，手机/电脑直接播放本地音乐
 - 📺 **Kodi 插件客户端** — 支持 Xbox、Apple TV、树莓派、Android TV 等大屏设备，专为遥控器操作优化，带来流畅的客厅影音体验
 - 🌐 **Web 界面** — 完整版内置 Lynx Web 前端，支持根路径与子路径部署，开箱即用
 - 🗂️ **歌单组织与续播** — 歌曲与歌单共用自定义标签，普通歌单记住歌曲、毫秒位置和播放模式，支持[有声书继续收听](docs/playlist-resume.md)
 - 🔑 **认证与设备接入** — JWT 双 Token 登录，支持多设备管理；永久访问 Token 用于设备集成，可单独撤销
-- 📡 **网络歌曲 & 电台** — 支持添加网络音频 URL 与电台流，播放时透明缓存到服务端
+- 📡 **网络歌曲与电台** — 网络歌曲可缓存。电台支持 HLS、HTTP-FLV 和纯音频模式，可对多条电台批量设置播放模式
+- 🎚️ **曲库筛选与评级** — 可组合本地、网络歌曲等类型进行查询。服务端支持歌曲评级、批量设置和筛选
 - 🔌 **完整 REST API** — 内置 Swagger 文档，方便集成和二次开发
 - ⚡ **轻量高效** — Go 编写，CGO-free，无外部依赖，适合 NAS / 树莓派等低功耗设备
 

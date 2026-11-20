@@ -21,7 +21,7 @@ export const FEATURES: FeatureRow[] = [
       en: 'Scan local folders and auto-detect MP3 / FLAC / WAV / APE / OGG / Opus / M4A / M4B / WMA / DSF (DSD) audio and MP4 / MKV / FLV / MPG video formats — covers, lyrics and metadata included. Sync folder changes with manual scans or optional scheduled scans.',
     },
     bullets: [
-      { zh: '主流格式全支持', en: 'All common formats' },
+      { zh: '组合筛选本地与网络歌曲', en: 'Filter local and remote tracks together' },
       { zh: '封面 / 歌词 / 元数据一键提取', en: 'Covers · lyrics · tags' },
       { zh: '手动扫描 · 定时同步目录变化', en: 'Manual · scheduled scans' },
     ],
@@ -63,10 +63,10 @@ export const FEATURES: FeatureRow[] = [
   },
   {
     id: 'themes',
-    title: { zh: '明暗随心 · 六端同行', en: 'Light, dark & every platform' },
+    title: { zh: '主题与客户端', en: 'Themes and clients' },
     desc: {
-      zh: '深浅色主题一键切换，跟随系统自动变化。一套 Flutter 客户端覆盖 Android / iOS / macOS / Windows / Linux / Web。',
-      en: 'Switch light and dark themes, or follow the system. One Flutter client runs on Android / iOS / macOS / Windows / Linux / Web.',
+      zh: '切换浅色、深色主题或跟随系统。可选择 Flutter 或 Lynx 客户端，完整版服务器内置 Lynx Web。',
+      en: 'Choose a light or dark theme, or follow the system. Use a Flutter or Lynx client, or open Lynx Web in the full server edition.',
     },
     bullets: [
       { zh: '浅色 / 深色 / 跟随系统', en: 'Light · dark · system' },
@@ -97,8 +97,8 @@ export const FEATURES: FeatureRow[] = [
     id: 'control',
     title: { zh: '掌控每一处细节', en: 'Control every detail' },
     desc: {
-      zh: 'Flutter 客户端可切换多个服务器及本地 / 远程模式。可选定时扫描，按需计算指纹查找重复歌曲；播放历史按上下文记忆，远程歌曲可缓存，歌单与标签可导出备份。',
-      en: 'Switch servers and local/remote modes in the Flutter client. Enable scheduled scans and calculate fingerprints on demand to find duplicates. Keep history per context, cache remote tracks, and export playlists with tags.',
+      zh: 'Flutter 和 Lynx Bundle 可在本地曲库和远程服务器之间切换。服务器可定时扫描、按需计算音频指纹、缓存网络歌曲，以及备份歌单与标签。',
+      en: 'Flutter and Lynx Bundle can switch between a local library and remote servers. The server can run scheduled scans, calculate audio fingerprints on demand, cache remote tracks, and back up playlists and tags.',
     },
     bullets: [
       { zh: '多服务器 · 本地/远程双模式', en: 'Multi-server · local & remote' },

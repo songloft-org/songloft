@@ -230,22 +230,22 @@ export const INSTALL: InstallMethod[] = [
     icon: 'package',
     kind: 'external',
     note: {
-      zh: '后端 Release 同时发布 Flutter Bundle 和 Lynx Bundle。Flutter/Lynx 标准版仍在各自客户端 Release，HarmonyOS 和 Web 属于 Lynx 非 Bundle 产物。登录页或设置页切换本地与远程模式。首次启用时，Android 和桌面选择音乐目录，iOS 使用应用 Documents 目录。',
-      en: 'The backend Release publishes Flutter Bundle and Lynx Bundle packages. Flutter/Lynx standard packages remain in their client Releases, while HarmonyOS and Web are non-Bundle Lynx outputs. Switch modes on the login or settings screen. On first use, Android and desktop let users choose a music folder, while iOS uses the app Documents directory.',
+      zh: 'Flutter Bundle 支持 Android、iOS、Linux、Windows 和 Apple 芯片 Mac。Lynx Bundle 支持 Android、iOS、Windows 和两种芯片的 Mac。两者均从后端 Release 下载，登录页或设置页可切换本地与远程模式。',
+      en: 'Flutter Bundle runs on Android, iOS, Linux, Windows, and Apple silicon Macs. Lynx Bundle runs on Android, iOS, Windows, and both Mac architectures. Get both from the backend Release and switch modes from login or settings.',
     },
     external: [
       {
-        label: { zh: 'Flutter Bundle 下载', en: 'Flutter Bundle downloads' },
+        label: { zh: 'Bundle 正式版', en: 'Stable Bundle releases' },
         url: 'https://github.com/songloft-org/songloft/releases/latest',
         primary: true,
       },
       {
-        label: { zh: 'Flutter Bundle Android APK（开发版）', en: 'Flutter Bundle Android APK (dev)' },
-        url: 'https://github.com/songloft-org/songloft/releases/download/dev/songloft-bundled-android.apk',
+        label: { zh: 'Bundle 开发版', en: 'Development Bundle release' },
+        url: 'https://github.com/songloft-org/songloft/releases/tag/dev',
       },
       {
-        label: { zh: 'Lynx Bundle 下载', en: 'Lynx Bundle downloads' },
-        url: 'https://github.com/songloft-org/songloft/releases/latest',
+        label: { zh: '包名清单', en: 'Package names' },
+        url: { zh: '/release-packages', en: '/en/release-packages' },
       },
       {
         label: { zh: '模式说明', en: 'Bundle mode guide' },
@@ -256,7 +256,7 @@ export const INSTALL: InstallMethod[] = [
   {
     id: 'flutter',
     label: { zh: 'Flutter 客户端', en: 'Flutter Client' },
-    tagline: { zh: '六端原生 · 后台播放 / 媒体控制', en: 'Native on 6 platforms' },
+    tagline: { zh: '移动端、桌面和 Web', en: 'Mobile, desktop, and Web' },
     icon: 'smartphone',
     kind: 'external',
     note: {
@@ -265,7 +265,7 @@ export const INSTALL: InstallMethod[] = [
     },
     external: [
       {
-        label: { zh: '标准版 Releases', en: 'Standalone releases' },
+        label: { zh: '标准版正式下载', en: 'Stable Standard releases' },
         url: 'https://github.com/songloft-org/songloft-player-flutter/releases/latest',
         primary: true,
       },
@@ -299,12 +299,12 @@ export const INSTALL: InstallMethod[] = [
   {
     id: 'lynx',
     label: { zh: 'Lynx 客户端', en: 'Lynx Client' },
-    tagline: { zh: '预览版 · Android / iOS / HarmonyOS / Web', en: 'Preview · Android / iOS / HarmonyOS / Web' },
+    tagline: { zh: 'Android、iOS、Windows、macOS、HarmonyOS 和 Web', en: 'Android, iOS, Windows, macOS, HarmonyOS, and Web' },
     icon: 'smartphone',
     kind: 'external',
     note: {
-      zh: 'Lynx 标准版、Bundle、HarmonyOS 和 Web 分别从对应 Release 入口下载。Bundle 由后端 Release 发布，桌面文件名不包含 dev 或 stable。iOS IPA 需自行重签；HarmonyOS 为实验性支持。Web 核心流程支持普通 HTTP，不强制 COOP/COEP。',
-      en: 'Lynx standard, Bundle, HarmonyOS, and Web packages use their corresponding Release entry points. Bundle packages are published by the backend Release, and desktop filenames contain no dev or stable segment. iOS IPA needs re-signing; HarmonyOS is experimental. Core Web flows support ordinary HTTP without mandatory COOP/COEP.',
+      zh: '标准版连接 Songloft 服务器，Bundle 可启动本地后端。iOS IPA 安装前需要重签，HarmonyOS 为实验性支持，Web 核心流程支持普通 HTTP。',
+      en: 'Standard connects to a Songloft server. Bundle can start a local backend. Re-sign the iOS IPA before installation. HarmonyOS support is experimental, and core Web features work over HTTP.',
     },
     external: [
       {

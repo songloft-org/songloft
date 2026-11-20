@@ -134,10 +134,10 @@ function selectOS(os: string) {
                 class="btn"
                 :class="e.primary ? 'btn-primary' : 'btn-ghost'"
                 :href="typeof e.url === 'string' ? e.url : withBase(pick(e.url, lang))"
-                target="_blank"
-                rel="noreferrer"
+                :target="typeof e.url === 'string' ? '_blank' : undefined"
+                :rel="typeof e.url === 'string' ? 'noreferrer' : undefined"
               >
-                {{ pick(e.label, lang) }} ↗
+                {{ pick(e.label, lang) }}<span v-if="typeof e.url === 'string'"> ↗</span>
               </a>
             </div>
             <div v-if="method.commands" class="cmd-list">
@@ -166,7 +166,7 @@ function selectOS(os: string) {
 
       <p class="install-docs">
         {{ t('install.docsHint') }}
-        <a :href="withBase('/quick-start')">{{ t('install.docsLink') }}</a>
+        <a :href="withBase(lang === 'en' ? '/en/quick-start' : '/quick-start')">{{ t('install.docsLink') }}</a>
       </p>
     </div>
   </section>
