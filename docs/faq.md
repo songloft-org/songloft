@@ -272,6 +272,8 @@ A: 支持主流音频格式：**MP3、FLAC、WAV、APE、OGG、M4A、MP4、MOV�
 
 DSF 默认可扫描入库，支持读取内嵌标签和封面。已有部署升级后会自动将 `dsf` 补入扫描格式列表，重新扫描即可发现文件。原生客户端沿用 libmpv 播放；浏览器或不支持 DSD 的 DLNA 设备需显式请求服务端 ffmpeg 转码，例如 `GET /api/v1/songs/{id}/play?format=mp3`（也可用 `format=flac`，以设备兼容性为准）。当前 Web 客户端不会为 DSF 自动添加转码参数。DSF 暂不支持将标签、歌词或封面写回音频文件。
 
+本地 `.dts` 文件默认可扫描入库，已有部署升级后重新扫描即可发现。扫描使用 ffprobe 提取时长等音频参数，标题缺省时使用文件名。播放默认转为 MP3，多声道会混为双声道。支持多声道 FLAC 的播放器可以显式请求 `GET /api/v1/songs/{id}/play?format=flac`。Docker 部署通过更新镜像取得支持 DTS 输入的 FFmpeg 和 ffprobe。
+
 此外也支持扫描常见**视频容器**：**MKV、WEBM、AVI、TS**（连同带画面的 MP4/MOV）。扫描时后端会用 ffprobe 探测文件是否含真实视频轨并标记 `is_video`（内嵌封面图不算视频）。这类文件常见于电子书、网课等以"听"为主的音视频混合内容：
 
 - 始终可播放其中的**音频轨**；

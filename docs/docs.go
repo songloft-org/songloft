@@ -10034,7 +10034,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "目标转码格式（如 mp3、ogg），用于平台兼容性转码",
+                        "description": "目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3",
                         "name": "format",
                         "in": "query"
                     },
@@ -10179,7 +10179,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "目标转码格式（如 mp3、ogg），用于平台兼容性转码",
+                        "description": "目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3",
                         "name": "format",
                         "in": "query"
                     },
@@ -10324,7 +10324,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "目标转码格式（如 mp3、ogg），用于平台兼容性转码",
+                        "description": "目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3",
                         "name": "format",
                         "in": "query"
                     },

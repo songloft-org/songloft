@@ -10,6 +10,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### SCAN-FORMAT-001: Test the default playback URL when adding a scan format
+
+- The backend baseline for local DTS support was `01284955a6e1272b2dfb0fb03b2dcadca5f2c831`. [songloft-org/songloft#588](https://github.com/songloft-org/songloft/issues/588)
+- Disabling the migration in isolation led the scanner to discover zero songs from valid DTS fixtures. Restoring only the previous playback behavior made an imported song's default URL return raw DTS. The existing Docker image's ffprobe could not read the same fixture.
+- Add the extension in both the migration and the scan fallback lists, reuse ffprobe for technical metadata, and use the existing compatibility transcode for default playback. Test a scan migration with `UpTo` so later migrations do not alter its expected result. Enable the corresponding demuxer in the slim Docker and Bundle tools.
+- Both `.dts` and `.DTS` files imported. A 5.1 source produced stereo MP3 by default and retained six channels with explicit FLAC. Range and HEAD passed. The backend scanned and streamed DTS and DTS-HD using locally built Linux FFmpeg 8.0.1 tools. Clicking the library entry in Docker Chrome initiated an MP3 response at the default URL and advanced playback.
+- Seen 1× (2026-11-21).
+
 ### CI: Start a new release run after changing signing configuration
 
 - [Backend Release](https://github.com/songloft-org/songloft/actions/runs/44754365874) built Bundle test packages and skipped `Create Release` while Lynx desktop and Android signing were missing. After the secrets were added, the docs-only push triggered the documentation site.

@@ -392,6 +392,11 @@ func (m *MetadataExtractor) Extract(ctx context.Context, filePath string) (*Meta
 		metadata.Format = "wmv"
 	}
 
+	// .dts 可能被 ffprobe 识别为 dts 或 dtshd；统一保留曲库的扩展名格式。
+	if strings.EqualFold(filepath.Ext(filePath), ".dts") {
+		metadata.Format = "dts"
+	}
+
 	// 视频轨探测：对可能含视频画面的容器（mp4/mov/mkv/webm/avi/ts 等）用 ffprobe 判定是否含真实视频流。
 	// 注意：含视频轨的 mp4/mov 会被 tag 库成功读取（拿到时长），不会进入上面的 ffprobe 分支，
 	// 故这里必须对视频容器候选独立探测；已探测过（mkv 等无 tag 的容器）则复用 probe，避免重复调用。

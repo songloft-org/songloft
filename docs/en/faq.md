@@ -272,6 +272,8 @@ A: Mainstream audio formats are supported: **MP3, FLAC, WAV, APE, OGG, M4A, MP4,
 
 DSF files are scanned by default, including embedded tags and cover art. Upgrading an existing deployment automatically adds `dsf` to the scan format list; rescan to discover the files. Native clients use the existing libmpv playback path; browsers or DLNA devices without DSD support must explicitly request server-side ffmpeg transcoding, for example `GET /api/v1/songs/{id}/play?format=mp3` (`format=flac` is also available, depending on device compatibility). The current Web client does not automatically add a transcoding parameter for DSF. Writing tags, lyrics, or cover art back to DSF files is currently unsupported.
 
+Local `.dts` files are scanned by default. Rescan after upgrading to discover them. Scanning uses ffprobe to read duration and other audio properties and falls back to the filename for the title. Playback uses MP3 by default, downmixing multichannel audio to stereo. Players that support multichannel FLAC can request `GET /api/v1/songs/{id}/play?format=flac`. Update the Docker image to get FFmpeg and ffprobe with DTS input support.
+
 Common **video containers** are also scanned: **MKV, WEBM, AVI, TS** (along with MP4/MOV that carry a picture). During scanning the backend uses ffprobe to detect whether a file has a real video track and marks it as `is_video` (an embedded cover image does not count as video). Such files are common in audiobooks, online courses, and other listening-focused mixed audio/video content:
 
 - The **audio track** can always be played;

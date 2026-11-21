@@ -48,7 +48,7 @@ func TestScanSupportDSFMigration(t *testing.T) {
 			if err := repo.Set(ctx, &models.Config{Key: "scan_config", Value: tc.before}); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := provider.Up(ctx); err != nil {
+			if _, err := provider.UpTo(ctx, 39); err != nil {
 				t.Fatalf("upgrade from version 38: %v", err)
 			}
 			// 再执行 Up SQL，验证幂等性而非只验证 goose 跳过已执行版本。
@@ -103,7 +103,7 @@ func TestScanSupportDSFMigration(t *testing.T) {
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("rollback config = %s, want %#v", config.Value, want)
 			}
-			if _, err := provider.Up(ctx); err != nil {
+			if _, err := provider.UpTo(ctx, 39); err != nil {
 				t.Fatalf("reapply after rollback: %v", err)
 			}
 		})

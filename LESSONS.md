@@ -10,6 +10,14 @@
 
 ## 条目
 
+### SCAN-FORMAT-001：新增扫描格式要验证默认播放地址
+
+- 本地 DTS 支持的主仓库基线为 `01284955a6e1272b2dfb0fb03b2dcadca5f2c831`。[songloft-org/songloft#588](https://github.com/songloft-org/songloft/issues/588)
+- 隔离移除迁移时，真实 DTS 夹具扫描发现零首。仅恢复旧播放逻辑时，已入库歌曲的默认地址返回裸 DTS。现有 Docker 镜像的 ffprobe 无法读取同一个样本。
+- 迁移与扫描回退列表同步新增扩展名，复用 ffprobe 补齐技术参数，默认播放走已有兼容转码。扫描迁移测试用 `UpTo` 验证目标版本，避免之后的格式迁移改变预期值。Docker 和 Bundle 的精简工具同时启用对应 demuxer。
+- 本地 `.dts` 和 `.DTS` 都完成入库，5.1 输入默认返回双声道 MP3，显式 FLAC 保留六声道，Range 与 HEAD 通过。Linux FFmpeg 8.0.1 候选工具通过了 DTS 和 DTS-HD 的实际后端扫描与播放。Docker Chrome 在曲库点播后确认默认请求返回 MP3，播放进度持续推进。
+- Seen 1× (2026-11-21)。
+
 ### CI：签名配置变更需要启动新一轮发布
 
 - [后端 Release](https://github.com/songloft-org/songloft/actions/runs/44754365874)生成了 Bundle 测试包，缺少 Lynx 桌面与 Android 发布签名时跳过 `Create Release`。随后补齐 Secrets，文档 push 只触发文档站。

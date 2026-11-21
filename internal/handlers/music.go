@@ -1509,7 +1509,7 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // @Tags 歌曲管理
 // @Produce application/octet-stream
 // @Param id path int true "歌曲 ID"
-// @Param format query string false "目标转码格式（如 mp3、ogg），用于平台兼容性转码"
+// @Param format query string false "目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3"
 // @Param quality query string false "目标音质码率（128/192/320），不传或不合法值表示原始音质。指定后默认转码为 mp3（除非同时指定了 format）"
 // @Param track query int false "抽取指定音频流播放（audio-relative 0-based，对应 ffmpeg -map 0:a:N）。用于 Web 端双音轨（原唱/伴奏 mka）切轨：后端抽出单条音轨，AAC 编码时无损 remux 成 m4a、否则转 mp3。缺省/负数=不抽轨；与 media=video 互斥"
 // @Param prefetch query string false "传 1 时异步预热缓存/转码，立即返回 202"
@@ -1602,7 +1602,9 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 		normalize = h.configService.GetBool(volumeNormalizeConfigKey, false)
 	}
 	normalize = normalize && !videoIntent
-	if normalize && targetFormat == "" {
+	// 裸 DTS 在浏览器和部分原生播放器中无法直接播放，共用现有 MP3 转码及预热链路。
+	localDTS := song.Type == models.TypeLocal && strings.EqualFold(filepath.Ext(song.FilePath), ".dts")
+	if !videoIntent && targetFormat == "" && (normalize || localDTS) {
 		targetFormat = "mp3"
 	}
 
