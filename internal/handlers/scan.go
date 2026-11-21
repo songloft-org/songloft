@@ -58,7 +58,8 @@ func (h *ScanHandler) SetOnAutoScanChanged(cb func(services.AutoScanConfig)) {
 
 // ScanRequest 扫描请求参数
 type ScanRequest struct {
-	Reimport bool `json:"reimport"`
+	Reimport               bool `json:"reimport"`
+	ResetMetadataOverrides bool `json:"reset_metadata_overrides,omitempty"`
 	// Paths 为目录级定向扫描（Issue #262）：为空时扫描整个音乐根目录（默认行为）；
 	// 非空时只扫描给定目录（含子目录），过期记录清理也仅收敛到这些目录之内。
 	// 每个目录必须位于音乐根目录之下，否则返回 400。
@@ -74,6 +75,7 @@ type ScanStartResponse struct {
 // @Summary 扫描并导入本地音乐
 // @Description 异步扫描音乐目录并导入新发现的音乐文件到数据库，立即返回，可通过进度接口查询状态。
 // @Description reimport=true 时对已入库文件也重新提取元数据；默认 false 走增量（跳过已存在且时长有效的文件）。
+// @Description reset_metadata_overrides=true 仅可与 reimport=true 一起使用。成功读取时在扫描范围内用文件元数据替换手动字段。
 // @Description paths 为目录级定向扫描（Issue #262）：省略/为空时扫描整个音乐根目录；非空时只扫描给定目录（含子目录），
 // @Description 且过期记录清理仅收敛到这些目录之内（不影响其余曲库）。每个目录必须位于音乐根目录之下，否则返回 400。
 // @Description 始终遵守排除规则。所有扫描起点均被排除时返回 400，不启动任务；部分被排除时在响应和进度中列出原因。
@@ -97,6 +99,11 @@ func (h *ScanHandler) ScanAndImport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if req.ResetMetadataOverrides && !req.Reimport {
+		respondError(w, http.StatusBadRequest, "重置手动元数据必须同时启用重新导入", nil)
+		return
+	}
+
 	// 目录级定向扫描：校验每个目录都在音乐根目录之下，并去重、剔除互为父子的冗余目录。
 	scopePaths, err := h.sanitizeScanPaths(req.Paths)
 	if err != nil {
@@ -113,7 +120,7 @@ func (h *ScanHandler) ScanAndImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.songService.ScanAndImportAsync(req.Reimport, scopePaths); err != nil {
+	if err := h.songService.ScanAndImportWithMetadataReset(req.Reimport, scopePaths, req.ResetMetadataOverrides); err != nil {
 		respondError(w, http.StatusConflict, "扫描正在进行中", err)
 		return
 	}

@@ -45,7 +45,7 @@
 
 ## ✨ 核心功能
 
-- 🎵 **本地音乐管理** — 扫描本地目录，自动提取 MP3/FLAC/WAV/APE/OGG/Opus/M4A/M4B/WMA/AIF/AIFF/MKA/DSF（DSD）等格式的封面和元数据
+- 🎵 **本地音乐管理** — 扫描本地目录，自动提取 MP3/FLAC/WAV/APE/OGG/Opus/M4A/M4B/WMA/AIF/AIFF/MKA/DSF（DSD）/AAC（ADTS）/DFF/WavPack 等格式的封面和元数据
 - 🎬 **视频支持** — 扫描 MP4/MOV/M4V/MKV/WebM/AVI/TS/MPG/MPEG/FLV/WMV/RM/RMVB/3GP 等视频容器并探测真实视频轨，客户端内渲染画面
 - 🧩 **JS 插件体系** — 基于 QuickJS 沙箱运行，支持权限模型、健康检查、热更新，可自由扩展音源 / 元数据 / 设备控制等能力
 - 📱 **跨平台客户端** — Flutter 覆盖移动端、桌面与 Web。Lynx 覆盖 Android、iOS、Windows、macOS、HarmonyOS 与 Web

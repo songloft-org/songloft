@@ -169,6 +169,8 @@ type Song struct {
 	Disc                   string
 	Rating                 int64
 	RadioMode              string
+	MetadataOverrideMask   int64
+	MetadataEditedAt       int64
 }
 
 type SongArtist struct {

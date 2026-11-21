@@ -21,6 +21,7 @@ type Querier interface {
 	ClearPlayHistoryByTag(ctx context.Context, contextKey string) (int64, error)
 	ClearPlaylistProgress(ctx context.Context, playlistID int64) error
 	ClearPlaylistTagReferences(ctx context.Context, label string) error
+	ClearSongMetadataOverrides(ctx context.Context, arg ClearSongMetadataOverridesParams) error
 	CountArtistSongs(ctx context.Context, artistID int64) (int64, error)
 	CountLocalFingerprints(ctx context.Context) (CountLocalFingerprintsRow, error)
 	CountPersonalTokens(ctx context.Context) (int64, error)
@@ -104,6 +105,7 @@ type Querier interface {
 	ListSongsWithCache(ctx context.Context) ([]Song, error)
 	ListThemePacks(ctx context.Context) ([]ThemePack, error)
 	MarkFingerprintAttempted(ctx context.Context, arg MarkFingerprintAttemptedParams) error
+	MarkSongMetadataOverrides(ctx context.Context, arg MarkSongMetadataOverridesParams) error
 	MaxPositionInPlaylist(ctx context.Context, playlistID int64) (int64, error)
 	RecordPlay(ctx context.Context, arg RecordPlayParams) error
 	RemoveSongFromPlaylist(ctx context.Context, arg RemoveSongFromPlaylistParams) (int64, error)
@@ -135,11 +137,13 @@ type Querier interface {
 	UpdateSongFilePath(ctx context.Context, arg UpdateSongFilePathParams) (int64, error)
 	UpdateSongFingerprint(ctx context.Context, arg UpdateSongFingerprintParams) error
 	UpdateSongLyrics(ctx context.Context, arg UpdateSongLyricsParams) (int64, error)
+	// Manual bits follow models.SongMetadataMask values (title, artist, album, picture).
 	UpdateSongMetadata(ctx context.Context, arg UpdateSongMetadataParams) error
 	UpdateSongPositionInPlaylist(ctx context.Context, arg UpdateSongPositionInPlaylistParams) (int64, error)
 	UpdateSongRating(ctx context.Context, arg UpdateSongRatingParams) (int64, error)
 	UpdateSongSource(ctx context.Context, arg UpdateSongSourceParams) error
 	UpdateSongTag(ctx context.Context, arg UpdateSongTagParams) error
+	// Manual bits follow models.SongMetadataMask values (title, artist, album).
 	UpdateSongTagFields(ctx context.Context, arg UpdateSongTagFieldsParams) error
 	UpdateThemePack(ctx context.Context, arg UpdateThemePackParams) error
 	UpsertArtist(ctx context.Context, arg UpsertArtistParams) error

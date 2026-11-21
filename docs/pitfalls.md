@@ -125,7 +125,7 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 
 - `dsf` 是默认扫描格式；`app.go` 两处回退列表和迁移 `0039_scan_support_dsf.sql` 保持同步，迁移为已有配置幂等追加（大小写无关）。
 - `pkg/tag` 可读取 DSF 元数据与封面；DSD raw 采样率可能是 ffprobe PCM-equivalent 的 8 倍，已有元数据测试处理该差异。
-- 播放沿用 libmpv / ffmpeg；浏览器与不支持 DSD 的 DLNA 设备需显式传 `?format=mp3` 等转码参数，当前 Flutter Web 的 `AudioFormatHelper` 不会为 DSF 自动追加。DSF 不在标签写入矩阵中，写入失败应沿用现有降级处理。
+- 播放沿用 libmpv / ffmpeg；浏览器与不支持 DSD 的 DLNA 设备需显式传 `?format=mp3` 等转码参数，当前 Flutter Web 的 `AudioFormatHelper` 不会为 DSF 自动追加。DSF 的原生写入范围见下节。
 
 <a id="sidecar-lyrics"></a>
 
@@ -153,21 +153,29 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 
 <a id="tag-writing"></a>
 
-## tag 写入（pkg/tag）
+## 标签读写
 
-- `tag.WriteTag(filePath, opts)` 按扩展名 dispatch，所有格式均使用临时文件 + `os.Rename` 原子写入
-- 支持矩阵：
+`pkg/tag` 按文件内容识别容器。增量写入器在同目录生成临时文件，校验结果并核对源文件状态后原子替换。写入保留未编辑的标签和媒体数据，无法安全改写的布局保留源文件。
 
-| 格式 | 文本字段 | 歌词 | 封面 |
-|------|---------|------|------|
-| MP3 | ID3v2.3 text frames | USLT | APIC |
-| FLAC | Vorbis Comment | LYRICS | PICTURE block |
-| M4A/MP4/M4B/M4V/MOV/3GP | iTunes atoms (©nam 等) | ©lyr | covr |
-| OGG(.ogg/.oga/.opus) | Vorbis Comment | LYRICS | METADATA_BLOCK_PICTURE (base64) |
-| APE | APEv2 text items | Lyrics | Cover Art (Front) (binary item) |
-| WAV | RIFF LIST INFO | ICMT | **不支持**（格式限制） |
-| AIFF/AIF | ID3v2.3 (ID3 chunk) + NAME/AUTH | USLT (ID3 chunk) | APIC (ID3 chunk) |
-- 不支持的格式 → 返回 `ErrUnsupportedWrite`，调用方**必须**降级为日志，**不要**阻塞主流程
+| 格式 | 原生读取 | 原生写回 | Songloft 数据库存储 |
+|---|---|---|---|
+| DSF、ADTS AAC | ID3v2 文本、年份、曲目号/碟号、歌词、封面 | 普通 ID3v2.3/2.4 块中的同类字段 | 全部可编辑字段，包括显式清空 |
+| WavPack | APEv2 文本、年份、曲目号/碟号、歌词、封面 | 文件尾可写 APEv2 项中的同类字段 | 全部可编辑字段 |
+| QuickTime MOV | 旧式 QuickTime 文本、iTunes 元数据、曲目号/碟号、歌词、封面 | 支持的非分片布局中的 iTunes 文本、曲目号/碟号、歌词和封面 | 全部可编辑字段 |
+| WAV | RIFF INFO 文本和曲目号、ID3v2 文本、碟号、歌词、封面 | INFO 标题、艺术家、专辑、年份、流派、曲目号。ID3 保存专辑艺术家、语言、风格、碟号、歌词和封面 | 全部可编辑字段 |
+| DSDIFF DFF | DIIN 标题和艺术家、兼容 ID3 标签、DSD/DST 技术参数 | 能保持索引偏移时写回 DIIN 标题和艺术家 | 全部可编辑字段。专辑、年份、流派、语言、风格、曲目号、碟号、歌词和封面存数据库 |
+| Matroska MKA/MKV | 主音轨文本、年份、曲目号/碟号和歌词、封面附件 | 同类轨道字段。可新增封面或替换支持的封面附件 | 全部可编辑字段。清除带 UID 的现有封面附件走数据库 |
+| WebM | 主音轨文本、年份、曲目号/碟号和歌词 | 同类轨道字段 | 全部可编辑字段。封面存数据库 |
+| ASF WMA/WMV | 内容描述和可映射的扩展字段，包括文件中的正面封面 | 保持头部总长时可替换现有标题、艺术家、专辑/专辑艺术家、年份、流派、语言、风格、曲目号/碟号和歌词 | 全部可编辑字段。封面存数据库 |
+| AVI | RIFF INFO 标题、艺术家、专辑、年份、流派、曲目号和备注 | 兼容的单段 AVI 可写标题、艺术家、专辑、年份、流派和曲目号 | 全部可编辑字段。OpenDML 编辑走数据库 |
+| FLV | AMF0 `onMetaData` 的文本、年份、曲目号/碟号和歌词 | 在编码长度相同时替换已识别的字符串 | 全部可编辑字段。封面、缺失字段及变更长度的文本存数据库 |
+| RealMedia RM/RMVB | CONT 标题、作者、版权、备注 | 在原块空间内写回已有标题和作者 | 全部可编辑字段。其他字段存数据库 |
+| DTS/DTS-HD、MPEG-TS、MPEG-PS | DTS 技术参数，以及 MPEG 文件中的服务、流级描述 | 数据库存储 | 全部可编辑字段。服务名归属服务字段 |
+| MP3、FLAC、M4A/MP4/M4B/M4V/3GP、Ogg/Opus、APE、AIFF | 既有文本、歌词、封面映射 | 既有 ID3、Vorbis Comment、iTunes、APEv2 写入器 | 沿用现有编辑行为 |
+
+扩展格式的独立本地文件通过 `PUT /songs/{id}/tags` 在同一事务保存手动值、歌曲的字段位掩码和最近一次手动编辑时间。旧客户端可继续发送非空字段。使用 `clear_fields` 显式清空指定字段，使用 `clear_cover` 清空封面。增量扫描和普通重扫保留手动字段，包括已清空的值。可在「重新导入」下启用「重置手动编辑的元数据」。API 同时发送 `reset_metadata_overrides: true` 和 `reimport: true`，作用于选中的目录。未选择目录时作用于整个音乐根目录。成功读取文件后恢复扫描值并清除对应标记。读取失败或落库前取消时保留标记。扫描开始后编辑过的歌曲，在本轮保留全部手动字段。完整 SQLite 备份包含这些标记，歌单 JSON 沿用现有结构。
+
+新安装和升级均将 AAC、DFF、WavPack 加入扫描格式。默认点播返回兼容的 MP3 并支持 Range，客户端仍可显式选择输出格式。
 
 <a id="fingerprints"></a>
 

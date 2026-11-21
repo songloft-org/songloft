@@ -87,6 +87,8 @@ definitions:
         type: array
       reimport:
         type: boolean
+      reset_metadata_overrides:
+        type: boolean
     type: object
   handlers.ScanStartResponse:
     properties:
@@ -105,6 +107,11 @@ definitions:
         type: string
       clear_cover:
         type: boolean
+      clear_fields:
+        description: 显式清空字段，例如 ["artist","lyrics"]。
+        items:
+          type: string
+        type: array
       cover_data:
         type: string
       cover_url:
@@ -4987,6 +4994,7 @@ paths:
       description: |-
         异步扫描音乐目录并导入新发现的音乐文件到数据库，立即返回，可通过进度接口查询状态。
         reimport=true 时对已入库文件也重新提取元数据；默认 false 走增量（跳过已存在且时长有效的文件）。
+        reset_metadata_overrides=true 仅可与 reimport=true 一起使用。成功读取时在扫描范围内用文件元数据替换手动字段。
         paths 为目录级定向扫描（Issue #262）：省略/为空时扫描整个音乐根目录；非空时只扫描给定目录（含子目录），
         且过期记录清理仅收敛到这些目录之内（不影响其余曲库）。每个目录必须位于音乐根目录之下，否则返回 400。
         始终遵守排除规则。所有扫描起点均被排除时返回 400，不启动任务；部分被排除时在响应和进度中列出原因。
@@ -7558,7 +7566,7 @@ paths:
         in: query
         name: access_token
         type: string
-      - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3
+      - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts、.wv、.aac、.dff 音频默认转为 MP3
         in: query
         name: format
         type: string
@@ -7674,7 +7682,7 @@ paths:
         in: query
         name: access_token
         type: string
-      - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3
+      - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts、.wv、.aac、.dff 音频默认转为 MP3
         in: query
         name: format
         type: string
@@ -7790,7 +7798,7 @@ paths:
         in: query
         name: access_token
         type: string
-      - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3
+      - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts、.wv、.aac、.dff 音频默认转为 MP3
         in: query
         name: format
         type: string
@@ -7906,7 +7914,7 @@ paths:
         in: query
         name: access_token
         type: string
-      - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3
+      - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts、.wv、.aac、.dff 音频默认转为 MP3
         in: query
         name: format
         type: string
@@ -8196,9 +8204,9 @@ paths:
       consumes:
       - application/json
       description: 将元数据写入数据库和本地音频文件标签（仅本地歌曲）。cover_data(base64) 优先于 cover_url。非空字段覆盖，空值保留原值。设置
-        clear_cover=true 可显式清空封面。rename_file=true 时按 "{artist} - {title}" 重命名本地音频文件（保留原目录与扩展名，artist
-        为空则回退为仅 title，多歌手由 artist 中的 " & " 分隔符体现；仅本地非 CUE 歌曲生效）；标题清理后为空或目标文件名已存在时返回
-        400，与原文件同名则不移动仅写库。
+        clear_cover=true 可显式清空封面。clear_fields 可显式清空指定字段。rename_file=true 时按 "{artist}
+        - {title}" 重命名本地音频文件（保留原目录与扩展名，artist 为空则回退为仅 title，多歌手由 artist 中的 " & " 分隔符体现；仅本地非
+        CUE 歌曲生效）；标题清理后为空或目标文件名已存在时返回 400，与原文件同名则不移动仅写库。
       parameters:
       - description: 歌曲ID
         in: path

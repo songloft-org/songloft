@@ -120,6 +120,9 @@ type Song struct {
 	PlaylistAddedAt *time.Time `json:"playlist_added_at,omitempty"`               // 加入当前歌单的时间，仅歌单成员查询返回
 
 	RadioMode RadioMode `json:"radio_mode,omitempty"` // 电台播放模式，缺省按 URL 后缀识别
+
+	MetadataOverrideMask SongMetadataMask `json:"-"`
+	MetadataEditedAt     int64            `json:"-"` // 最近一次手动编辑的 Unix 纳秒时间戳
 }
 
 // SongBrief is a lightweight song representation for list display.

@@ -119,7 +119,7 @@ func (q *Queries) GetPlaylistCoverCandidates(ctx context.Context, playlistID int
 }
 
 const getPlaylistSongs = `-- name: GetPlaylistSongs :many
-SELECT s.id, s.type, s.title, s.artist, s.album, s.duration, s.file_path, s.url, s.cover_path, s.cover_url, s.lyric, s.lyric_source, s.file_size, s.format, s.bit_rate, s.sample_rate, s.is_live, s.plugin_entry_path, s.source_data, s.dedup_key, s.added_at, s.updated_at, s.lyric_remote_url, s.year, s.genre, s.fingerprint, s.fingerprint_duration, s.isrc, s.cache_path, s.cue_source_path, s.cue_track_index, s.cue_audio_path, s.file_modified_at, s.track, s.language, s.style, s.is_video, s.cue_start_seconds, s.cue_end_seconds, s.fingerprint_attempted_at, s.fingerprint_error, s.disc, s.rating, s.radio_mode, ps.added_at AS playlist_added_at
+SELECT s.id, s.type, s.title, s.artist, s.album, s.duration, s.file_path, s.url, s.cover_path, s.cover_url, s.lyric, s.lyric_source, s.file_size, s.format, s.bit_rate, s.sample_rate, s.is_live, s.plugin_entry_path, s.source_data, s.dedup_key, s.added_at, s.updated_at, s.lyric_remote_url, s.year, s.genre, s.fingerprint, s.fingerprint_duration, s.isrc, s.cache_path, s.cue_source_path, s.cue_track_index, s.cue_audio_path, s.file_modified_at, s.track, s.language, s.style, s.is_video, s.cue_start_seconds, s.cue_end_seconds, s.fingerprint_attempted_at, s.fingerprint_error, s.disc, s.rating, s.radio_mode, s.metadata_override_mask, s.metadata_edited_at, ps.added_at AS playlist_added_at
 FROM songs s
 INNER JOIN playlist_songs ps ON s.id = ps.song_id
 WHERE ps.playlist_id = ?
@@ -185,6 +185,8 @@ func (q *Queries) GetPlaylistSongs(ctx context.Context, playlistID int64) ([]Get
 			&i.Song.Disc,
 			&i.Song.Rating,
 			&i.Song.RadioMode,
+			&i.Song.MetadataOverrideMask,
+			&i.Song.MetadataEditedAt,
 			&i.PlaylistAddedAt,
 		); err != nil {
 			return nil, err
@@ -201,7 +203,7 @@ func (q *Queries) GetPlaylistSongs(ctx context.Context, playlistID int64) ([]Get
 }
 
 const getPlaylistSongsPaginated = `-- name: GetPlaylistSongsPaginated :many
-SELECT s.id, s.type, s.title, s.artist, s.album, s.duration, s.file_path, s.url, s.cover_path, s.cover_url, s.lyric, s.lyric_source, s.file_size, s.format, s.bit_rate, s.sample_rate, s.is_live, s.plugin_entry_path, s.source_data, s.dedup_key, s.added_at, s.updated_at, s.lyric_remote_url, s.year, s.genre, s.fingerprint, s.fingerprint_duration, s.isrc, s.cache_path, s.cue_source_path, s.cue_track_index, s.cue_audio_path, s.file_modified_at, s.track, s.language, s.style, s.is_video, s.cue_start_seconds, s.cue_end_seconds, s.fingerprint_attempted_at, s.fingerprint_error, s.disc, s.rating, s.radio_mode, ps.added_at AS playlist_added_at
+SELECT s.id, s.type, s.title, s.artist, s.album, s.duration, s.file_path, s.url, s.cover_path, s.cover_url, s.lyric, s.lyric_source, s.file_size, s.format, s.bit_rate, s.sample_rate, s.is_live, s.plugin_entry_path, s.source_data, s.dedup_key, s.added_at, s.updated_at, s.lyric_remote_url, s.year, s.genre, s.fingerprint, s.fingerprint_duration, s.isrc, s.cache_path, s.cue_source_path, s.cue_track_index, s.cue_audio_path, s.file_modified_at, s.track, s.language, s.style, s.is_video, s.cue_start_seconds, s.cue_end_seconds, s.fingerprint_attempted_at, s.fingerprint_error, s.disc, s.rating, s.radio_mode, s.metadata_override_mask, s.metadata_edited_at, ps.added_at AS playlist_added_at
 FROM songs s
 INNER JOIN playlist_songs ps ON s.id = ps.song_id
 WHERE ps.playlist_id = ?
@@ -274,6 +276,8 @@ func (q *Queries) GetPlaylistSongsPaginated(ctx context.Context, arg GetPlaylist
 			&i.Song.Disc,
 			&i.Song.Rating,
 			&i.Song.RadioMode,
+			&i.Song.MetadataOverrideMask,
+			&i.Song.MetadataEditedAt,
 			&i.PlaylistAddedAt,
 		); err != nil {
 			return nil, err

@@ -183,3 +183,70 @@ func pictureEqual(a, b *tag.Picture) bool {
 	}
 	return a.MIMEType == b.MIMEType && bytes.Equal(a.Data, b.Data)
 }
+
+func writeEditedSongTags(song *models.Song, fields []string) FileWriteStatus {
+	if len(fields) == 0 || song.FilePath == "" {
+		return FileWriteUnchanged
+	}
+	opts := tag.WriteOptions{Incremental: true}
+	for _, field := range fields {
+		var empty bool
+		switch field {
+		case tag.FieldTitle:
+			opts.Title = song.Title
+			empty = opts.Title == ""
+		case tag.FieldArtist:
+			opts.Artist = song.Artist
+			empty = opts.Artist == ""
+		case tag.FieldAlbum:
+			opts.Album = song.Album
+			empty = opts.Album == ""
+		case tag.FieldYear:
+			opts.Year = song.Year
+			empty = opts.Year == 0
+		case tag.FieldGenre:
+			opts.Genre = song.Genre
+			empty = opts.Genre == ""
+		case tag.FieldLanguage:
+			opts.Language = song.Language
+			empty = opts.Language == ""
+		case tag.FieldStyle:
+			opts.Style = song.Style
+			empty = opts.Style == ""
+		case tag.FieldTrack:
+			opts.Track = song.Track
+			empty = opts.Track == ""
+		case tag.FieldDisc:
+			opts.Disc = song.Disc
+			empty = opts.Disc == ""
+		case tag.FieldLyrics:
+			if song.LyricSource == models.LyricSourceURL {
+				continue
+			}
+			opts.Lyrics = models.UnmarshalLyric(song.Lyric).Lyric
+			empty = opts.Lyrics == ""
+		case tag.FieldPicture:
+			if song.CoverPath != "" {
+				data, err := os.ReadFile(song.CoverPath)
+				if err != nil {
+					slog.Warn("read cover for tag write", "error", err)
+					return FileWriteFailed
+				}
+				opts.Picture = &tag.Picture{MIMEType: tag.MIMETypeFromExt(filepath.Ext(song.CoverPath)), Data: data}
+			}
+			empty = song.CoverPath == "" && song.CoverURL == ""
+		}
+		if empty {
+			opts.ClearFields = append(opts.ClearFields, field)
+		}
+	}
+	err := tag.WriteTag(song.FilePath, opts)
+	if errors.Is(err, tag.ErrUnsupportedWrite) {
+		return FileWriteUnchanged
+	}
+	if err != nil {
+		slog.Warn("write edited tags", "path", song.FilePath, "error", err)
+		return FileWriteFailed
+	}
+	return FileWriteWritten
+}

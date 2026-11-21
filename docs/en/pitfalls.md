@@ -162,7 +162,7 @@ and only symlinks and unknown types fall back to `os.Stat` (following symlinks, 
 
 - `dsf` is a default scan format; keep both fallback lists in `app.go` aligned with migration `0039_scan_support_dsf.sql`, which appends it to existing configs idempotently (case-insensitive).
 - `pkg/tag` reads DSF metadata and cover art; the raw DSD sample rate may be 8 times the PCM-equivalent value reported by ffprobe. Existing metadata tests handle this difference.
-- Playback uses the existing libmpv / ffmpeg path; browsers and DLNA devices without DSD support need an explicit transcoding parameter such as `?format=mp3`; the current Flutter Web `AudioFormatHelper` does not add one automatically for DSF. DSF is outside the tag-writing matrix; use the existing fallback handling when writes are unsupported.
+- Playback uses the existing libmpv / ffmpeg path; browsers and DLNA devices without DSD support need an explicit transcoding parameter such as `?format=mp3`; the current Flutter Web `AudioFormatHelper` does not add one automatically for DSF.
 
 <a id="sidecar-lyrics"></a>
 
@@ -192,21 +192,29 @@ and only symlinks and unknown types fall back to `os.Stat` (following symlinks, 
 
 <a id="tag-writing"></a>
 
-## Tag writing (pkg/tag)
+## Tag reading and writing
 
-- `tag.WriteTag(filePath, opts)` dispatches by file extension; all formats write atomically with a temp file + `os.Rename`
-- Support matrix:
+`pkg/tag` detects the container from file contents. The incremental writers use a sibling temporary file, validate the result, check that the source is still current, and replace it atomically. A native edit preserves untouched fields and media data. Layouts that cannot be rewritten safely leave the source intact.
 
-| Format | Text fields | Lyrics | Cover |
-|------|---------|------|------|
-| MP3 | ID3v2.3 text frames | USLT | APIC |
-| FLAC | Vorbis Comment | LYRICS | PICTURE block |
-| M4A/MP4/M4B/M4V/MOV/3GP | iTunes atoms (©nam, etc.) | ©lyr | covr |
-| OGG(.ogg/.oga/.opus) | Vorbis Comment | LYRICS | METADATA_BLOCK_PICTURE (base64) |
-| APE | APEv2 text items | Lyrics | Cover Art (Front) (binary item) |
-| WAV | RIFF LIST INFO | ICMT | **Not supported** (format limitation) |
-| AIFF/AIF | ID3v2.3 (ID3 chunk) + NAME/AUTH | USLT (ID3 chunk) | APIC (ID3 chunk) |
-- Unsupported formats → return `ErrUnsupportedWrite`; the caller **must** degrade to a log entry and **must not** block the main flow
+| Format | Native read | Native write | Songloft database fields |
+|---|---|---|---|
+| DSF, ADTS AAC | ID3v2 text, year, track/disc, lyrics, artwork | Same fields in ordinary ID3v2.3/2.4 blocks | All editable fields, including explicit clears |
+| WavPack | APEv2 text, year, track/disc, lyrics, artwork | Same fields in writable trailing APEv2 items | All editable fields |
+| QuickTime MOV | Legacy QuickTime text and iTunes metadata, track/disc, lyrics, artwork | iTunes text, track/disc, lyrics and artwork in supported unfragmented layouts | All editable fields |
+| WAV | RIFF INFO text and track, ID3v2 text, disc, lyrics and artwork | INFO title, artist, album, year, genre and track. ID3 for album artist, language, style, disc, lyrics and artwork | All editable fields |
+| DSDIFF DFF | DIIN title/artist, compatible ID3 tags, DSD/DST stream parameters | DIIN title and artist when the edit preserves index offsets | All editable fields. Album, year, genre, language, style, track, disc, lyrics and artwork use database storage |
+| Matroska MKA/MKV | Primary audio track text, year, track/disc and lyrics, cover attachments | Same track fields. Add a cover or replace a supported cover attachment | All editable fields. Cover removal with an existing attachment UID uses database storage |
+| WebM | Primary audio track text, year, track/disc and lyrics | Same track fields | All editable fields. Artwork uses database storage |
+| ASF WMA/WMV | Content Description and mapped extended fields, including a front cover when present | Existing title, artist, album/album artist, year, genre, language, style, track/disc and lyrics slots within the original header extent | All editable fields. Artwork uses database storage |
+| AVI | RIFF INFO title, artist, album, year, genre, track and comment | Title, artist, album, year, genre and track in a compatible single-segment AVI | All editable fields. OpenDML edits use database storage |
+| FLV | AMF0 `onMetaData` text, year, track/disc and lyrics | Replace recognized strings when their encoded length stays the same | All editable fields. Artwork, missing strings and strings that change length use database storage |
+| RealMedia RM/RMVB | CONT title, author, copyright and comment | Existing title and author within the original content block | All editable fields. Other fields use database storage |
+| DTS/DTS-HD, MPEG-TS, MPEG-PS | DTS technical parameters. MPEG service and stream descriptions where present | Database storage | All editable fields. Service names stay scoped to their services |
+| MP3, FLAC, M4A/MP4/M4B/M4V/3GP, Ogg/Opus, APE, AIFF | Existing text, lyrics and artwork mappings | Existing ID3, Vorbis Comment, iTunes and APEv2 writers | Existing editing behavior |
+
+For independent local files in the expanded formats, `PUT /songs/{id}/tags` saves manual values, a per-song field bitmask, and the last manual edit time in one transaction. Existing clients can continue sending nonempty fields. Use `clear_fields` for explicit clears and `clear_cover` to clear artwork. Ordinary and incremental scans preserve marked fields, including empty values. In **Reimport**, optionally enable **Reset manual metadata edits**. The API sends `reset_metadata_overrides: true` with `reimport: true`; the reset applies to selected directories, or to the music root when none are selected. A successful file read restores existing scan values and clears the corresponding marks. Failed reads and cancellation before the transaction completes retain the marks. A song edited after the scan began keeps all its manual fields for that run. Full SQLite backups include these markers. Playlist JSON uses its existing schema.
+
+New installs and upgrades include AAC, DFF and WavPack in the supported scan formats. Their default local audio playback uses MP3 with Range support. Clients can specify an output format explicitly.
 
 <a id="fingerprints"></a>
 

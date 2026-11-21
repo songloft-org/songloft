@@ -1372,7 +1372,7 @@ func (h *SongHandler) GetSongCover(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 本地封面和远程 URL 都不存在时，尝试从已注册的封面提供者插件获取
-	if h.coverSearcher != nil {
+	if h.coverSearcher != nil && !song.MetadataOverrideMask.Has(models.MetadataOverridePicture) {
 		if coverURL, err := h.coverSearcher.SearchCover(ctx, song.Title, song.Artist, song.Album, song.Fingerprint, song.ISRC); err == nil && coverURL != "" {
 			go h.songService.UpdateCoverURL(context.Background(), song.ID, coverURL)
 			resolvedURL := coverURL
@@ -1511,7 +1511,7 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // @Produce application/octet-stream
 // @Param id path int true "歌曲 ID"
 // @Param access_token query string false "无法发送 Authorization 头时使用的访问 token"
-// @Param format query string false "目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3"
+// @Param format query string false "目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts、.wv、.aac、.dff 音频默认转为 MP3"
 // @Param quality query string false "目标音质码率（128/192/320），不传或不合法值表示原始音质。指定后默认转码为 mp3（除非同时指定了 format）"
 // @Param track query int false "抽取指定音频流播放（audio-relative 0-based，对应 ffmpeg -map 0:a:N）。用于 Web 端双音轨（原唱/伴奏 mka）切轨：后端抽出单条音轨，AAC 编码时无损 remux 成 m4a、否则转 mp3。缺省/负数=不抽轨；与 media=video 互斥"
 // @Param prefetch query string false "传 1 时异步预热缓存/转码，立即返回 202"
@@ -1611,8 +1611,14 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 	}
 	normalize = normalize && !videoIntent
 	// 裸 DTS 在浏览器和部分原生播放器中无法直接播放，共用现有 MP3 转码及预热链路。
-	localDTS := song.Type == models.TypeLocal && strings.EqualFold(filepath.Ext(song.FilePath), ".dts")
-	if !videoIntent && targetFormat == "" && (normalize || localDTS) {
+	var compatibilityTranscode bool
+	if song.Type == models.TypeLocal {
+		switch strings.ToLower(filepath.Ext(song.FilePath)) {
+		case ".dts", ".wv", ".aac", ".dff":
+			compatibilityTranscode = true
+		}
+	}
+	if !videoIntent && targetFormat == "" && (normalize || compatibilityTranscode) {
 		targetFormat = "mp3"
 	}
 
@@ -2917,9 +2923,9 @@ func (h *SongHandler) GetSongLyric(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 歌词为空时（或手动刷新且非权威来源时），尝试从已注册的歌词提供者插件获取
-	if payload.IsEmpty() && h.lyricSearcher != nil {
+	if payload.IsEmpty() && h.lyricSearcher != nil && !song.MetadataOverrideMask.Has(models.MetadataOverrideLyrics) {
 		if found, err := h.lyricSearcher.SearchLyrics(ctx, song.Title, song.Artist, song.Album, song.Duration, song.Fingerprint, song.ISRC); err == nil && found != nil && !found.IsEmpty() {
-			go h.songService.UpdateLyrics(context.Background(), song.ID, found.MarshalString(), models.LyricSourceScraped, "")
+			go h.songService.StoreScrapedLyrics(context.Background(), song.ID, found.MarshalString())
 			payload = *found
 		}
 	}
@@ -2947,26 +2953,27 @@ func (h *SongHandler) GetSongLyric(w http.ResponseWriter, r *http.Request) {
 
 // WriteSongTagsRequest 写入歌曲标签的请求体。
 type WriteSongTagsRequest struct {
-	Title      string `json:"title"`
-	Artist     string `json:"artist"`
-	Album      string `json:"album"`
-	Year       int    `json:"year"`
-	Genre      string `json:"genre"`
-	Language   string `json:"language"`
-	Style      string `json:"style"`
-	Track      string `json:"track"`
-	Disc       string `json:"disc"`
-	Lyrics     string `json:"lyrics"`
-	CoverData  string `json:"cover_data"`
-	CoverURL   string `json:"cover_url"`
-	ClearCover bool   `json:"clear_cover"`
+	Title       string   `json:"title"`
+	Artist      string   `json:"artist"`
+	Album       string   `json:"album"`
+	Year        int      `json:"year"`
+	Genre       string   `json:"genre"`
+	Language    string   `json:"language"`
+	Style       string   `json:"style"`
+	Track       string   `json:"track"`
+	Disc        string   `json:"disc"`
+	Lyrics      string   `json:"lyrics"`
+	CoverData   string   `json:"cover_data"`
+	CoverURL    string   `json:"cover_url"`
+	ClearCover  bool     `json:"clear_cover"`
+	ClearFields []string `json:"clear_fields,omitempty"` // 显式清空字段，例如 ["artist","lyrics"]。
 	// RenameFile 为 true 时按新标题重命名本地音频文件（保留原目录与扩展名），仅对本地非 CUE 歌曲生效。
 	RenameFile bool `json:"rename_file"`
 }
 
 // WriteTags 写入歌曲标签
 // @Summary 写入歌曲标签
-// @Description 将元数据写入数据库和本地音频文件标签（仅本地歌曲）。cover_data(base64) 优先于 cover_url。非空字段覆盖，空值保留原值。设置 clear_cover=true 可显式清空封面。rename_file=true 时按 "{artist} - {title}" 重命名本地音频文件（保留原目录与扩展名，artist 为空则回退为仅 title，多歌手由 artist 中的 " & " 分隔符体现；仅本地非 CUE 歌曲生效）；标题清理后为空或目标文件名已存在时返回 400，与原文件同名则不移动仅写库。
+// @Description 将元数据写入数据库和本地音频文件标签（仅本地歌曲）。cover_data(base64) 优先于 cover_url。非空字段覆盖，空值保留原值。设置 clear_cover=true 可显式清空封面。clear_fields 可显式清空指定字段。rename_file=true 时按 "{artist} - {title}" 重命名本地音频文件（保留原目录与扩展名，artist 为空则回退为仅 title，多歌手由 artist 中的 " & " 分隔符体现；仅本地非 CUE 歌曲生效）；标题清理后为空或目标文件名已存在时返回 400，与原文件同名则不移动仅写库。
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
@@ -3002,38 +3009,56 @@ func (h *SongHandler) WriteTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Title != "" {
-		song.Title = req.Title
+	fields := make([]string, 0, 11)
+	clear := make(map[string]bool, len(req.ClearFields))
+	for _, field := range req.ClearFields {
+		if !services.IsMetadataField(field) || field == "title" && !services.SupportsMetadataOverrides(song) {
+			respondError(w, http.StatusBadRequest, "不支持清空该字段", nil)
+			return
+		}
+		clear[field] = true
 	}
-	if req.Artist != "" {
-		song.Artist = req.Artist
-	}
-	if req.Album != "" {
-		song.Album = req.Album
-	}
-	if req.Year > 0 {
+	if req.Year > 0 || clear["year"] {
+		fields = append(fields, "year")
+		if clear["year"] {
+			req.Year = 0
+		}
 		song.Year = req.Year
 	}
-	if req.Genre != "" {
-		song.Genre = req.Genre
-	}
-	if req.Language != "" {
-		song.Language = req.Language
-	}
-	if req.Style != "" {
-		song.Style = req.Style
-	}
-	if req.Track != "" {
-		song.Track = req.Track
-	}
-	if req.Disc != "" {
-		song.Disc = req.Disc
-	}
-	if req.Lyrics != "" {
-		song.Lyric = models.LyricPayloadFromLRC(req.Lyrics).MarshalString()
-		song.LyricSource = models.LyricSourceManual
+	for _, entry := range []struct {
+		field, value string
+		dst          *string
+	}{
+		{"title", req.Title, &song.Title}, {"artist", req.Artist, &song.Artist}, {"album", req.Album, &song.Album},
+		{"genre", req.Genre, &song.Genre}, {"language", req.Language, &song.Language}, {"style", req.Style, &song.Style},
+		{"track", req.Track, &song.Track}, {"disc", req.Disc, &song.Disc},
+	} {
+		if clear[entry.field] {
+			*entry.dst = ""
+		} else if entry.value != "" {
+			*entry.dst = entry.value
+		} else {
+			continue
+		}
+		fields = append(fields, entry.field)
 	}
 
+	if req.Lyrics != "" || clear["lyrics"] {
+		fields = append(fields, "lyrics")
+		if clear["lyrics"] {
+			req.Lyrics = ""
+		}
+		song.Lyric = models.LyricPayloadFromLRC(req.Lyrics).MarshalString()
+		song.LyricSource = models.LyricSourceManual
+		song.LyricRemoteURL = ""
+	}
+
+	if clear["picture"] {
+		req.CoverData, req.CoverURL, req.ClearCover = "", "", true
+	}
+	if req.CoverData != "" || req.CoverURL != "" || req.ClearCover {
+		fields = append(fields, "picture")
+	}
 	if req.CoverData != "" {
 		data, err := base64.StdEncoding.DecodeString(req.CoverData)
 		if err != nil {
@@ -3050,6 +3075,7 @@ func (h *SongHandler) WriteTags(w http.ResponseWriter, r *http.Request) {
 			song.CoverURL = ""
 		} else {
 			song.CoverPath = coverPath
+			song.CoverURL = ""
 		}
 	} else if req.CoverURL != "" {
 		if coverPath, err := h.songService.DownloadCover(ctx, req.CoverURL); err != nil {
@@ -3065,19 +3091,15 @@ func (h *SongHandler) WriteTags(w http.ResponseWriter, r *http.Request) {
 		song.CoverURL = ""
 	}
 
-	// rename_file=true 且为本地非 CUE 歌曲时，按新标题重命名文件（内部完成文件移动 + DB 写回）；
-	// 否则走普通 DB 更新。两种路径完成后都用最新 FilePath 写文件标签。
-	if req.RenameFile && song.Type == models.TypeLocal && song.CueSourcePath == "" {
-		if _, err := h.songService.RenameLocalSongFile(ctx, song, song.Title); err != nil {
+	song, fileWrite, err := h.songService.EditLocalMetadata(ctx, song, fields, req.RenameFile)
+	if err != nil {
+		if req.RenameFile {
 			respondError(w, http.StatusBadRequest, "重命名文件失败", err)
-			return
+		} else {
+			respondError(w, http.StatusInternalServerError, "更新歌曲失败", err)
 		}
-	} else if err := h.songService.Update(ctx, song); err != nil {
-		respondError(w, http.StatusInternalServerError, "更新歌曲失败", err)
 		return
 	}
-
-	fileWrite := services.WriteSongTags(song.FilePath, song)
 
 	respondJSON(w, http.StatusOK, map[string]any{
 		"song":       song,

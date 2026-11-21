@@ -109,3 +109,72 @@ func TestScanSupportDSFMigration(t *testing.T) {
 		})
 	}
 }
+
+func TestSongMetadataAndScanFormatsMigration(t *testing.T) {
+	ctx := context.Background()
+	db := testutil.OpenMemoryDB(t)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, db.DB(), os.DirFS("migrations"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.DownTo(ctx, 45); err != nil {
+		t.Fatal(err)
+	}
+	repo := db.ConfigRepository()
+	const before = `{"supported_formats":["FLAC","WV","aAc"],"auto_scan":true,"scan_interval":17}`
+	if err := repo.Set(ctx, &models.Config{Key: "scan_config", Value: before}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := db.DB().ExecContext(ctx, "INSERT INTO songs(type, title, file_path) VALUES ('local', 'Existing title', '/music/track.wav')")
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 46); err != nil {
+		t.Fatal(err)
+	}
+	song, err := db.SongRepository().GetByID(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if song.Title != "Existing title" || song.MetadataOverrideMask != 0 || song.MetadataEditedAt != 0 {
+		t.Fatalf("unexpected migrated song: title=%q, mask=%d, editedAt=%d", song.Title, song.MetadataOverrideMask, song.MetadataEditedAt)
+	}
+
+	migration, err := os.ReadFile("migrations/0046_song_metadata_and_scan_formats.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	upSQL, _, _ := strings.Cut(string(migration), "-- +goose Down")
+	_, configSQL, found := strings.Cut(upSQL, "UPDATE configs")
+	if !found {
+		t.Fatal("missing scan config update")
+	}
+	if _, err := db.DB().ExecContext(ctx, "UPDATE configs"+configSQL); err != nil {
+		t.Fatal(err)
+	}
+	config, err := repo.Get(ctx, "scan_config")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		SupportedFormats []string `json:"supported_formats"`
+		AutoScan         bool     `json:"auto_scan"`
+		ScanInterval     int      `json:"scan_interval"`
+	}
+	if err := json.Unmarshal([]byte(config.Value), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got.SupportedFormats, []string{"FLAC", "WV", "aAc", "dff"}) || !got.AutoScan || got.ScanInterval != 17 {
+		t.Fatalf("unexpected scan config %s", config.Value)
+	}
+	if _, err := provider.DownTo(ctx, 45); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 46); err != nil {
+		t.Fatal(err)
+	}
+}

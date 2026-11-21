@@ -10,7 +10,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc, rating, radio_mode
+    fingerprint_error, disc, rating, radio_mode, metadata_override_mask, metadata_edited_at
 FROM songs WHERE id = ?;
 
 -- name: CreateSong :execlastid
@@ -175,7 +175,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc, rating, radio_mode
+    fingerprint_error, disc, rating, radio_mode, metadata_override_mask, metadata_edited_at
 FROM songs WHERE cache_path != '';
 
 -- name: ListSongsNeedingMetadata :many
@@ -192,23 +192,25 @@ WHERE (
 );
 
 -- name: UpdateSongMetadata :exec
+-- Manual bits follow models.SongMetadataMask values (title, artist, album, picture).
 UPDATE songs SET
     duration    = CASE WHEN duration = 0    AND ? > 0   THEN ? ELSE duration END,
     bit_rate    = CASE WHEN bit_rate = 0    AND ? > 0   THEN ? ELSE bit_rate END,
     sample_rate = CASE WHEN sample_rate = 0 AND ? > 0   THEN ? ELSE sample_rate END,
     format      = CASE WHEN format = ''     AND ? != '' THEN ? ELSE format END,
-    title       = CASE WHEN title = ''      AND ? != '' THEN ? ELSE title END,
-    artist      = CASE WHEN artist = ''     AND ? != '' THEN ? ELSE artist END,
-    album       = CASE WHEN album = ''      AND ? != '' THEN ? ELSE album END,
-    cover_path  = CASE WHEN cover_path = '' AND ? != '' THEN ? ELSE cover_path END,
+    title       = CASE WHEN title = ''      AND ? != '' AND (metadata_override_mask & 1) = 0 THEN ? ELSE title END,
+    artist      = CASE WHEN artist = ''     AND ? != '' AND (metadata_override_mask & 2) = 0 THEN ? ELSE artist END,
+    album       = CASE WHEN album = ''      AND ? != '' AND (metadata_override_mask & 4) = 0 THEN ? ELSE album END,
+    cover_path  = CASE WHEN cover_path = '' AND ? != '' AND (metadata_override_mask & 1024) = 0 THEN ? ELSE cover_path END,
     updated_at  = CURRENT_TIMESTAMP
 WHERE id = ?;
 
 -- name: UpdateSongTagFields :exec
+-- Manual bits follow models.SongMetadataMask values (title, artist, album).
 UPDATE songs SET
-    title  = CASE WHEN ? != '' THEN ? ELSE title END,
-    artist = CASE WHEN ? != '' THEN ? ELSE artist END,
-    album  = CASE WHEN ? != '' THEN ? ELSE album END,
+    title  = CASE WHEN ? != '' AND (metadata_override_mask & 1) = 0 THEN ? ELSE title END,
+    artist = CASE WHEN ? != '' AND (metadata_override_mask & 2) = 0 THEN ? ELSE artist END,
+    album  = CASE WHEN ? != '' AND (metadata_override_mask & 4) = 0 THEN ? ELSE album END,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?;
 

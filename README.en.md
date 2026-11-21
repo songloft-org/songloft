@@ -45,7 +45,7 @@
 
 ## ✨ Core Features
 
-- 🎵 **Local music management** — Scans local directories and automatically extracts covers and metadata from MP3/FLAC/WAV/APE/OGG/Opus/M4A/M4B/WMA/AIF/AIFF/MKA/DSF (DSD) and other formats
+- 🎵 **Local music management** — Scans local directories and automatically extracts covers and metadata from MP3/FLAC/WAV/APE/OGG/Opus/M4A/M4B/WMA/AIF/AIFF/MKA/DSF (DSD)/AAC (ADTS)/DFF/WavPack and other formats
 - 🎬 **Video support** — Scans video containers such as MP4/MOV/M4V/MKV/WebM/AVI/TS/MPG/MPEG/FLV/WMV/RM/RMVB/3GP, detects real video tracks, and renders the picture in-app
 - 🧩 **JS plugin system** — Runs on a QuickJS sandbox with a permission model, health checks, and hot reload; freely extend audio sources / metadata / device control and more
 - 📱 **Cross-platform clients** — Flutter covers mobile, desktop, and Web. Lynx covers Android, iOS, Windows, macOS, HarmonyOS, and Web
