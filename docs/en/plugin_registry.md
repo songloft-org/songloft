@@ -222,6 +222,10 @@ If refresh finds the selected source removed or disabled, it falls back to all e
 
 Source settings and installed plugins still come from Songloft; installation and updates still run on the server. Web falls back to the existing server reader on CORS or connection failures. Native clients retain successful entries and report failed requests as warnings. The first result can usually appear earlier, while total time depends on client connectivity, source responses and whether Web needs fallback.
 
+## GitHub Discovery Icons
+
+Set `icon` in the root `plugin.json` on the default branch to show the icon in the GitHub discovery list and details. A bare filename such as `icon.svg` resolves under `static/`. A path such as `frontend/public/icon.svg` resolves from the repository root. Clients support SVG and bitmap formats they can decode. Missing or unavailable icons fall back to the first character of the plugin name.
+
 ## GitHub Discovery Token
 
 Flutter and Lynx provide a GitHub Token entry at the top of the GitHub discovery page, with save, replace, and clear actions. The token is stored on the connected Songloft server and read when the client enters the page or explicitly refreshes it. Discovery requests still originate from the client.

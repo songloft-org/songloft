@@ -222,6 +222,10 @@ Flutter 和 Lynx 的商店由客户端请求注册表、递归 `includes` 与插
 
 源配置和已安装插件仍从 Songloft 服务器读取，安装与更新仍由服务器执行。Web 遇到跨域或连接失败时回退现有服务器读取接口；原生客户端保留已成功的条目并显示失败警告。首条结果通常更早可见，实际总耗时仍取决于客户端网络、源响应和 Web 是否需要回退。
 
+## GitHub 发现图标
+
+在默认分支根目录的 `plugin.json` 中声明 `icon`，图标就会在 GitHub 发现列表和详情中显示。单文件名（如 `icon.svg`）从 `static/` 读取，带目录的路径（如 `frontend/public/icon.svg`）从仓库根目录读取。支持 SVG 和客户端可解码的位图。缺省或加载失败时显示插件名首字。
+
 ## GitHub 发现 Token
 
 Flutter 和 Lynx 的「GitHub 发现」页顶部提供 GitHub Token 配置入口，支持保存、更换和清除。Token 保存在当前连接的 Songloft 服务器，客户端进入页面或主动刷新时重新读取；发现请求仍由客户端发起。
