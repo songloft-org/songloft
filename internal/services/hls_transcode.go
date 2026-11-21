@@ -122,15 +122,26 @@ func (s *HLSTranscodeService) StreamAudio(ctx context.Context, w io.Writer, opts
 		return hlsError(500, "无法初始化直播拉流服务")
 	}
 	defer gateway.Close()
-	args := append([]string{"-nostdin", "-hide_banner", "-loglevel", "error"}, hlsInputArgs("hls,mpegts,mov,flv")...)
+	args := append([]string{"-nostdin", "-hide_banner", "-loglevel", "error"}, hlsInputArgs("hls,mpegts,mov,flv,mp3,aac,ogg,flac,wav,asf")...)
 	args = append(args, "-rw_timeout", "15000000", "-re", "-i", gateway.URL(opts.URL),
-		"-map", "0:a:0", "-vn", "-c:a", "libmp3lame", "-b:a", "128k",
+		"-map", "0:a:0", "-vn", "-c:a", "libmp3lame", "-b:a", "128k", "-ar", "48000", "-ac", "2",
 		"-write_xing", "0", "-id3v2_version", "0", "-f", "mp3", "pipe:1")
-	err = streamRadio(ctx, w, ffmpeg, args, s.startupTimeout)
-	if errors.Is(err, ErrRadioTranscodeUnavailable) {
-		return gateway.failure("无法从直播源提取音频")
+	for resumed := false; ; resumed = true {
+		started := time.Now()
+		eof, err := streamRadio(ctx, w, ffmpeg, args, s.startupTimeout, resumed)
+		if resumed && err != nil {
+			// The response already contains MP3. Never append a JSON startup error.
+			slog.Debug("radio audio restart failed", "status", HLSTranscodeStatus(err))
+			return nil
+		}
+		if errors.Is(err, ErrRadioTranscodeUnavailable) {
+			return gateway.failure("无法从直播源提取音频")
+		}
+		if !eof || !gateway.liveFLV.Load() || (resumed && time.Since(started) < 3*time.Second) {
+			return err
+		}
+		slog.Debug("live FLV input ended, reopening radio entry")
 	}
-	return err
 }
 
 // Create 预留共享转码槽位；只有首个完整分片和播放列表就绪后才交付会话。

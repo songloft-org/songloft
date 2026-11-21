@@ -7545,14 +7545,19 @@ paths:
       - 歌曲管理
   /songs/{id}/play:
     get:
-      description: 按 song.ID 流式播放。内部根据 song.type 分发到本地文件、网络歌曲或电台。HLS 电台返回播放列表或 302；HTTP-FLV
-        电台通过 play.flv 返回原始 FLV；配置为 audio_only 的电台返回首条音轨转码得到的 MP3。
+      description: 按 song.ID 流式播放。HLS 电台返回播放列表或 302，HTTP-FLV 电台通过 play.flv 返回原始 FLV。play.mp3
+        仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play
+        返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。
       parameters:
       - description: 歌曲 ID
         in: path
         name: id
         required: true
         type: integer
+      - description: 无法发送 Authorization 头时使用的访问 token
+        in: query
+        name: access_token
+        type: string
       - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3
         in: query
         name: format
@@ -7630,7 +7635,7 @@ paths:
               type: string
             type: object
         "404":
-          description: 歌曲不存在
+          description: 歌曲不存在或不适用播放路径
           schema:
             type: string
         "502":
@@ -7656,14 +7661,19 @@ paths:
       - 歌曲管理
   /songs/{id}/play.flv:
     get:
-      description: 按 song.ID 流式播放。内部根据 song.type 分发到本地文件、网络歌曲或电台。HLS 电台返回播放列表或 302；HTTP-FLV
-        电台通过 play.flv 返回原始 FLV；配置为 audio_only 的电台返回首条音轨转码得到的 MP3。
+      description: 按 song.ID 流式播放。HLS 电台返回播放列表或 302，HTTP-FLV 电台通过 play.flv 返回原始 FLV。play.mp3
+        仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play
+        返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。
       parameters:
       - description: 歌曲 ID
         in: path
         name: id
         required: true
         type: integer
+      - description: 无法发送 Authorization 头时使用的访问 token
+        in: query
+        name: access_token
+        type: string
       - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3
         in: query
         name: format
@@ -7741,7 +7751,7 @@ paths:
               type: string
             type: object
         "404":
-          description: 歌曲不存在
+          description: 歌曲不存在或不适用播放路径
           schema:
             type: string
         "502":
@@ -7767,14 +7777,19 @@ paths:
       - 歌曲管理
   /songs/{id}/play.m3u8:
     get:
-      description: 按 song.ID 流式播放。内部根据 song.type 分发到本地文件、网络歌曲或电台。HLS 电台返回播放列表或 302；HTTP-FLV
-        电台通过 play.flv 返回原始 FLV；配置为 audio_only 的电台返回首条音轨转码得到的 MP3。
+      description: 按 song.ID 流式播放。HLS 电台返回播放列表或 302，HTTP-FLV 电台通过 play.flv 返回原始 FLV。play.mp3
+        仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play
+        返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。
       parameters:
       - description: 歌曲 ID
         in: path
         name: id
         required: true
         type: integer
+      - description: 无法发送 Authorization 头时使用的访问 token
+        in: query
+        name: access_token
+        type: string
       - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3
         in: query
         name: format
@@ -7852,7 +7867,123 @@ paths:
               type: string
             type: object
         "404":
-          description: 歌曲不存在
+          description: 歌曲不存在或不适用播放路径
+          schema:
+            type: string
+        "502":
+          description: 音源不可用或电台纯音频转码失败
+          schema:
+            type: string
+        "503":
+          description: 纯音频转码工具不可用或并发已满
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "504":
+          description: 纯音频转码启动超时
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 流式播放歌曲
+      tags:
+      - 歌曲管理
+  /songs/{id}/play.mp3:
+    get:
+      description: 按 song.ID 流式播放。HLS 电台返回播放列表或 302，HTTP-FLV 电台通过 play.flv 返回原始 FLV。play.mp3
+        仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play
+        返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。
+      parameters:
+      - description: 歌曲 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 无法发送 Authorization 头时使用的访问 token
+        in: query
+        name: access_token
+        type: string
+      - description: 目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3
+        in: query
+        name: format
+        type: string
+      - description: 目标音质码率（128/192/320），不传或不合法值表示原始音质。指定后默认转码为 mp3（除非同时指定了 format）
+        in: query
+        name: quality
+        type: string
+      - description: 抽取指定音频流播放（audio-relative 0-based，对应 ffmpeg -map 0:a:N）。用于 Web
+          端双音轨（原唱/伴奏 mka）切轨：后端抽出单条音轨，AAC 编码时无损 remux 成 m4a、否则转 mp3。缺省/负数=不抽轨；与 media=video
+          互斥
+        in: query
+        name: track
+        type: integer
+      - description: 传 1 时异步预热缓存/转码，立即返回 202
+        in: query
+        name: prefetch
+        type: string
+      - description: 传 video 时按视频播放：直出原容器（忽略 format/quality 转码，避免 -vn 丢画面），并按容器真实类型返回
+          Content-Type（如 video/mp4）。用于应用内视频画面渲染与 DLNA 视频投屏
+        in: query
+        name: media
+        type: string
+      - description: 仅电台(HLS)有效。传 direct 时强制 302 直连源站、绕过本机 HLS 反代（即使 /settings/hls-proxy
+          已开）。原生 player 无 CORS 限制，直连可避免直播切片经反代往返后过期(404)；浏览器不传此参数以继续走反代解决 CORS
+        in: query
+        name: hls
+        type: string
+      - description: 传 1 显式开启、0 显式关闭 EBU R128 音量均衡；不传时由服务端 /settings/volume-normalize
+          配置决定（默认关闭）。启用后使用 ffmpeg loudnorm=I=-16:LRA=11:TP=-1.5 消除不同音源之间的响度落差。需要重编码，未同时指定
+          format 时默认转为 mp3。均衡产物有独立缓存（文件名带 norm. 标记）；产物尚未生成时服务端边转边发一条 chunked MP3 流（无
+          Content-Length、不可 Range、Cache-Control 为 no-store），因此首字节不必等整首转完。media=video
+          忽略（-vn 会丢画面）；缺 ffmpeg 时优雅降级为原始音频
+        in: query
+        name: normalize
+        type: string
+      - description: 仅电台有效。传目标格式（如 mp3）时，服务端用 ffmpeg 把电台流实时转码为该格式（HLS 与裸流均适用）。用于只支持
+          MP3、无法解码 AAC/HE-AAC 或不支持 HLS 的音箱。缺 ffmpeg 或坏源时优雅降级为原样代理/302。与 format 分离：电台侧忽略
+          format，只认此参数
+        in: query
+        name: radio_transcode
+        type: string
+      - description: 从第 N 秒起播。面向不支持 HTTP Range seek 的推流客户端（如小爱音箱经 player_play_url
+          只会从头拉流）：服务端用 ffmpeg input seek 产出一条以第 N 秒为开头的 chunked MP3 流，因此响应无 Content-Length、不可
+          Range、Cache-Control 为 no-store；浏览器等支持 Range 的客户端请用 Range 而非此参数。仅本地歌曲与已缓存的网络歌曲有效（电台是直播、未缓存的网络歌曲会阻塞整首下载，均忽略）；media=video
+          与 HEAD 忽略；缺 ffmpeg / seek 越过时长时优雅降级为从头完整播放
+        in: query
+        name: seek
+        type: number
+      - description: 播放倍速，取值夹到 [0.5, 2.0]（超出该区间需要链式拼接多个 atempo，暂不支持）。服务端用 ffmpeg atempo
+          滤镜实时变速不变调，产出 chunked MP3 流（同 seek，无 Content-Length、不可 Range）；可与 seek/normalize
+          组合，由同一条 ffmpeg 一起处理。仅本地歌曲与已缓存的网络歌曲有效；电台、media=video、HEAD 忽略；缺 ffmpeg 或值非法时优雅降级为原速播放
+        in: query
+        name: speed
+        type: number
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: 音频文件
+          schema:
+            type: file
+        "202":
+          description: 预拉取已触发
+          schema:
+            type: string
+        "302":
+          description: 电台流重定向
+          schema:
+            type: string
+        "403":
+          description: 纯音频转码的源或其子资源不在允许范围内
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 歌曲不存在或不适用播放路径
           schema:
             type: string
         "502":

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"songloft/internal/database/testutil"
@@ -40,13 +41,26 @@ func TestFLVRadioPlaybackAndCompatibilitySession(t *testing.T) {
 		t.Fatal(err)
 	}
 	var pulls atomic.Int32
+	var entries atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/watch" {
 			http.Redirect(w, r, "/live", http.StatusFound)
 			return
 		}
+		if r.URL.Path == "/rolling" {
+			http.Redirect(w, r, fmt.Sprintf("/live?session=%d", entries.Add(1)), http.StatusFound)
+			return
+		}
 		pulls.Add(1)
 		w.Header().Set("Content-Type", "application/octet-stream")
+		if r.URL.Query().Get("session") == "1" {
+			w.(http.Flusher).Flush() // First CDN response has no length and ends at EOF.
+		} else {
+			if r.URL.Query().Get("session") == "2" {
+				time.Sleep(700 * time.Millisecond)
+			}
+			w.Header().Set("Content-Length", fmt.Sprint(len(flv)))
+		}
 		_, _ = w.Write(flv)
 	}))
 	defer upstream.Close()
@@ -85,6 +99,8 @@ func TestFLVRadioPlaybackAndCompatibilitySession(t *testing.T) {
 	router.Get("/api/v1/songs/{id}/play", handler.GetSongPlay)
 	router.Get("/api/v1/songs/{id}/play.flv", handler.GetSongPlay)
 	router.Head("/api/v1/songs/{id}/play.flv", handler.GetSongPlay)
+	router.Get("/api/v1/songs/{id}/play.mp3", handler.GetSongPlay)
+	router.Head("/api/v1/songs/{id}/play.mp3", handler.GetSongPlay)
 	router.Post("/api/v1/songs/{id}/hls/sessions", hls.CreateRadio(songs))
 	router.Get(sessions+"/{id}/playlist.m3u8", hls.Playlist)
 	router.Get(sessions+"/{id}/segments/{name}", hls.Segment)
@@ -157,6 +173,44 @@ func TestFLVRadioPlaybackAndCompatibilitySession(t *testing.T) {
 	if output, err := probe.CombinedOutput(); err != nil || strings.TrimSpace(string(output)) != "mp3" {
 		t.Fatalf("expected a single MP3 track: %v: %s", err, output)
 	}
+
+	t.Run("live audio reopens the original entry within the response", func(t *testing.T) {
+		request(http.MethodPut, songPath, fmt.Sprintf(`{"title":"FLV","url":%q}`, upstream.URL+"/rolling"), token, 200)
+		stream := request(http.MethodGet, songPath+"/play", "", token, 200)
+		if got := entries.Load(); got != 2 {
+			t.Fatalf("opened the redirect entry %d times, want 2", got)
+		}
+		if stream.Body.Len() < 2*audio.Body.Len() {
+			t.Fatalf("response has %d bytes, want two MP3 streams and silence", stream.Body.Len())
+		}
+		silentFrame := make([]byte, 384)
+		copy(silentFrame, []byte{0xff, 0xfb, 0x94, 0x04})
+		if !bytes.Contains(stream.Body.Bytes(), bytes.Repeat(silentFrame, 12)) {
+			t.Fatal("missing MP3 silence between upstream connections")
+		}
+		decode := exec.Command("ffmpeg", "-v", "error", "-xerror", "-i", "pipe:0", "-f", "null", "-")
+		decode.Stdin = bytes.NewReader(stream.Body.Bytes())
+		if output, err := decode.CombinedOutput(); err != nil {
+			t.Fatalf("decode reconnected MP3: %v: %s", err, output)
+		}
+	})
+
+	t.Run("speaker MP3 path needs only the access token", func(t *testing.T) {
+		request(http.MethodPut, songPath, fmt.Sprintf(`{"title":"FLV","url":%q,"radio_mode":"flv"}`, source), token, 200)
+		path := songPath + "/play.mp3?access_token=" + url.QueryEscape(token)
+		request(http.MethodHead, songPath+"/play.mp3", "", "", 401)
+		before := pulls.Load()
+		head := request(http.MethodHead, path, "", "", 200)
+		if head.Header().Get("Content-Type") != "audio/mpeg" || head.Body.Len() != 0 || pulls.Load() != before {
+			t.Fatal("HEAD must identify MP3 without fetching the upstream")
+		}
+		mp3 := request(http.MethodGet, path, "", "", 200)
+		if mp3.Header().Get("Content-Type") != "audio/mpeg" || !bytes.Equal(mp3.Body.Bytes(), audio.Body.Bytes()) {
+			t.Fatal("the explicit MP3 route did not transcode the FLV station")
+		}
+		cache.SetFFmpegPath("")
+		request(http.MethodGet, path, "", "", 503)
+	})
 }
 
 func TestRadioPlaybackModes(t *testing.T) {

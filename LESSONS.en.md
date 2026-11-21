@@ -92,6 +92,14 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 - Rule and example: Persist the source container and publish a playback URL that identifies it. Create HLS sessions only for active clients that need compatible output and release them on cancellation. Retry ordinary interruptions on the original path. Use one browser media element for direct playback and fullscreen, and verify playback time, decoded frames, and the number of upstream requests.
 - Seen 1× (2026-11-19).
 
+### RADIO-003: Reopen the station entry when a live FLV feed ends
+
+- Scope is the [songloft-org/songloft#579 follow-up logs](https://github.com/songloft-org/songloft/issues/579#issuecomment-7056482402), backend baseline `47458a95dae6f8e5560814c6c71dc4267bea62f8`.
+- Evidence: the attachment recorded a playback request of about 123 seconds. The two reported Huya stations ended at roughly 128 and 131 seconds on the local baseline. A controlled FLV fixture showed that the old handler ended the response after opening the redirect entry once.
+- Approach: after a clean EOF, reopen the saved station entry for a fresh redirect within the same MP3 response. Send a bounded amount of silence at the frame rate while waiting for audio. The fixture checks the second entry request, decodability across the MP3 join, EOF for fixed-length media, and playback from the explicit MP3 path with only a query token.
+- Verification: both Huya stations ran for 155 seconds on each of `/play` and `/play.mp3`, with a maximum gap of about 0.30 seconds between reads in the same response. Docker Chrome played a fixture that ends after six seconds through two upstream requests, reaching 9.19 seconds with one playback response and no `waiting` events after startup.
+- Seen 1× (2026-11-21).
+
 ### LYNX-CACHE-001: Reference versioned host scripts directly from the fallback page
 
 - Scope: Lynx plugin fallback pages in Electron and system WebViews, [songloft-org/songloft-plugin-miot#143](https://github.com/songloft-org/songloft-plugin-miot/issues/143), server baseline `b6719811adbf56737ec08f45ec2bcfb636aa209a`.

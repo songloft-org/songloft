@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"songloft/internal/httputil"
@@ -34,6 +35,7 @@ type hlsPullGateway struct {
 	base      string
 	mu        sync.Mutex
 	err       error
+	liveFLV   atomic.Bool
 }
 
 func validateHLSURL(raw string) error {
@@ -239,8 +241,12 @@ func (g *hlsPullGateway) serve(w http.ResponseWriter, r *http.Request) {
 	reader := bufio.NewReader(resp.Body)
 	first, _ := reader.Peek(512)
 	first = bytes.TrimSpace(bytes.TrimPrefix(first, []byte{0xef, 0xbb, 0xbf}))
+	isFLV := bytes.HasPrefix(first, []byte("FLV"))
+	if string(raw) == g.opts.URL {
+		g.liveFLV.Store(isFLV && resp.ContentLength < 0)
+	}
 	declaredPlaylist := strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "mpegurl") || strings.HasSuffix(strings.ToLower(resp.Request.URL.Path), ".m3u8")
-	if bytes.HasPrefix(first, []byte("#EXTM3U")) || (declaredPlaylist && !bytes.HasPrefix(first, []byte("FLV"))) {
+	if bytes.HasPrefix(first, []byte("#EXTM3U")) || (declaredPlaylist && !isFLV) {
 		data, err := io.ReadAll(io.LimitReader(reader, (1<<20)+1))
 		if err != nil || len(data) > 1<<20 {
 			g.remember(hlsError(502, "直播播放列表过大或读取失败"))

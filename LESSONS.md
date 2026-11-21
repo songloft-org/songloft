@@ -92,6 +92,14 @@
 - 规则与示例：保存源封装并返回明确的播放路径。仅由正在播放且需要兼容输出的客户端创建 HLS 会话，播放取消时回收，普通断流保留原路径重试。浏览器直放时同一个媒体元素负责普通播放和全屏，验证同时检查播放时间、解码帧数及上游请求次数。
 - Seen 1× (2026-11-19)。
 
+### RADIO-003：FLV 直播续流要重新访问电台入口
+
+- 范围：[songloft-org/songloft#579 后续日志](https://github.com/songloft-org/songloft/issues/579#issuecomment-7056482402)，后端基线 `47458a95dae6f8e5560814c6c71dc4267bea62f8`。
+- 证据：附件含一条约 123 秒的播放请求。两条报告中的虎牙源在本地旧版分别于约 128 秒、131 秒结束。受控 FLV 夹具中，旧实现结束响应时只访问了一次重定向入口。
+- 做法：正常 EOF 后，在同一 MP3 响应内重新访问保存的电台入口以取得新的重定向；首帧前按帧速率补有限的静音。受控回归校验第二次访问入口、MP3 拼接后可解码、固定长度源正常结束，以及显式 MP3 路径只带查询 token 即可播放。
+- 验证：两条虎牙源分别通过 `/play` 和 `/play.mp3` 播满 155 秒，同一响应的最大收包间隔约 0.30 秒。Docker Chrome 播放 6 秒后结束的夹具，跨两次回源推进至 9.19 秒，只收到一条播放响应，起播后无 `waiting` 事件。
+- Seen 1× (2026-11-21)。
+
 ### LYNX-CACHE-001：回退页必须直接引用带版本的宿主脚本
 
 - 范围：Electron 与系统 WebView 的 Lynx 插件回退页，[songloft-org/songloft-plugin-miot#143](https://github.com/songloft-org/songloft-plugin-miot/issues/143)，服务端基线 `b6719811adbf56737ec08f45ec2bcfb636aa209a`。

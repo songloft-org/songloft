@@ -25,6 +25,7 @@ import (
 	"songloft/internal/services/playactivity"
 
 	"github.com/go-chi/chi/v5"
+	chi_middleware "github.com/go-chi/chi/v5/middleware"
 )
 
 // PlayEventBroadcaster 向 JS 插件广播播放事件
@@ -1505,10 +1506,11 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // 不需要判断 song.type/source — 所有分发逻辑都集中在这里。
 //
 // @Summary 流式播放歌曲
-// @Description 按 song.ID 流式播放。内部根据 song.type 分发到本地文件、网络歌曲或电台。HLS 电台返回播放列表或 302；HTTP-FLV 电台通过 play.flv 返回原始 FLV；配置为 audio_only 的电台返回首条音轨转码得到的 MP3。
+// @Description 按 song.ID 流式播放。HLS 电台返回播放列表或 302，HTTP-FLV 电台通过 play.flv 返回原始 FLV。play.mp3 仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play 返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。
 // @Tags 歌曲管理
 // @Produce application/octet-stream
 // @Param id path int true "歌曲 ID"
+// @Param access_token query string false "无法发送 Authorization 头时使用的访问 token"
 // @Param format query string false "目标转码格式（如 mp3、ogg），用于平台兼容性转码。本地 .dts 音频默认转为 MP3"
 // @Param quality query string false "目标音质码率（128/192/320），不传或不合法值表示原始音质。指定后默认转码为 mp3（除非同时指定了 format）"
 // @Param track query int false "抽取指定音频流播放（audio-relative 0-based，对应 ffmpeg -map 0:a:N）。用于 Web 端双音轨（原唱/伴奏 mka）切轨：后端抽出单条音轨，AAC 编码时无损 remux 成 m4a、否则转 mp3。缺省/负数=不抽轨；与 media=video 互斥"
@@ -1522,7 +1524,7 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {file} binary "音频文件"
 // @Success 202 {string} string "预拉取已触发"
 // @Success 302 {string} string "电台流重定向"
-// @Failure 404 {string} string "歌曲不存在"
+// @Failure 404 {string} string "歌曲不存在或不适用播放路径"
 // @Failure 403 {object} map[string]string "纯音频转码的源或其子资源不在允许范围内"
 // @Failure 502 {string} string "音源不可用或电台纯音频转码失败"
 // @Failure 503 {object} map[string]string "纯音频转码工具不可用或并发已满"
@@ -1531,6 +1533,7 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // @Router /songs/{id}/play [get]
 // @Router /songs/{id}/play.m3u8 [get]
 // @Router /songs/{id}/play.flv [get]
+// @Router /songs/{id}/play.mp3 [get]
 func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	songID, err := strconv.ParseInt(idStr, 10, 64)
@@ -1541,16 +1544,21 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 
 	// 用户进入正式播放路径时，让该客户端会话下其他歌曲的进行中工作集体退场
 	// （prefetch / transcode / reassign），避免它们继续占用 plugin worker / 转码 sem。
-	// 仅 prefetch 旁路跳过 Activate，因为 prefetch 自己也注册到 registry，
-	// 让它由后续真实播放或下一次 prefetch 触发清理。
+	// prefetch 由下一次预热或正式播放清理。MP3 的 HEAD 可供插件探测路由，不影响当前播放。
 	sk := playactivity.SessionFromContext(r.Context())
-	if r.URL.Query().Get("prefetch") != "1" && h.playActivity != nil {
+	mp3Radio := strings.HasSuffix(r.URL.Path, "/play.mp3")
+	prefetch := !mp3Radio && r.URL.Query().Get("prefetch") == "1"
+	if !prefetch && !(mp3Radio && r.Method == http.MethodHead) && h.playActivity != nil {
 		h.playActivity.Activate(sk, songID)
 	}
 
 	ctx := r.Context()
 	song, err := h.songService.GetByID(ctx, songID)
 	if err != nil || song == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if mp3Radio && (song.Type != models.TypeRadio || song.URL == "") {
 		http.NotFound(w, r)
 		return
 	}
@@ -1628,7 +1636,7 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 	// 通过 playActivity.Track 注册进 registry（CatPrefetch），但 Activate 不会取消 prefetch
 	// （songloft-org/songloft#300）：prefetch 天然为「下一首」预热，切到当前歌时不能连带杀掉
 	// 下一首的预热转码。转码跑完后 prepareSongPlayback 返回、defer release() 注销 entry。
-	if r.URL.Query().Get("prefetch") == "1" {
+	if prefetch {
 		go func() {
 			pctx, release := h.trackActivity(context.Background(), sk, song.ID, playactivity.CatPrefetch)
 			defer release()
@@ -1648,6 +1656,10 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 	}
 	if releasePlay != nil {
 		defer releasePlay()
+	}
+	if mp3Radio {
+		h.serveRadioAudio(w, r, song)
+		return
 	}
 
 	opts := servePlayOptions{
@@ -2667,9 +2679,12 @@ func (h *SongHandler) serveRadioAudio(w http.ResponseWriter, r *http.Request, so
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+	log := slog.With("songId", song.ID, "path", r.URL.Path, "request_id", chi_middleware.GetReqID(r.Context()))
+	log.Debug("radio MP3 requested", "mode", song.RadioMode)
 	err := h.hlsTranscode.StreamAudio(r.Context(), w, radioPullOptions(song.URL))
 	var transcodeErr *services.HLSTranscodeError
 	if errors.As(err, &transcodeErr) && r.Context().Err() == nil {
+		log.Warn("radio MP3 startup failed", "status", transcodeErr.Status, "reason", transcodeErr.Message)
 		w.Header().Del("Content-Type")
 		respondHLSTranscodeError(w, transcodeErr)
 	}
