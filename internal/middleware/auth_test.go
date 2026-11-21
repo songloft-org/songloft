@@ -71,6 +71,31 @@ func TestAuthMiddlewareSuccess(t *testing.T) {
 	}
 }
 
+func TestAuthMiddlewareRestoresSpaceSeparatedPlaybackQuery(t *testing.T) {
+	authService := newAuthServiceForTest(t)
+	defer authService.Close()
+	login, err := authService.Login(context.Background(), "testuser", "testpass", "speaker")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler := AuthMiddleware(authService)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for name, want := range map[string]string{"format": "mp3", "seek": "12", "speed": "1.25"} {
+			if got := r.URL.Query().Get(name); got != want {
+				t.Errorf("%s = %q, want %q", name, got, want)
+			}
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/songs/7/play?access_token="+
+		login.AccessToken+"%20format=mp3%20seek=12%20speed=1.25", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+}
+
 // TestAuthMiddlewareMissingToken 测试缺少 token
 func TestAuthMiddlewareMissingToken(t *testing.T) {
 	authService := newAuthServiceForTest(t)
