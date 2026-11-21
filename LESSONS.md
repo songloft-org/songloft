@@ -391,6 +391,13 @@
 - Not run：完整后端测试、平台打包及远端工作流运行，本次仅修改发布脚本与文档，工作树尚未提交/推送。
 - Seen 1× (2026-10-15)。状态：经验。
 
+### RELEASE-003：生成 Swagger 时排除工作区内的演练副本
+
+- 范围：后端 `make swagger` 和调用它的 `scripts/bump-version.sh`。
+- 证据：2026-11-21，后端基线 `6899aaf`。`tmp/agent-*/` 下保留完整演练副本时，正式发版的 `swag init` 递归扫描并报 `cannot find models.ErrorResponse`。同一基线在隔离 checkout 中生成成功，继续发布为 `v2.13.13`（`57a9f6b`）。
+- Done right：工作区内存在演练副本时，从干净 checkout 运行发版命令。使用 `swag init --exclude tmp -o <输出目录>` 在原工作区复核，生成的 `docs.go`、`swagger.json` 和 `swagger.yaml` 与发布 tag 逐字节一致。
+- Seen 1× (2026-11-21)。状态：经验。
+
 ### BACKUP-001：备份版本升级须核对客户端双向校验
 
 - 范围：歌单备份公共契约、Lynx Web 数据管理；主仓库基线 `2326b38`，Lynx `1de4735`。

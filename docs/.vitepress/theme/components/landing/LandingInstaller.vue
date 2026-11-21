@@ -78,7 +78,7 @@ function selectOS(os: string) {
               >
                 {{ pick(e.label, lang) }}
               </button>
-              <span v-if="currentEdition" class="edition-desc">{{ pick(currentEdition.desc, lang) }}</span>
+              <span v-if="currentEdition?.desc" class="edition-desc">{{ pick(currentEdition.desc, lang) }}</span>
             </div>
 
             <div class="pill-row">
@@ -96,16 +96,21 @@ function selectOS(os: string) {
             </div>
 
             <div v-if="currentGroup" class="asset-grid">
-              <a
+              <component
                 v-for="asset in currentGroup.assets"
+                :is="asset.devUrl ? 'div' : 'a'"
                 :key="asset.file"
                 class="asset"
-                :href="asset.url"
+                :href="asset.devUrl ? undefined : asset.url"
               >
                 <div class="asset-arch">{{ pick(asset.archLabel, lang) }}</div>
                 <div class="asset-file">{{ asset.file }}</div>
-                <span class="asset-dl">↓ {{ t('install.download') }}</span>
-              </a>
+                <div v-if="asset.devUrl" class="asset-links">
+                  <a class="asset-dl" :href="asset.url">↓ {{ t('install.downloadStable') }}</a>
+                  <a class="asset-dl" :href="asset.devUrl">↓ {{ t('install.downloadDev') }}</a>
+                </div>
+                <span v-else class="asset-dl">↓ {{ t('install.download') }}</span>
+              </component>
             </div>
           </template>
 
@@ -156,10 +161,10 @@ function selectOS(os: string) {
 
           <p v-if="method.note" class="method-note">
             {{ pick(method.note, lang) }}
-            <a
-              v-if="method.noteLink"
-              :href="typeof method.noteLink.url === 'string' ? method.noteLink.url : withBase(pick(method.noteLink.url, lang))"
-            >{{ pick(method.noteLink.label, lang) }}</a>
+            <template v-for="(link, index) in method.noteLinks" :key="link.label.en">
+              <span v-if="index > 0" aria-hidden="true"> · </span>
+              <a :href="typeof link.url === 'string' ? link.url : withBase(pick(link.url, lang))">{{ pick(link.label, lang) }}</a>
+            </template>
           </p>
         </div>
       </div>
@@ -288,6 +293,8 @@ function selectOS(os: string) {
   word-break: break-all;
 }
 .asset-dl { font-size: 13px; font-weight: 600; color: var(--vp-c-brand-1); }
+.asset-links { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.asset-links a:hover { text-decoration: underline; }
 .cmd-list { display: flex; flex-direction: column; gap: 14px; }
 .cmd-group {
   display: flex;

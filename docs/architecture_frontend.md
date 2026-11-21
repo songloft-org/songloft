@@ -607,6 +607,7 @@ make build-go-desktop-macos-arm64  # → clients/player-flutter/macos/Runner/son
 # Bundle Release 构建由后端仓库 `release.yml` 完成；标准版、HarmonyOS 和 Web 由各客户端仓库 workflow 完成
 ```
 
-预编译安装包下载:
-- 标准版（需连接服务器）: [https://github.com/songloft-org/songloft-player-flutter/releases](https://github.com/songloft-org/songloft-player-flutter/releases)
-- Flutter Bundle 版（内嵌后端）：[后端 Releases](https://github.com/songloft-org/songloft/releases/latest) · Lynx Bundle 版：[后端 Releases](https://github.com/songloft-org/songloft/releases/latest)
+预编译安装包下载
+
+- Flutter 标准版（需连接服务器） · [最新正式版](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · [dev](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)
+- Flutter 和 Lynx Bundle（内嵌后端） · [最新正式版](https://github.com/songloft-org/songloft/releases/latest) · [dev](https://github.com/songloft-org/songloft/releases/tag/dev)

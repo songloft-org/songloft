@@ -11,7 +11,7 @@
 [![GitHub License](https://img.shields.io/github/license/songloft-org/songloft)](https://github.com/songloft-org/songloft)
 [![Docker Image Version](https://img.shields.io/docker/v/songloft/songloft?sort=semver&label=docker%20image)](https://hub.docker.com/r/songloft/songloft)
 [![Docker Pulls](https://img.shields.io/docker/pulls/songloft/songloft)](https://hub.docker.com/r/songloft/songloft)
-[![GitHub Release](https://img.shields.io/github/v/release/songloft-org/songloft)](https://github.com/songloft-org/songloft/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/songloft-org/songloft)](https://github.com/songloft-org/songloft/releases/latest)
 [![Visitors](https://api.visitorbadge.io/api/daily?path=songloft-org%2Fsongloft&label=daily%20visitor&countColor=%232ccce4&style=flat)](https://visitorbadge.io/status?path=songloft-org%2Fsongloft)
 [![Visitors](https://api.visitorbadge.io/api/visitors?path=songloft-org%2Fsongloft&label=total%20visitor&countColor=%232ccce4&style=flat)](https://visitorbadge.io/status?path=songloft-org%2Fsongloft)
 
@@ -23,7 +23,8 @@
 
 <p align="center">
   <a href="https://github.com/songloft-org/songloft">🏠 GitHub</a> •
-  <a href="https://github.com/songloft-org/songloft/releases">📥 Downloads</a> •
+  <a href="https://github.com/songloft-org/songloft/releases/latest">📥 Latest stable</a> •
+  <a href="https://github.com/songloft-org/songloft/releases/tag/dev">Download dev</a> •
   <a href="https://songloft.hanxi.cc">📖 Docs</a> •
   <a href="https://github.com/songloft-org/songloft/issues">💬 Issues</a> •
   <a href="https://github.com/songloft-org/songloft/issues/2">👥 WeChat Group</a> •

@@ -1,8 +1,15 @@
 # Release 包名清单
 
-这是发布流程定义的文件名清单。dev 和正式版各用自己的 tag，同一包在两个通道中的文件名一致。历史 Release 保留当时的文件名。签名配置未就绪时，dev Bundle 可从对应后端 CI 的 Actions Artifacts 下载。iOS IPA 安装前需要重签。Flutter 标准版的 Linux DEB、RPM、macOS DMG 和 dev 通道的 AppImage 以对应打包步骤的产出为准。正式版必须产出 AppImage。
+这是发布流程定义的文件名清单。下载入口会随正式版和 dev 发布自动更新。只要发布仓库和包名不变，安装包直链也会自动跟随。历史 Release 保留当时的文件名。
 
-[后端 Releases](https://github.com/songloft-org/songloft/releases) · [Flutter Releases](https://github.com/songloft-org/songloft-player-flutter/releases) · [Lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases) · [FFmpeg Releases](https://github.com/hanxi/ffmpeg-builder/releases)
+签名配置未就绪时，dev Bundle 可从对应后端 CI 的 Actions Artifacts 下载。iOS IPA 安装前需要重签。Flutter 标准版的 Linux DEB、RPM、macOS DMG 和 dev 通道的 AppImage 以对应打包步骤的产出为准。正式版必须产出 AppImage。
+
+| 下载内容 | 最新正式版 | 最新开发版 | 历史记录 |
+| --- | --- | --- | --- |
+| 后端、Flutter Bundle、Lynx Bundle | [后端正式版](https://github.com/songloft-org/songloft/releases/latest) | [后端 dev](https://github.com/songloft-org/songloft/releases/tag/dev) | [历史](https://github.com/songloft-org/songloft/releases) |
+| Flutter 标准版 | [Flutter 正式版](https://github.com/songloft-org/songloft-player-flutter/releases/latest) | [Flutter dev](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev) | [历史](https://github.com/songloft-org/songloft-player-flutter/releases) |
+| Lynx 标准版、HarmonyOS 和 Web | [Lynx 正式版](https://github.com/songloft-org/songloft-player-lynx/releases/latest) | [Lynx dev](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev) | [历史](https://github.com/songloft-org/songloft-player-lynx/releases) |
+| FFmpeg 平台资产 | [FFmpeg 正式版](https://github.com/hanxi/ffmpeg-builder/releases/latest) | [FFmpeg dev](https://github.com/hanxi/ffmpeg-builder/releases/tag/dev) | [历史](https://github.com/hanxi/ffmpeg-builder/releases) |
 
 ## Flutter Bundle（后端仓库）
 

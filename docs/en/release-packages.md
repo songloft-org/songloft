@@ -1,8 +1,15 @@
 # Release package names
 
-These are the filenames defined by the release workflows. The dev and stable channels use the same names within their respective tags. Historical Releases keep their original filenames. While signing is unconfigured, dev Bundles are available as artifacts of the corresponding backend Actions run. iOS IPAs require re-signing before installation. Flutter Standard provides Linux DEB, RPM, macOS DMG, and dev AppImage packages when those packaging steps produce them. Stable releases require AppImage.
+These are the filenames defined by the release workflows. The download links follow stable and dev releases automatically. Direct package links keep working as long as the repository and filename stay the same. Historical releases keep their original filenames.
 
-[Backend Releases](https://github.com/songloft-org/songloft/releases) · [Flutter Releases](https://github.com/songloft-org/songloft-player-flutter/releases) · [Lynx Releases](https://github.com/songloft-org/songloft-player-lynx/releases) · [FFmpeg Releases](https://github.com/hanxi/ffmpeg-builder/releases)
+While signing is unconfigured, dev Bundles are available as artifacts of the corresponding backend Actions run. iOS IPAs require re-signing before installation. Flutter Standard provides Linux DEB, RPM, macOS DMG, and dev AppImage packages when those packaging steps produce them. Stable releases require AppImage.
+
+| Downloads | Latest stable | Latest dev | Release history |
+| --- | --- | --- | --- |
+| Backend, Flutter Bundle, and Lynx Bundle | [Backend stable](https://github.com/songloft-org/songloft/releases/latest) | [Backend dev](https://github.com/songloft-org/songloft/releases/tag/dev) | [History](https://github.com/songloft-org/songloft/releases) |
+| Flutter Standard | [Flutter stable](https://github.com/songloft-org/songloft-player-flutter/releases/latest) | [Flutter dev](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev) | [History](https://github.com/songloft-org/songloft-player-flutter/releases) |
+| Lynx Standard, HarmonyOS, and Web | [Lynx stable](https://github.com/songloft-org/songloft-player-lynx/releases/latest) | [Lynx dev](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev) | [History](https://github.com/songloft-org/songloft-player-lynx/releases) |
+| FFmpeg platform assets | [FFmpeg stable](https://github.com/hanxi/ffmpeg-builder/releases/latest) | [FFmpeg dev](https://github.com/hanxi/ffmpeg-builder/releases/tag/dev) | [History](https://github.com/hanxi/ffmpeg-builder/releases) |
 
 ## Flutter Bundle (backend repository)
 

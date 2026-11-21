@@ -607,6 +607,7 @@ make build-go-desktop-macos-arm64  # → clients/player-flutter/macos/Runner/son
 # The backend `release.yml` builds Bundle releases; client workflows build standard, HarmonyOS, and Web packages
 ```
 
-Prebuilt installer downloads:
-- Standard edition (requires connecting to a server): [https://github.com/songloft-org/songloft-player-flutter/releases](https://github.com/songloft-org/songloft-player-flutter/releases)
-- Flutter Bundle edition (backend embedded): [Backend Releases](https://github.com/songloft-org/songloft/releases/latest) · Lynx Bundle edition: [Backend Releases](https://github.com/songloft-org/songloft/releases/latest)
+Prebuilt installer downloads
+
+- Flutter Standard (requires a server) · [Latest stable](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · [dev](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)
+- Flutter and Lynx Bundle (embedded backend) · [Latest stable](https://github.com/songloft-org/songloft/releases/latest) · [dev](https://github.com/songloft-org/songloft/releases/tag/dev)

@@ -391,6 +391,13 @@ Both clients pass Chinese/English 390px browser checks for name order in both di
 - Not run: full backend tests, platform builds, and remote workflow execution; this task changes only release scripts and documentation, and the worktree remains uncommitted/unpushed.
 - Seen 1× (2026-10-15). Status: lesson.
 
+### RELEASE-003: Exclude release rehearsal checkouts when generating Swagger
+
+- Scope: backend `make swagger` and its caller `scripts/bump-version.sh`.
+- Evidence: on 2026-11-21 at backend baseline `6899aaf`, `swag init` recursively scanned full rehearsal checkouts under `tmp/agent-*/` and reported `cannot find models.ErrorResponse` during the release. Generation succeeded at the same baseline in an isolated checkout and the release continued at tag `v2.13.13` (`57a9f6b`).
+- Done right: run the release command from a clean checkout when rehearsal copies are present in the workspace. Running `swag init --exclude tmp -o <output-directory>` in the original workspace generated `docs.go`, `swagger.json`, and `swagger.yaml` that matched the release tag byte for byte.
+- Seen 1× (2026-11-21). Status: lesson.
+
 ### BACKUP-001: Check both client validation directions when upgrading backup versions
 
 - Scope: shared playlist backup contract and Lynx Web data management; parent baseline `2326b38`, Lynx `1de4735`.

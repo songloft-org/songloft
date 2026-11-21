@@ -5,14 +5,15 @@ export type Lang = 'zh' | 'en'
 export interface L { zh: string; en: string }
 export const pick = (l: L, lang: Lang): string => l[lang] ?? l.zh
 
-export const RELEASE_BASE =
-  'https://github.com/songloft-org/songloft/releases/latest/download'
+const BACKEND_RELEASES = 'https://github.com/songloft-org/songloft/releases'
+export const RELEASE_BASE = `${BACKEND_RELEASES}/latest/download`
 
 export interface Asset {
   arch: string
   archLabel: L
   file: string
   url: string
+  devUrl?: string
 }
 export interface OSGroup {
   os: string
@@ -23,7 +24,7 @@ export interface OSGroup {
 export interface Edition {
   id: string
   label: L
-  desc: L
+  desc?: L
   groups: OSGroup[]
 }
 export interface CommandBlock {
@@ -43,7 +44,7 @@ export interface InstallMethod {
   icon: string
   kind: 'download' | 'command' | 'external'
   note?: L
-  noteLink?: ExternalLink
+  noteLinks?: ExternalLink[]
   editions?: Edition[]
   groups?: OSGroup[]
   commands?: CommandBlock[]
@@ -89,6 +90,22 @@ const binaryGroups = (suffix: string): OSGroup[] => [
   },
 ]
 
+const bundleAsset = (arch: string, label: L, file: string): Asset => ({
+  ...a(arch, label, file),
+  devUrl: `${BACKEND_RELEASES}/download/dev/${file}`,
+})
+
+const bundlePlatform = (name: string, assets: Asset[]): OSGroup => ({
+  os: name.toLowerCase(),
+  osLabel: { zh: name, en: name },
+  icon: name === 'macOS' ? 'apple' : name.toLowerCase(),
+  assets,
+})
+
+const androidUniversal = { zh: '通用 APK', en: 'Universal APK' }
+const iosUnsigned = { zh: 'arm64 IPA · 需重签', en: 'arm64 IPA · re-sign required' }
+const x64 = { zh: 'x86_64', en: 'x86_64' }
+
 export const INSTALL: InstallMethod[] = [
   {
     id: 'binary',
@@ -125,10 +142,10 @@ export const INSTALL: InstallMethod[] = [
       zh: 'ARMv7 用户：旧版 Armbian / Debian 的宿主机 libseccomp 可能导致容器启动崩溃。遇到 futexwakeup / SIGSEGV 时，请参阅 FAQ 排查步骤。',
       en: 'ARMv7 users: An outdated host libseccomp on older Armbian / Debian systems may cause the container to crash at startup. If you see futexwakeup / SIGSEGV, see the FAQ troubleshooting steps.',
     },
-    noteLink: {
+    noteLinks: [{
       label: { zh: 'FAQ 排查步骤', en: 'FAQ troubleshooting steps' },
       url: { zh: '/faq#docker-armv7-seccomp', en: '/en/faq#docker-armv7-seccomp' },
-    },
+    }],
     commands: [
       {
         group: { zh: '方式 A · docker run', en: 'Option A · docker run' },
@@ -228,28 +245,47 @@ export const INSTALL: InstallMethod[] = [
     label: { zh: 'Bundle 版', en: 'Bundle' },
     tagline: { zh: '后端 Release 统一发布 · 免部署服务器', en: 'Published by the backend Release · no server' },
     icon: 'package',
-    kind: 'external',
+    kind: 'download',
     note: {
-      zh: 'Flutter Bundle 支持 Android、iOS、Linux、Windows 和 Apple 芯片 Mac。Lynx Bundle 支持 Android、iOS、Windows 和两种芯片的 Mac。两者均从后端 Release 下载，登录页或设置页可切换本地与远程模式。',
-      en: 'Flutter Bundle runs on Android, iOS, Linux, Windows, and Apple silicon Macs. Lynx Bundle runs on Android, iOS, Windows, and both Mac architectures. Get both from the backend Release and switch modes from login or settings.',
+      zh: '正式版和 dev 均由后端发布。登录页或设置页可切换本地与远程模式。',
+      en: 'The backend publishes both Stable and dev. Switch between local and remote modes from login or settings.',
     },
-    external: [
+    noteLinks: [
       {
-        label: { zh: 'Bundle 正式版', en: 'Stable Bundle releases' },
-        url: 'https://github.com/songloft-org/songloft/releases/latest',
-        primary: true,
-      },
-      {
-        label: { zh: 'Bundle 开发版', en: 'Development Bundle release' },
-        url: 'https://github.com/songloft-org/songloft/releases/tag/dev',
-      },
-      {
-        label: { zh: '包名清单', en: 'Package names' },
+        label: { zh: '全部包名与发布记录', en: 'All package names and releases' },
         url: { zh: '/release-packages', en: '/en/release-packages' },
       },
       {
         label: { zh: '模式说明', en: 'Bundle mode guide' },
         url: { zh: '/bundle-mode', en: '/en/bundle-mode' },
+      },
+    ],
+    editions: [
+      {
+        id: 'flutter',
+        label: { zh: 'Flutter Bundle', en: 'Flutter Bundle' },
+        groups: [
+          bundlePlatform('Android', [bundleAsset('universal', androidUniversal, 'songloft-bundled-android.apk')]),
+          bundlePlatform('iOS', [bundleAsset('arm64', iosUnsigned, 'songloft-bundled-ios-nosign.ipa')]),
+          bundlePlatform('Linux', [bundleAsset('x64', x64, 'songloft-bundled-linux-x64.tar.gz')]),
+          bundlePlatform('Windows', [bundleAsset('x64', x64, 'songloft-bundled-windows-x64.zip')]),
+          bundlePlatform('macOS', [bundleAsset('arm64', { zh: 'Apple 芯片', en: 'Apple silicon' }, 'songloft-bundled-macos.zip')]),
+        ],
+      },
+      {
+        id: 'lynx',
+        label: { zh: 'Lynx Bundle', en: 'Lynx Bundle' },
+        groups: [
+          bundlePlatform('Android', [bundleAsset('universal', androidUniversal, 'songloft-lynx-bundled-android.apk')]),
+          bundlePlatform('iOS', [bundleAsset('arm64', iosUnsigned, 'songloft-lynx-bundled-ios-nosign.ipa')]),
+          bundlePlatform('Windows', [bundleAsset('x64', x64, 'songloft-lynx-bundled-win32-x64.exe')]),
+          bundlePlatform('macOS', [
+            bundleAsset('arm64', { zh: 'Apple 芯片 · DMG', en: 'Apple silicon · DMG' }, 'songloft-lynx-bundled-darwin-arm64.dmg'),
+            bundleAsset('arm64', { zh: 'Apple 芯片 · ZIP', en: 'Apple silicon · ZIP' }, 'songloft-lynx-bundled-darwin-arm64.zip'),
+            bundleAsset('x64', { zh: 'Intel · DMG', en: 'Intel · DMG' }, 'songloft-lynx-bundled-darwin-x64.dmg'),
+            bundleAsset('x64', { zh: 'Intel · ZIP', en: 'Intel · ZIP' }, 'songloft-lynx-bundled-darwin-x64.zip'),
+          ]),
+        ],
       },
     ],
   },

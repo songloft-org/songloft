@@ -14,10 +14,11 @@ A: **不收费，也不接受任何赞助或捐款。** Songloft 是纯粹出于
 
 ### Q: 我应该如何下载 Songloft？
 
-A: 
-- **后端服务器**：从 [GitHub Releases](https://github.com/songloft-org/songloft/releases) 下载适合您系统的版本，支持 Linux、macOS 和 Windows 平台，提供二进制文件和 Docker 镜像两种部署方式。
-- **Flutter 标准版**：从 [Flutter 客户端 Releases](https://github.com/songloft-org/songloft-player-flutter/releases) 下载。Flutter Bundle 从[后端 Release](https://github.com/songloft-org/songloft/releases/latest)下载。
-- **Lynx 标准版**：从 [Lynx 客户端 Releases](https://github.com/songloft-org/songloft-player-lynx/releases) 下载。Lynx Bundle 从[后端 Release](https://github.com/songloft-org/songloft/releases/latest)下载。HarmonyOS 和 Web 仍属于 Lynx 标准版 Release。
+A:
+
+- **后端服务器、Flutter Bundle 和 Lynx Bundle** · [最新正式版](https://github.com/songloft-org/songloft/releases/latest) · [dev](https://github.com/songloft-org/songloft/releases/tag/dev)。后端支持 Linux、macOS 和 Windows，提供二进制文件和 Docker 镜像。
+- **Flutter 标准版** · [最新正式版](https://github.com/songloft-org/songloft-player-flutter/releases/latest) · [dev](https://github.com/songloft-org/songloft-player-flutter/releases/tag/dev)。
+- **Lynx 标准版** · [最新正式版](https://github.com/songloft-org/songloft-player-lynx/releases/latest) · [dev](https://github.com/songloft-org/songloft-player-lynx/releases/tag/dev)。HarmonyOS 和 Web 产物也在同一发布页。
 
 - **Electron 桌面客户端**：[Songloft Desktop Releases](https://github.com/songloft-org/songloft-desktop/releases/latest)，连接已有服务器。
 - **TV 客户端**：[Songloft TV Releases](https://github.com/songloft-org/songloft-tv/releases/latest)，支持 Android 5.0+ 大屏设备。
