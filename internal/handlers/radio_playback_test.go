@@ -181,12 +181,7 @@ func TestFLVRadioPlaybackAndCompatibilitySession(t *testing.T) {
 			t.Fatalf("opened the redirect entry %d times, want 2", got)
 		}
 		if stream.Body.Len() < 2*audio.Body.Len() {
-			t.Fatalf("response has %d bytes, want two MP3 streams and silence", stream.Body.Len())
-		}
-		silentFrame := make([]byte, 384)
-		copy(silentFrame, []byte{0xff, 0xfb, 0x94, 0x04})
-		if !bytes.Contains(stream.Body.Bytes(), bytes.Repeat(silentFrame, 12)) {
-			t.Fatal("missing MP3 silence between upstream connections")
+			t.Fatalf("response has %d bytes, want two MP3 streams", stream.Body.Len())
 		}
 		decode := exec.Command("ffmpeg", "-v", "error", "-xerror", "-i", "pipe:0", "-f", "null", "-")
 		decode.Stdin = bytes.NewReader(stream.Body.Bytes())

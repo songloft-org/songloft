@@ -9,9 +9,108 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"songloft/internal/httputil"
 )
+
+func TestHLSPullGatewayPreopensNextLiveFLV(t *testing.T) {
+	for _, action := range []string{"consume", "retry", "cancel"} {
+		t.Run(action, func(t *testing.T) {
+			var entries atomic.Int32
+			prepared, canceled := make(chan struct{}), make(chan struct{})
+			first, second := "FLV"+strings.Repeat("a", 600), "FLV"+strings.Repeat("b", 600)
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/entry":
+					switch entries.Add(1) {
+					case 1:
+						http.Redirect(w, r, "/edge/first", http.StatusFound)
+					case 2:
+						http.Redirect(w, r, "/edge/next", http.StatusFound)
+					case 3:
+						if action == "retry" {
+							http.Redirect(w, r, "/edge/retry", http.StatusFound)
+							return
+						}
+						http.Error(w, "duplicate upstream pull", http.StatusTooManyRequests)
+					default:
+						http.Error(w, "duplicate upstream pull", http.StatusTooManyRequests)
+					}
+				case "/edge/first":
+					w.(http.Flusher).Flush()
+					_, _ = io.WriteString(w, first)
+				case "/edge/next":
+					close(prepared)
+					if action == "cancel" {
+						<-r.Context().Done()
+						close(canceled)
+						return
+					}
+					if action == "retry" {
+						http.Error(w, "transient upstream failure", http.StatusServiceUnavailable)
+						return
+					}
+					_, _ = io.WriteString(w, second)
+				case "/edge/retry":
+					_, _ = io.WriteString(w, second)
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			t.Cleanup(upstream.Close)
+			source := upstream.URL + "/entry"
+			g, err := newHLSPullGateway(t.Context(), HLSTranscodeOptions{URL: source, preopenLiveFLV: true},
+				func() []string { return []string{"127.0.0.1"} })
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(g.Close)
+
+			client := &http.Client{Timeout: 3 * time.Second}
+			readStream := func(want string) {
+				t.Helper()
+				req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, g.URL(source), nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.Header.Set("Range", "bytes=0-")
+				resp, err := client.Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer resp.Body.Close()
+				body, err := io.ReadAll(resp.Body)
+				if err != nil || resp.StatusCode != http.StatusOK || string(body) != want {
+					t.Fatalf("status=%d, correct body=%t, error=%v", resp.StatusCode, string(body) == want, err)
+				}
+			}
+			readStream(first)
+			select {
+			case <-prepared:
+			case <-time.After(3 * time.Second):
+				t.Fatal("gateway did not start the next pull before the encoder requested it")
+			}
+			if action != "cancel" {
+				readStream(second)
+				want := int32(2)
+				if action == "retry" {
+					want++
+				}
+				if got := entries.Load(); got != want {
+					t.Fatalf("station entry requested %d times, want %d", got, want)
+				}
+				return
+			}
+			g.Close()
+			select {
+			case <-canceled:
+			case <-time.After(3 * time.Second):
+				t.Fatal("unused upstream request remained open after the gateway was closed")
+			}
+		})
+	}
+}
 
 func TestHLSPullGatewayRewritesAndValidatesAllReferences(t *testing.T) {
 	var calls atomic.Int32

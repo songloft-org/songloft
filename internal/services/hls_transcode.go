@@ -41,10 +41,11 @@ func hlsError(status int, message string) error {
 
 // HLSTranscodeOptions 仅支持第一条 H.264 视频轨复制和第一条音频轨转 AAC-LC。
 type HLSTranscodeOptions struct {
-	URL          string `json:"url" validate:"required" example:"https://example.com/live.m3u8"`
-	AudioBitrate int    `json:"audio_bitrate" example:"128"`
-	UserAgent    string `json:"user_agent"`
-	Referer      string `json:"referer"`
+	URL            string `json:"url" validate:"required" example:"https://example.com/live.m3u8"`
+	AudioBitrate   int    `json:"audio_bitrate" example:"128"`
+	UserAgent      string `json:"user_agent"`
+	Referer        string `json:"referer"`
+	preopenLiveFLV bool
 }
 
 type hlsSession struct {
@@ -113,6 +114,7 @@ func (s *HLSTranscodeService) StreamAudio(ctx context.Context, w io.Writer, opts
 	defer cancel()
 	stop := context.AfterFunc(s.ctx, cancel)
 	defer stop()
+	opts.preopenLiveFLV = true
 	gateway, err := newHLSPullGateway(ctx, opts, s.allowlist)
 	if err != nil {
 		var publicErr *HLSTranscodeError
