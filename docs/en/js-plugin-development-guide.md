@@ -463,7 +463,7 @@ All APIs are accessed through the global `songloft` object.
 
 Use the standard global `fetch` function to make HTTP requests (provided by a runtime polyfill, returns a Promise). **No permission declaration required.**
 
-The host runtime's `fetch` and `songloft.net.httpStream` share Songloft's global HTTP proxy setting (`/settings/http-proxy`). Changes take effect for subsequent requests without restarting or reloading plugins. Requests to `localhost` / `127.0.0.1` / `::1` connect directly; without a configured proxy, requests connect directly and do not read `HTTP_PROXY` / `HTTPS_PROXY` environment variables. This applies to plugin backend requests; page-side `fetch` is handled by the browser.
+The host runtime's `fetch` and `songloft.net.httpStream` give priority to Songloft's global HTTP proxy setting (`/settings/http-proxy`). Changes take effect for subsequent requests without restarting or reloading plugins. When the setting is empty, the runtime uses the process's `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` variables, including lowercase forms. Loopback destinations connect directly. This rule applies to plugin backend requests. Page-side `fetch` is handled by the browser.
 
 ```javascript
 // GET

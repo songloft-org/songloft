@@ -702,7 +702,7 @@ type httpProxySetting struct {
 
 // GetHttpProxySetting 获取 HTTP 代理配置
 // @Summary 获取 HTTP 代理配置
-// @Description 获取全局 HTTP 代理地址。所有后端外发请求（插件下载、注册表拉取、升级检查等）会通过此代理转发。未配置时返回空字符串（直连）。
+// @Description 获取 Songloft 保存的全局 HTTP 代理地址。未配置时返回空字符串，此时插件后端的 fetch 和 httpStream 可使用进程的代理环境变量。
 // @Tags 设置
 // @Produce json
 // @Success 200 {object} httpProxySetting "代理配置"
@@ -719,7 +719,7 @@ func (h *JSPluginHandler) GetHttpProxySetting(w http.ResponseWriter, r *http.Req
 
 // UpdateHttpProxySetting 保存 HTTP 代理配置
 // @Summary 保存 HTTP 代理配置
-// @Description 设置全局 HTTP 代理地址（如 http://192.168.1.1:7890）。设为空字符串则关闭代理。保存后即时生效，无需重启。
+// @Description 设置全局 HTTP 代理地址（如 http://192.168.1.1:7890）。设为空字符串会清除保存的地址，此时插件后端的 fetch 和 httpStream 按 HTTP_PROXY、HTTPS_PROXY 和 NO_PROXY 选择代理。保存后即时生效，无需重启。
 // @Tags 设置
 // @Accept json
 // @Produce json

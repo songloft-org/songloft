@@ -139,6 +139,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 - Rule and Done right: both separate TLS pools call `httputil.ProxyFromGlobal` per request, retaining redirects, permissions, and loopback semantics. Switching / clearing the proxy in an existing JS environment and race checks passed. The released lyrics plugin obtained fixture lyrics for exact / fuzzy search through real CONNECT tunnels, while a local custom source still connected directly. See the [verification record](docs/en/issue-575-verification.md).
 - Seen 1× (2026-11-17). Local fix and verification complete; commit, push, and dev build status are tracked in the delivery evidence. The reporter's Docker, mihomo, and live LRCLIB network remain unverified.
 
+### HTTP-PROXY-002: Verify proxy environment fallback in a fresh process
+
+- Scope: plugin backend HTTP requests, [follow-up on songloft-org/songloft#575](https://github.com/songloft-org/songloft/issues/575#issuecomment-7095407548), baseline `0ed7f396be4851081ffd35f6b3e7b8bdcee01ee4`.
+- Evidence: the reporter confirmed that the web setting worked. The original implementation recorded zero hits on the HTTP and HTTPS environment proxies in a fresh-process regression. With fallback enabled, the released lyrics plugin in Docker host networking completed exact and fuzzy searches through the environment's CONNECT proxy. Saving a proxy switched requests immediately. Clearing it restored the fallback.
+- Rule: Go caches the process environment on the first call to `http.ProxyFromEnvironment`. Use a fresh process to set the variables and verify protocol selection, `NO_PROXY`, and application setting precedence so the test is independent of the host proxy and test order.
+- Seen 1× (2026-11-23).
+
 ### SCAN-ORDER-001: No-op automatic playlist updates still change ordering through triggers
 
 - Scope: rebuilding automatic playlists and default listing order; [songloft-org/songloft#573](https://github.com/songloft-org/songloft/issues/573), baseline `8177b2f208d8436f24a97e08a4ae237f372f88c5`.

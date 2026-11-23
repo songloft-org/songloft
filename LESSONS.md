@@ -139,6 +139,13 @@
 - 规则与 Done right：两种独立 TLS 连接池都按请求调用 `httputil.ProxyFromGlobal`；保留重定向、权限和回环语义。已有 JS 环境切换 / 清空代理回归及 race 检查通过；正式 lyrics 插件的精确 / 模糊搜索经真实 CONNECT 隧道取得夹具歌词，本地自定义源仍直连。完整记录见[验证记录](docs/issue-575-verification.md)。
 - Seen 1× (2026-11-17)。状态：本地修复与验证完成；提交、推送及 dev 构建状态见本次交付记录。报告人的 Docker、mihomo 和线上 LRCLIB 未验收。
 
+### HTTP-PROXY-002：用独立进程验证代理环境变量回退
+
+- 范围：插件后端 HTTP 请求，[songloft-org/songloft#575 后续报告](https://github.com/songloft-org/songloft/issues/575#issuecomment-7095407548)，基线 `0ed7f396be4851081ffd35f6b3e7b8bdcee01ee4`。
+- 证据：报告人确认网页配置生效。旧实现的独立进程回归中，HTTP 和 HTTPS 环境代理均零命中。新增回退后，Docker host 网络中的正式歌词插件通过环境变量配置的 CONNECT 代理完成精确和模糊搜索，保存代理后即时切换，清空后恢复环境变量回退。
+- 规则：Go 首次使用 `http.ProxyFromEnvironment` 时缓存进程环境。用独立进程设置变量并验证协议、`NO_PROXY` 及应用设置优先级，避免测试读取宿主代理或受执行顺序影响。
+- Seen 1× (2026-11-23)。
+
 ### SCAN-ORDER-001：自动歌单空更新也会经触发器改变排序
 
 - 范围：自动歌单重建与默认列表排序；[songloft-org/songloft#573](https://github.com/songloft-org/songloft/issues/573)，基线 `8177b2f208d8436f24a97e08a4ae237f372f88c5`。

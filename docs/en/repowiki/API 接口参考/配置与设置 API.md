@@ -227,7 +227,7 @@ Each item contains: `url` (registry JSON URL), `name` (name), `enabled` (whether
 
 **`GET/PUT /api/v1/settings/http-proxy`** -- `{"proxy": ""}`
 
-Empty string by default (direct connection). Once set, all outbound backend HTTP requests are forwarded through the proxy, including: plugin registry fetching, plugin download/update, and system upgrade check/download. Supports the HTTP/HTTPS/SOCKS5 protocols. Loopback addresses automatically skip the proxy.
+The default empty string means there is no saved proxy address. Plugin backend `fetch` and `songloft.net.httpStream` then use the process's proxy environment variables. The saved address supports HTTP/HTTPS/SOCKS5 and applies to requests that use the global proxy, such as plugin registry fetching, plugin downloads, and system upgrade checks. Loopback destinations connect directly.
 
 - Typical value: `http://192.168.1.1:7890`
 - **PUT side effect**: Calls `httputil.SetGlobalProxy` to immediately update the globally shared `*http.Transport`

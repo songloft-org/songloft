@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -193,13 +195,6 @@ func TestFetchGlobalProxyLiveUpdateViaJSEnv(t *testing.T) {
 	if firstHits.Load() != 1 || secondHits.Load() != 1 {
 		t.Errorf("proxy hits: first=%d second=%d, want 1 each", firstHits.Load(), secondHits.Load())
 	}
-	if err := httputil.SetGlobalProxy(""); err != nil {
-		t.Fatal(err)
-	}
-	raw := doHTTPRequest(proxyTestURL, http.MethodGet, `{"X-Fetch-Timeout-Ms":"1000"}`, "", false)
-	if !strings.Contains(raw, `"error"`) || firstHits.Load() != 1 || secondHits.Load() != 1 {
-		t.Errorf("clearing proxy should stop forwarding .invalid target: %s", raw)
-	}
 }
 
 func TestFetchGlobalProxyLoopbackBypass(t *testing.T) {
@@ -217,6 +212,54 @@ func TestFetchGlobalProxyLoopbackBypass(t *testing.T) {
 	}
 	if hits.Load() != 0 {
 		t.Errorf("loopback requests reached proxy: %d", hits.Load())
+	}
+}
+
+func TestFetchEnvironmentProxy(t *testing.T) {
+	// Go caches the proxy environment on first use, so run this test in a fresh process.
+	const child = "SONGLOFT_TEST_FETCH_ENV_PROXY"
+	if os.Getenv(child) == "" {
+		t.Setenv(child, "1")
+		cmd := exec.Command(os.Args[0], "-test.run=^TestFetchEnvironmentProxy$")
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("proxy environment test: %v\n%s", err, output)
+		}
+		return
+	}
+
+	envProxy, envHits := newFetchTestProxy(t, "environment")
+	settingsProxy, settingsHits := newFetchTestProxy(t, "settings")
+	t.Setenv("HTTP_PROXY", envProxy.URL)
+	t.Setenv("HTTPS_PROXY", "")
+	t.Setenv("https_proxy", envProxy.URL)
+	t.Setenv("NO_PROXY", "localhost,127.0.0.1,192.168.0.0/16")
+	t.Setenv("REQUEST_METHOD", "")
+
+	for _, tc := range []struct {
+		name, setting, destination, headers, want string
+	}{
+		{"http", "", proxyTestURL, `{}`, "environment"},
+		{"https", "", "https://lyrics.invalid/api/get", `{"X-Fetch-Insecure":"1"}`, "environment"},
+		{"settings override", settingsProxy.URL, proxyTestURL, `{}`, "settings"},
+		{"cleared setting", "", proxyTestURL, `{}`, "environment"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setFetchTestProxy(t, tc.setting)
+			got := doHTTPRequest(tc.destination, http.MethodGet, tc.headers, "", true)
+			if !strings.Contains(got, `"body":"`+tc.want+`"`) {
+				t.Errorf("fetch response = %s, want body %q", got, tc.want)
+			}
+		})
+	}
+	if envHits.Load() != 3 || settingsHits.Load() != 1 {
+		t.Errorf("proxy hits: environment=%d settings=%d, want 3 and 1", envHits.Load(), settingsHits.Load())
+	}
+
+	for _, destination := range []string{"http://192.168.1.100", "https://127.0.0.1", "http://[::1]"} {
+		req := httptest.NewRequest(http.MethodGet, destination, nil)
+		if proxy, err := sharedTransport.Proxy(req); proxy != nil || err != nil {
+			t.Errorf("proxy for %s = %v, %v, want direct connection", destination, proxy, err)
+		}
 	}
 }
 

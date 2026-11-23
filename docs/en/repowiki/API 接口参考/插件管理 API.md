@@ -588,7 +588,7 @@ Configures the global HTTP proxy address. All outbound backend requests (plugin 
 
 | Field | Type | Description |
 |------|------|------|
-| `proxy` | string | Proxy address (supports HTTP/HTTPS/SOCKS5); an empty string means a direct connection |
+| `proxy` | string | Saved proxy address (supports HTTP/HTTPS/SOCKS5). An empty string clears the address, so plugin backend `fetch` and `songloft.net.httpStream` use the process's proxy environment variables. |
 
 Takes effect immediately after saving, no restart required. Loopback addresses (`localhost`/`127.0.0.1`/`::1`) automatically skip the proxy.
 

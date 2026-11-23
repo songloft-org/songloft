@@ -24,6 +24,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,10 +40,18 @@ import (
 	"modernc.org/quickjs"
 )
 
+func pluginHTTPProxy(req *http.Request) (*url.URL, error) {
+	proxy, err := httputil.ProxyFromGlobal(req)
+	if proxy != nil || err != nil {
+		return proxy, err
+	}
+	return http.ProxyFromEnvironment(req)
+}
+
 // sharedTransport 供 doHTTPRequest 使用的共享 Transport
 // 使用默认 TLS 配置（与 WASM 版本行为一致），不强制 TLS 版本或 HTTP 协议
 var sharedTransport = &http.Transport{
-	Proxy:               httputil.ProxyFromGlobal,
+	Proxy:               pluginHTTPProxy,
 	MaxIdleConns:        100,
 	MaxIdleConnsPerHost: 10,
 	IdleConnTimeout:     90 * time.Second,
@@ -76,7 +85,7 @@ var noRedirectHTTPClient = &http.Client{
 // 必须是独立的 Transport：连接池按 Transport 隔离，复用 sharedTransport 并在单次请求上
 // 改 TLSClientConfig 会污染所有插件的连接复用。
 var insecureTransport = &http.Transport{
-	Proxy:               httputil.ProxyFromGlobal,
+	Proxy:               pluginHTTPProxy,
 	MaxIdleConns:        100,
 	MaxIdleConnsPerHost: 10,
 	IdleConnTimeout:     90 * time.Second,

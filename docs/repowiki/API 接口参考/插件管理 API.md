@@ -588,7 +588,7 @@ Flutter/Lynx 商店通常由客户端渐进拉取清单；以下刷新端点保�
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `proxy` | string | 代理地址（支持 HTTP/HTTPS/SOCKS5），空字符串表示直连 |
+| `proxy` | string | 保存的代理地址（支持 HTTP/HTTPS/SOCKS5）。设为空字符串会清除地址，插件后端的 `fetch` 和 `songloft.net.httpStream` 随即使用进程的代理环境变量。 |
 
 保存后即时生效，无需重启。loopback 地址（`localhost`/`127.0.0.1`/`::1`）自动跳过代理。
 

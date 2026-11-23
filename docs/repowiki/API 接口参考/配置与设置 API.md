@@ -227,7 +227,7 @@ Songloft 有两类配置接口，用户可见的功能开关一律走业务端�
 
 **`GET/PUT /api/v1/settings/http-proxy`** -- `{"proxy": ""}`
 
-默认空字符串（直连）。设置后所有后端外发 HTTP 请求通过代理转发，包括：插件注册表拉取、插件下载/更新、系统升级检查/下载。支持 HTTP/HTTPS/SOCKS5 协议。loopback 地址自动跳过代理。
+默认空字符串，表示未保存代理地址。此时插件后端的 `fetch` 和 `songloft.net.httpStream` 使用进程的代理环境变量。保存的地址支持 HTTP/HTTPS/SOCKS5，适用于接入全局代理的请求，例如插件注册表拉取、插件下载和系统升级检查。回环地址自动直连。
 
 - 典型值：`http://192.168.1.1:7890`
 - **PUT 副作用**: 调用 `httputil.SetGlobalProxy` 即时更新全局共享 `*http.Transport`
