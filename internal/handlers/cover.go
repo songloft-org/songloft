@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"image"
@@ -10,10 +11,14 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	// 注册常见封面格式的解码器（jpeg 已随 image/jpeg 注册，这里补 png/gif）。
@@ -21,6 +26,7 @@ import (
 	_ "image/png"
 
 	"golang.org/x/image/draw"
+	"songloft/internal/httputil"
 	"songloft/internal/services"
 )
 
@@ -34,6 +40,113 @@ const coverThumbJPEGQuality = 85
 // coverThumbSem 限制并发缩略图解码+缩放操作数。每个操作需将原图全尺寸解码为 RGBA
 // （如 3000×3000 = 36MB），不限并发在弱设备上会 OOM（songloft-org/songloft#389）。
 var coverThumbSem = make(chan struct{}, coverThumbWorkers())
+
+const invalidCoverReference = "封面地址不能指向本服务的歌曲或歌单封面接口"
+
+const (
+	remoteCoverFailureTTL   = 30 * time.Second
+	remoteCoverFailureLimit = 1024
+)
+
+var (
+	localCoverEndpoint  = regexp.MustCompile(`^/api/v1/(?:songs|playlists)/[+-]?[0-9]+/cover$`)
+	remoteCoverSlots    = make(chan struct{}, 32)
+	remoteCoverFailures = coverFailureCache{entries: make(map[[sha256.Size]byte]coverFailure)}
+)
+
+type coverFailure struct {
+	status  int
+	expires time.Time
+}
+
+type coverFailureCache struct {
+	mu      sync.Mutex
+	entries map[[sha256.Size]byte]coverFailure
+}
+
+func (c *coverFailureCache) status(key [sha256.Size]byte, now time.Time) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	failure, ok := c.entries[key]
+	if ok && now.Before(failure.expires) {
+		return failure.status
+	}
+	delete(c.entries, key)
+	return 0
+}
+
+func (c *coverFailureCache) remember(key [sha256.Size]byte, status int, now time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, exists := c.entries[key]; !exists && len(c.entries) >= remoteCoverFailureLimit {
+		var oldestKey [sha256.Size]byte
+		var oldest time.Time
+		for k, failure := range c.entries {
+			if oldest.IsZero() || failure.expires.Before(oldest) {
+				oldestKey, oldest = k, failure.expires
+			}
+		}
+		delete(c.entries, oldestKey)
+	}
+	c.entries[key] = coverFailure{status: status, expires: now.Add(remoteCoverFailureTTL)}
+}
+
+func referencesLocalCover(r *http.Request, resolver *services.InternalURLResolver, rawURL string) bool {
+	target, err := url.Parse(rawURL)
+	return err == nil && isLocalCoverEndpoint(r, resolver, target)
+}
+
+func isLocalCoverEndpoint(r *http.Request, resolver *services.InternalURLResolver, target *url.URL) bool {
+	cleanPath := path.Clean(target.Path)
+	if !localCoverEndpoint.MatchString(cleanPath) && !localCoverEndpoint.MatchString(resolver.WithoutBasePath(cleanPath)) {
+		return false
+	}
+	if target.Host == "" || resolver.TargetsInternalListener(target) {
+		return true
+	}
+	// Proxies may terminate TLS before forwarding the original Host to this app.
+	defaultPort := ":80"
+	if target.Scheme == "https" {
+		defaultPort = ":443"
+	}
+	return strings.EqualFold(strings.TrimSuffix(target.Host, defaultPort), strings.TrimSuffix(r.Host, defaultPort))
+}
+
+func proxyRemoteCover(w http.ResponseWriter, r *http.Request, resolver *services.InternalURLResolver, rawURL string, allowFallback bool) bool {
+	if referencesLocalCover(r, resolver, rawURL) {
+		if !allowFallback {
+			respondError(w, http.StatusNotFound, "封面不存在", nil)
+		}
+		return false
+	}
+	resolvedURL := resolver.Resolve(rawURL)
+	key := sha256.Sum256([]byte(resolvedURL + "\x00" + r.Header.Get("Accept") + "\x00" + httputil.GetGlobalProxy()))
+	if status := remoteCoverFailures.status(key, time.Now()); status != 0 {
+		if !allowFallback {
+			respondError(w, status, "cover fetch failed", nil)
+		}
+		return false
+	}
+	// Do not queue a fetch while holding an outer cover request open. A proxy
+	// alias we cannot recognize can otherwise make requests wait on one another.
+	select {
+	case remoteCoverSlots <- struct{}{}:
+		defer func() { <-remoteCoverSlots }()
+	default:
+		if !allowFallback {
+			respondError(w, http.StatusServiceUnavailable, "封面请求繁忙", nil)
+		}
+		return false
+	}
+	return tryServeRemoteResource(w, requestWithoutCoverRange(r), resolvedURL, RemoteResourceOptions{
+		AllowFallback: allowFallback,
+		Timeout:       songCoverProxyTimeout,
+		ErrorStatus:   http.StatusNotFound,
+		ErrorMessage:  "cover fetch failed",
+		RejectURL:     func(target *url.URL) bool { return isLocalCoverEndpoint(r, resolver, target) },
+		OnFailure:     func(status int) { remoteCoverFailures.remember(key, status, time.Now()) },
+	})
+}
 
 func coverThumbWorkers() int {
 	n := runtime.GOMAXPROCS(0) / 2

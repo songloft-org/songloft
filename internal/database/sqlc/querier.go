@@ -130,6 +130,7 @@ type Querier interface {
 	UpdatePlaylistPosition(ctx context.Context, arg UpdatePlaylistPositionParams) (int64, error)
 	UpdatePlaylistProgress(ctx context.Context, arg UpdatePlaylistProgressParams) (int64, error)
 	UpdatePlaylistSort(ctx context.Context, arg UpdatePlaylistSortParams) (int64, error)
+	UpdateRadioDetectedMode(ctx context.Context, arg UpdateRadioDetectedModeParams) (int64, error)
 	UpdateRemoteSongMutable(ctx context.Context, arg UpdateRemoteSongMutableParams) error
 	UpdateSong(ctx context.Context, arg UpdateSongParams) (int64, error)
 	UpdateSongCoverURL(ctx context.Context, arg UpdateSongCoverURLParams) (int64, error)

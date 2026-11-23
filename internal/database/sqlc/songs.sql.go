@@ -258,7 +258,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc, rating, radio_mode, metadata_override_mask, metadata_edited_at
+    fingerprint_error, disc, rating, radio_mode, metadata_override_mask, metadata_edited_at, radio_detected_mode
 FROM songs WHERE id = ?
 `
 
@@ -312,6 +312,7 @@ func (q *Queries) GetSongByID(ctx context.Context, id int64) (Song, error) {
 		&i.RadioMode,
 		&i.MetadataOverrideMask,
 		&i.MetadataEditedAt,
+		&i.RadioDetectedMode,
 	)
 	return i, err
 }
@@ -805,7 +806,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc, rating, radio_mode, metadata_override_mask, metadata_edited_at
+    fingerprint_error, disc, rating, radio_mode, metadata_override_mask, metadata_edited_at, radio_detected_mode
 FROM songs WHERE cache_path != ''
 `
 
@@ -865,6 +866,7 @@ func (q *Queries) ListSongsWithCache(ctx context.Context) ([]Song, error) {
 			&i.RadioMode,
 			&i.MetadataOverrideMask,
 			&i.MetadataEditedAt,
+			&i.RadioDetectedMode,
 		); err != nil {
 			return nil, err
 		}
@@ -915,6 +917,25 @@ type UpdateCachePathParams struct {
 func (q *Queries) UpdateCachePath(ctx context.Context, arg UpdateCachePathParams) error {
 	_, err := q.db.ExecContext(ctx, updateCachePath, arg.CachePath, arg.ID)
 	return err
+}
+
+const updateRadioDetectedMode = `-- name: UpdateRadioDetectedMode :execrows
+UPDATE songs SET radio_detected_mode = ?1
+WHERE id = ?2 AND type = 'radio' AND url = ?3 AND radio_mode = ''
+`
+
+type UpdateRadioDetectedModeParams struct {
+	Mode string
+	ID   int64
+	Url  string
+}
+
+func (q *Queries) UpdateRadioDetectedMode(ctx context.Context, arg UpdateRadioDetectedModeParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateRadioDetectedMode, arg.Mode, arg.ID, arg.Url)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateRemoteSongMutable = `-- name: UpdateRemoteSongMutable :exec

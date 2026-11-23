@@ -166,7 +166,7 @@ func (h *PlaylistHandler) GetPlaylist(w http.ResponseWriter, r *http.Request) {
 
 // CreatePlaylist 创建歌单
 // @Summary 创建歌单
-// @Description 创建一个新的歌单
+// @Description 创建一个新的歌单。cover_url 不得指向本服务的歌曲或歌单封面接口。
 // @Tags 歌单管理
 // @Accept json
 // @Produce json
@@ -184,6 +184,10 @@ func (h *PlaylistHandler) CreatePlaylist(w http.ResponseWriter, r *http.Request)
 		respondError(w, http.StatusBadRequest, "无效的请求数据", err)
 		return
 	}
+	if referencesLocalCover(r, h.urlResolver, playlist.CoverURL) {
+		respondError(w, http.StatusBadRequest, invalidCoverReference, nil)
+		return
+	}
 
 	if err := h.playlistService.Create(ctx, &playlist); err != nil {
 		if errors.Is(err, models.ErrPlaylistNameConflict) {
@@ -199,7 +203,7 @@ func (h *PlaylistHandler) CreatePlaylist(w http.ResponseWriter, r *http.Request)
 
 // UpdatePlaylist 更新歌单
 // @Summary 更新歌单
-// @Description 更新歌单信息。支持通过 cover_song_id 从指定歌曲复制封面，与 cover_path/cover_url 互斥且优先级更高
+// @Description 更新歌单信息。支持通过 cover_song_id 从指定歌曲复制封面，与 cover_path/cover_url 互斥且优先级更高。cover_url 不得指向本服务的歌曲或歌单封面接口。
 // @Tags 歌单管理
 // @Accept json
 // @Produce json
@@ -260,6 +264,10 @@ func (h *PlaylistHandler) UpdatePlaylist(w http.ResponseWriter, r *http.Request)
 			existing.CoverPath = *req.CoverPath
 		}
 		if req.CoverURL != nil {
+			if referencesLocalCover(r, h.urlResolver, *req.CoverURL) {
+				respondError(w, http.StatusBadRequest, invalidCoverReference, nil)
+				return
+			}
 			existing.CoverURL = *req.CoverURL
 		}
 	}
@@ -968,9 +976,7 @@ func (h *PlaylistHandler) GetPlaylistCover(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *PlaylistHandler) tryRemoteCover(w http.ResponseWriter, r *http.Request, rawURL string) bool {
-	return tryServeRemoteResource(w, requestWithoutCoverRange(r), h.urlResolver.Resolve(rawURL), RemoteResourceOptions{
-		Timeout: songCoverProxyTimeout, AllowFallback: true,
-	})
+	return proxyRemoteCover(w, r, h.urlResolver, rawURL, true)
 }
 
 type revalidatingCoverWriter struct{ http.ResponseWriter }

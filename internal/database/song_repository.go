@@ -185,6 +185,12 @@ func (r *SongRepository) UpdateRadioModeBatch(ctx context.Context, ids []int64, 
 	return rows, nil
 }
 
+// UpdateRadioDetectedMode ignores results for a station whose source or manual mode changed.
+func (r *SongRepository) UpdateRadioDetectedMode(ctx context.Context, id int64, source string, mode models.RadioMode) (bool, error) {
+	rows, err := r.queries.UpdateRadioDetectedMode(ctx, sqlc.UpdateRadioDetectedModeParams{ID: id, Url: source, Mode: string(mode)})
+	return rows > 0, err
+}
+
 // UpdateDuration 仅在原 duration 为 0 时回填时长。
 func (r *SongRepository) UpdateDuration(ctx context.Context, id int64, duration float64) error {
 	if err := r.queries.UpdateSongDuration(ctx, sqlc.UpdateSongDurationParams{
@@ -717,7 +723,7 @@ func songSelectBuilder() sq.SelectBuilder {
 		"cue_source_path", "cue_track_index", "cue_audio_path",
 		"file_modified_at", "is_video",
 		"cue_start_seconds", "cue_end_seconds",
-		"rating", "radio_mode",
+		"rating", "radio_mode", "radio_detected_mode",
 	).From("songs")
 }
 
@@ -837,7 +843,7 @@ func scanSongRow(scanner interface {
 		&s.CueSourcePath, &s.CueTrackIndex, &s.CueAudioPath,
 		&fileModifiedAt, &isVideo,
 		&s.CueStartSeconds, &s.CueEndSeconds,
-		&s.Rating, &s.RadioMode,
+		&s.Rating, &s.RadioMode, &s.RadioDetectedMode,
 	}
 	if err := scanner.Scan(append(dest, extra...)...); err != nil {
 		return nil, fmt.Errorf("scan song: %w", err)
@@ -877,6 +883,7 @@ func songRowToModel(row sqlc.Song) *models.Song {
 		IsLive:               row.IsLive != 0,
 		IsVideo:              row.IsVideo != 0,
 		RadioMode:            models.RadioMode(row.RadioMode),
+		RadioDetectedMode:    models.RadioMode(row.RadioDetectedMode),
 		PluginEntryPath:      row.PluginEntryPath,
 		SourceData:           row.SourceData,
 		DedupKey:             row.DedupKey,

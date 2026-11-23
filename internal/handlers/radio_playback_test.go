@@ -21,7 +21,54 @@ import (
 	"songloft/internal/middleware"
 	"songloft/internal/models"
 	"songloft/internal/services"
+	"songloft/internal/services/playactivity"
 )
+
+func TestRadioPlaybackRejectsMismatchedSuffix(t *testing.T) {
+	var pulls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		pulls.Add(1)
+		w.Header().Set("Content-Type", "video/x-flv")
+		fmt.Fprint(w, "FLV fixture")
+	}))
+	defer upstream.Close()
+	repo := newTestSongRepo(t)
+	registry := playactivity.New()
+	h := NewSongHandler(services.NewSongService(repo, nil, nil, nil, nil, nil), nil, nil, nil, nil, registry)
+	flv := seedSong(t, repo, &models.Song{Title: "FLV", Type: models.TypeRadio, RadioMode: models.RadioModeFLV, URL: upstream.URL})
+	hls := seedSong(t, repo, &models.Song{Title: "HLS", Type: models.TypeRadio, RadioMode: models.RadioModeHLS, URL: upstream.URL})
+	audio := seedSong(t, repo, &models.Song{Title: "Audio", Type: models.TypeRadio, RadioMode: models.RadioModeAudioOnly, URL: upstream.URL})
+	remote := seedSong(t, repo, &models.Song{Title: "Song", Type: models.TypeRemote, URL: upstream.URL})
+	for _, test := range []struct {
+		name, method, suffix string
+		id, playingID        int64
+	}{
+		{"FLV GET as HLS", http.MethodGet, "m3u8", flv, hls},
+		{"FLV HEAD as HLS", http.MethodHead, "m3u8", flv, hls},
+		{"HLS GET as FLV", http.MethodGet, "flv", hls, flv},
+		{"HLS HEAD as FLV", http.MethodHead, "flv", hls, flv},
+		{"audio-only radio as HLS", http.MethodGet, "m3u8", audio, flv},
+		{"regular song as HLS", http.MethodGet, "m3u8", remote, flv},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			id := fmt.Sprint(test.id)
+			r := newRouteRequest(test.method, "/api/v1/songs/"+id+"/play."+test.suffix, nil, map[string]string{"id": id})
+			playing, release := registry.Track(t.Context(), playactivity.SessionFromContext(r.Context()), test.playingID, playactivity.CatPlay)
+			defer release()
+			w := httptest.NewRecorder()
+			h.GetSongPlay(w, r)
+			if w.Code != http.StatusNotFound {
+				t.Errorf("status=%d, want 404: %s", w.Code, w.Body.String())
+			}
+			if playing.Err() != nil {
+				t.Error("invalid route canceled the current playback")
+			}
+		})
+	}
+	if got := pulls.Load(); got != 0 {
+		t.Errorf("upstream received %d invalid requests, want 0", got)
+	}
+}
 
 func TestFLVRadioPlaybackAndCompatibilitySession(t *testing.T) {
 	for _, tool := range []string{"ffmpeg", "ffprobe"} {

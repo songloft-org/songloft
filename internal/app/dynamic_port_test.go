@@ -11,7 +11,7 @@ import (
 func TestSetListenerPortUpdatesRuntimeURLResolver(t *testing.T) {
 	cfg := config.NewAppConfig("0", "", "admin", "password", "")
 	a := NewApp(cfg, embed.FS{})
-	a.urlResolver = services.NewInternalURLResolver(0, "token")
+	a.urlResolver = services.NewInternalURLResolver(0, "token", "")
 
 	a.SetListenerPort(33807)
 

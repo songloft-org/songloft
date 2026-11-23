@@ -257,6 +257,9 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 - HLS 电台 song.url 强制带 `.m3u8` 后缀（`/api/v1/songs/{id}/play.m3u8`）：ExoPlayer/AVPlayer 按 URL 后缀选 MediaSource，无后缀会落到 ProgressiveMediaSource 导致直播无法播
 - 电台 `radio_mode=hls` 显式声明无后缀的 HLS 入口（含直播取流跳转）；客户端播放路径仍带 `.m3u8`，源地址按原值保存。空值按后缀识别。H.265 等源编码由支持该编码的播放器解码。
 - `radio_mode=flv` 显式声明 HTTP-FLV 电台，包括无后缀的跳转入口。自动模式识别 URL 路径上的 `.flv`。服务端保留入口 URL，通过 `/play.flv` 流式转发原始字节，Web 在支持时本地解封装。
+- 自动模式下，新增、换源及显式切回自动时会探测无已知后缀的 HTTP/HTTPS 源。每批共享 3 秒，最多并行探测 4 个源，每个响应读至多 64 字节。复用直播拉流的源地址和重定向校验。探测值单独保存，源地址或手选模式变更时失效。列表和播放读取已保存结果；已有自动电台可通过批量选择「自动」重新探测。
+- `/play.m3u8` 和 `/play.flv` 要求对应的电台模式。模式不匹配时，GET 和 HEAD 都在拉源或切换播放会话前返回 404。通用 `/play` 仍按歌曲类型和电台模式分流。
+- 电台播放 GET 在拉源前记录 `radio stream requested`，请求结束后通过相同的 `request_id` 关联 `access` 日志。日志只记录 URL 路径，HEAD 和预热请求只使用常规 `access` 日志。
 - `radio_mode=audio_only` 的电台使用 `/play` 并清除 `is_video`。`/api/v1/songs/{id}/play.mp3` 可为电台显式请求 MP3，供音箱仅携带 `access_token`。两条路径经直播转码网关拉流，复用转码私网白名单和共享的 4 个转码槽位，抽取首条音轨输出 MP3。启动失败返回 HTTP 错误，`HEAD` 只返回音频响应头，旧客户端仍可使用 `radio_transcode=mp3`。
 - 无固定长度的 FLV 直播流到达正常 EOF 时，纯音频拉流网关立即重新访问电台入口，在 FFmpeg 编完旧连接中已缓冲的音频时准备好新的上游连接。下一轮转码复用这次拉流，并继续写入同一 HTTP 响应。未及时接手的连接会被回收，预拉失败时立即按正常路径拉取。若重连仍需要等待，按音频帧速率补短暂静音。客户端断开会取消拉流和转码，固定长度的媒体文件正常结束。
 - 改写规则：经典 HLS + LL-HLS 全集（PART/PRELOAD-HINT/RENDITION-REPORT）+ `EXT-X-DATERANGE:X-ASSET-URI`（HLS Interstitials 单 URI）。`X-ASSET-LIST`（JSON 子代理）暂未实现，遇到时原样透传

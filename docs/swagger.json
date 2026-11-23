@@ -2640,7 +2640,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "创建一个新的歌单",
+                "description": "创建一个新的歌单。cover_url 不得指向本服务的歌曲或歌单封面接口。",
                 "consumes": [
                     "application/json"
                 ],
@@ -3016,7 +3016,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "更新歌单信息。支持通过 cover_song_id 从指定歌曲复制封面，与 cover_path/cover_url 互斥且优先级更高",
+                "description": "更新歌单信息。支持通过 cover_song_id 从指定歌曲复制封面，与 cover_path/cover_url 互斥且优先级更高。cover_url 不得指向本服务的歌曲或歌单封面接口。",
                 "consumes": [
                     "application/json"
                 ],
@@ -7971,7 +7971,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "按 ID 列表批量设置电台播放模式。radio_mode 支持空字符串（自动）、hls、flv、audio_only；is_video 省略时保留各电台原值，仅音频模式始终清除视频内容。不存在的 ID 静默跳过，非电台歌曲或无效模式会拒绝整批更新。",
+                "description": "按 ID 列表批量设置电台播放模式。radio_mode 支持空字符串（自动）、hls、flv、audio_only。选择自动会尝试探测无已知后缀的源。is_video 省略时保留各电台原值，仅音频模式始终清除视频内容。不存在的 ID 静默跳过，非电台歌曲或无效模式会拒绝整批更新。",
                 "consumes": [
                     "application/json"
                 ],
@@ -8644,7 +8644,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "批量添加电台。radio_mode 缺省时按 URL 后缀自动识别；hls 和 flv 可显式标记无后缀的直播入口；audio_only 从 HTTP/HTTPS HLS、TS、MP4 或 FLV 源实时提取第一条音轨并输出 MP3，需 FFmpeg。",
+                "description": "批量添加电台。radio_mode 缺省时自动识别，先按已知 URL 后缀，再在有界时间内探测其他 HTTP/HTTPS 源。hls 和 flv 可显式指定格式。audio_only 从 HTTP/HTTPS HLS、TS、MP4 或 FLV 源实时提取第一条音轨并输出 MP3，需 FFmpeg。",
                 "consumes": [
                     "application/json"
                 ],
@@ -9150,7 +9150,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "更新网络歌曲或电台。电台可将 radio_mode 设为 hls、flv 或 audio_only（服务端输出 MP3），空字符串恢复按后缀自动识别，省略则保留原模式。纯音频模式清除 is_video。",
+                "description": "更新网络歌曲或电台。电台可将 radio_mode 设为 hls、flv 或 audio_only（服务端输出 MP3），空字符串恢复自动识别并探测无已知后缀的源，省略则保留手选模式。自动模式换源时重新探测。纯音频模式清除 is_video。cover_url 不得指向本服务的歌曲或歌单封面接口。",
                 "consumes": [
                     "application/json"
                 ],
@@ -9567,6 +9567,15 @@
                     },
                     "500": {
                         "description": "服务器错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "远程封面并发抓取已满",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -10010,7 +10019,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "按 song.ID 流式播放。HLS 电台返回播放列表或 302，HTTP-FLV 电台通过 play.flv 返回原始 FLV。play.mp3 仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play 返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。",
+                "description": "按 song.ID 流式播放。play.m3u8 仅适用于 HLS 电台，返回播放列表或 302。play.flv 仅适用于 HTTP-FLV 电台，返回原始 FLV。两条路径与电台模式不匹配时返回 404。play.mp3 仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play 返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。",
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -10161,7 +10170,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "按 song.ID 流式播放。HLS 电台返回播放列表或 302，HTTP-FLV 电台通过 play.flv 返回原始 FLV。play.mp3 仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play 返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。",
+                "description": "按 song.ID 流式播放。play.m3u8 仅适用于 HLS 电台，返回播放列表或 302。play.flv 仅适用于 HTTP-FLV 电台，返回原始 FLV。两条路径与电台模式不匹配时返回 404。play.mp3 仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play 返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。",
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -10312,7 +10321,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "按 song.ID 流式播放。HLS 电台返回播放列表或 302，HTTP-FLV 电台通过 play.flv 返回原始 FLV。play.mp3 仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play 返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。",
+                "description": "按 song.ID 流式播放。play.m3u8 仅适用于 HLS 电台，返回播放列表或 302。play.flv 仅适用于 HTTP-FLV 电台，返回原始 FLV。两条路径与电台模式不匹配时返回 404。play.mp3 仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play 返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。",
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -10463,7 +10472,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "按 song.ID 流式播放。HLS 电台返回播放列表或 302，HTTP-FLV 电台通过 play.flv 返回原始 FLV。play.mp3 仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play 返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。",
+                "description": "按 song.ID 流式播放。play.m3u8 仅适用于 HLS 电台，返回播放列表或 302。play.flv 仅适用于 HTTP-FLV 电台，返回原始 FLV。两条路径与电台模式不匹配时返回 404。play.mp3 仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play 返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。",
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -13428,7 +13437,7 @@
                     "example": "my-source"
                 },
                 "radio_mode": {
-                    "description": "电台播放模式，缺省按 URL 后缀识别",
+                    "description": "电台手选模式，空值为自动",
                     "allOf": [
                         {
                             "$ref": "#/definitions/models.RadioMode"

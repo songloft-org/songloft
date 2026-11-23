@@ -332,6 +332,7 @@ func (a *App) Init() error {
 	a.cacheService.SetFFmpegPath(ffmpegConfig.Path)
 	a.cacheService.SetBundledFFprobePath(a.config.FFprobePath)
 	proxySettings := handlers.NewProxyHandler(a.configService)
+	a.songService.SetRadioSourceProbe(services.NewRadioSourceProbe(proxySettings.GetPrivateAllowlist))
 	a.hlsTranscodeService, err = services.NewHLSTranscodeService(a.cacheService, proxySettings.GetPrivateAllowlist)
 	if err != nil {
 		return fmt.Errorf("创建直播转码服务失败: %w", err)
@@ -362,7 +363,7 @@ func (a *App) Init() error {
 		internalServerPort = p
 	}
 
-	a.urlResolver = services.NewInternalURLResolver(internalServerPort, internalToken)
+	a.urlResolver = services.NewInternalURLResolver(internalServerPort, internalToken, a.config.BasePath)
 	a.lyricFetcher = services.NewLyricFetcher(a.urlResolver, nil)
 
 	// 初始化 JS 插件管理器（必须在 setupRouter 之前，因为路由注册需要访问 jsPluginManager）

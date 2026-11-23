@@ -1043,7 +1043,7 @@ func (h *SongHandler) BatchDeleteSongs(w http.ResponseWriter, r *http.Request) {
 
 // UpdateSong 更新歌曲信息
 // @Summary 更新歌曲信息
-// @Description 更新网络歌曲或电台。电台可将 radio_mode 设为 hls、flv 或 audio_only（服务端输出 MP3），空字符串恢复按后缀自动识别，省略则保留原模式。纯音频模式清除 is_video。
+// @Description 更新网络歌曲或电台。电台可将 radio_mode 设为 hls、flv 或 audio_only（服务端输出 MP3），空字符串恢复自动识别并探测无已知后缀的源，省略则保留手选模式。自动模式换源时重新探测。纯音频模式清除 is_video。cover_url 不得指向本服务的歌曲或歌单封面接口。
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
@@ -1094,8 +1094,13 @@ func (h *SongHandler) UpdateSong(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "标题不能为空", nil)
 		return
 	}
+	if referencesLocalCover(r, h.urlResolver, req.CoverURL) {
+		respondError(w, http.StatusBadRequest, invalidCoverReference, nil)
+		return
+	}
 
 	// 更新歌曲信息
+	previousURL, previousMode := existingSong.URL, existingSong.RadioMode
 	existingSong.Title = req.Title
 	existingSong.Artist = req.Artist
 	existingSong.Album = req.Album
@@ -1132,10 +1137,16 @@ func (h *SongHandler) UpdateSong(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "URL不能为空", nil)
 		return
 	}
+	if previousURL != existingSong.URL || previousMode != existingSong.RadioMode {
+		existingSong.RadioDetectedMode = models.RadioModeAuto
+	}
 
 	if err := h.songService.Update(ctx, existingSong); err != nil {
 		respondError(w, http.StatusInternalServerError, "更新歌曲失败", err)
 		return
+	}
+	if existingSong.Type == models.TypeRadio && existingSong.RadioMode == models.RadioModeAuto && (req.RadioMode != nil || previousURL != existingSong.URL) {
+		h.songService.RefreshRadioModes(ctx, []*models.Song{existingSong})
 	}
 
 	respondJSON(w, http.StatusOK, existingSong)
@@ -1192,6 +1203,10 @@ func (h *SongHandler) AddRemoteSongs(w http.ResponseWriter, r *http.Request) {
 		hasPlugin := req.PluginEntryPath != "" && req.SourceData != ""
 		if req.URL == "" && !hasPlugin {
 			respondError(w, http.StatusBadRequest, fmt.Sprintf("第 %d 条:必须提供 url 或 (plugin_entry_path + source_data)", i+1), nil)
+			return
+		}
+		if referencesLocalCover(r, h.urlResolver, req.CoverURL) {
+			respondError(w, http.StatusBadRequest, fmt.Sprintf("第 %d 条：%s", i+1, invalidCoverReference), nil)
 			return
 		}
 		inputs = append(inputs, services.RemoteSongInput{
@@ -1255,7 +1270,7 @@ func (h *SongHandler) waitForDownloadIdle() {
 
 // AddRadios 批量添加电台/广播
 // @Summary 批量添加电台/广播
-// @Description 批量添加电台。radio_mode 缺省时按 URL 后缀自动识别；hls 和 flv 可显式标记无后缀的直播入口；audio_only 从 HTTP/HTTPS HLS、TS、MP4 或 FLV 源实时提取第一条音轨并输出 MP3，需 FFmpeg。
+// @Description 批量添加电台。radio_mode 缺省时自动识别，先按已知 URL 后缀，再在有界时间内探测其他 HTTP/HTTPS 源。hls 和 flv 可显式指定格式。audio_only 从 HTTP/HTTPS HLS、TS、MP4 或 FLV 源实时提取第一条音轨并输出 MP3，需 FFmpeg。
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json
@@ -1297,6 +1312,10 @@ func (h *SongHandler) AddRadios(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, fmt.Sprintf("第 %d 条：电台播放模式或 HTTP/HTTPS 源地址无效", i+1), nil)
 			return
 		}
+		if referencesLocalCover(r, h.urlResolver, req.CoverURL) {
+			respondError(w, http.StatusBadRequest, fmt.Sprintf("第 %d 条：%s", i+1, invalidCoverReference), nil)
+			return
+		}
 		inputs = append(inputs, services.RadioInput{
 			URL:       req.URL,
 			Title:     req.Title,
@@ -1330,6 +1349,7 @@ func (h *SongHandler) AddRadios(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} map[string]string "无效的歌曲 ID"
 // @Failure 404 {object} map[string]string "歌曲或封面不存在"
 // @Failure 500 {object} map[string]string "服务器错误"
+// @Failure 503 {object} map[string]string "远程封面并发抓取已满"
 // @Security BearerAuth
 // @Router /songs/{id}/cover [get]
 func (h *SongHandler) GetSongCover(w http.ResponseWriter, r *http.Request) {
@@ -1355,35 +1375,16 @@ func (h *SongHandler) GetSongCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 本地封面不存在时,代理转发外部 URL
-	// 支持插件相对路径:以 "/" 开头的 URL 经 InternalURLResolver 解析为本机绝对 URL + access_token,
-	// 与歌词的 LyricFetcher 解析机制一致;绝对 URL 原样透传。
 	if song.CoverURL != "" {
-		coverURL := song.CoverURL
-		if h.urlResolver != nil {
-			coverURL = h.urlResolver.Resolve(coverURL)
-		}
-		ServeRemoteResourceWithOptions(w, requestWithoutCoverRange(r), coverURL, RemoteResourceOptions{
-			Timeout:      songCoverProxyTimeout,
-			ErrorStatus:  http.StatusNotFound,
-			ErrorMessage: "cover fetch failed",
-		})
+		proxyRemoteCover(w, r, h.urlResolver, song.CoverURL, false)
 		return
 	}
 
 	// 本地封面和远程 URL 都不存在时，尝试从已注册的封面提供者插件获取
 	if h.coverSearcher != nil && !song.MetadataOverrideMask.Has(models.MetadataOverridePicture) {
-		if coverURL, err := h.coverSearcher.SearchCover(ctx, song.Title, song.Artist, song.Album, song.Fingerprint, song.ISRC); err == nil && coverURL != "" {
+		if coverURL, err := h.coverSearcher.SearchCover(ctx, song.Title, song.Artist, song.Album, song.Fingerprint, song.ISRC); err == nil && coverURL != "" && !referencesLocalCover(r, h.urlResolver, coverURL) {
 			go h.songService.UpdateCoverURL(context.Background(), song.ID, coverURL)
-			resolvedURL := coverURL
-			if h.urlResolver != nil {
-				resolvedURL = h.urlResolver.Resolve(resolvedURL)
-			}
-			ServeRemoteResourceWithOptions(w, requestWithoutCoverRange(r), resolvedURL, RemoteResourceOptions{
-				Timeout:      songCoverProxyTimeout,
-				ErrorStatus:  http.StatusNotFound,
-				ErrorMessage: "cover fetch failed",
-			})
+			proxyRemoteCover(w, r, h.urlResolver, coverURL, false)
 			return
 		}
 	}
@@ -1506,7 +1507,7 @@ func (h *SongHandler) UpdateSongLyrics(w http.ResponseWriter, r *http.Request) {
 // 不需要判断 song.type/source — 所有分发逻辑都集中在这里。
 //
 // @Summary 流式播放歌曲
-// @Description 按 song.ID 流式播放。HLS 电台返回播放列表或 302，HTTP-FLV 电台通过 play.flv 返回原始 FLV。play.mp3 仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play 返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。
+// @Description 按 song.ID 流式播放。play.m3u8 仅适用于 HLS 电台，返回播放列表或 302。play.flv 仅适用于 HTTP-FLV 电台，返回原始 FLV。两条路径与电台模式不匹配时返回 404。play.mp3 仅用于电台，强制抽取首条音轨并返回 MP3 或转码错误，无需 radio_transcode 参数。配置为 audio_only 的电台通过 play 返回 MP3。无固定长度的 FLV 上游正常断开后，MP3 转码会重新访问电台入口并继续使用同一响应。
 // @Tags 歌曲管理
 // @Produce application/octet-stream
 // @Param id path int true "歌曲 ID"
@@ -1542,15 +1543,8 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 用户进入正式播放路径时，让该客户端会话下其他歌曲的进行中工作集体退场
-	// （prefetch / transcode / reassign），避免它们继续占用 plugin worker / 转码 sem。
-	// prefetch 由下一次预热或正式播放清理。MP3 的 HEAD 可供插件探测路由，不影响当前播放。
-	sk := playactivity.SessionFromContext(r.Context())
 	mp3Radio := strings.HasSuffix(r.URL.Path, "/play.mp3")
 	prefetch := !mp3Radio && r.URL.Query().Get("prefetch") == "1"
-	if !prefetch && !(mp3Radio && r.Method == http.MethodHead) && h.playActivity != nil {
-		h.playActivity.Activate(sk, songID)
-	}
 
 	ctx := r.Context()
 	song, err := h.songService.GetByID(ctx, songID)
@@ -1562,9 +1556,24 @@ func (h *SongHandler) GetSongPlay(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if strings.HasSuffix(r.URL.Path, "/play.flv") && !song.IsFLVStream() {
-		http.NotFound(w, r)
+	switch {
+	case strings.HasSuffix(r.URL.Path, "/play.m3u8") && !song.IsHLSStream():
+		respondError(w, http.StatusNotFound, "该播放路径仅适用于 HLS 电台", nil)
 		return
+	case strings.HasSuffix(r.URL.Path, "/play.flv") && !song.IsFLVStream():
+		respondError(w, http.StatusNotFound, "该播放路径仅适用于 HTTP-FLV 电台", nil)
+		return
+	}
+
+	if song.Type == models.TypeRadio && r.Method == http.MethodGet && !prefetch {
+		slog.Info("radio stream requested", "method", r.Method, "path", r.URL.Path, "song_id", song.ID,
+			"request_id", chi_middleware.GetReqID(ctx))
+	}
+
+	// Only an applicable playback request can cancel work on the previous song.
+	sk := playactivity.SessionFromContext(ctx)
+	if !prefetch && !(mp3Radio && r.Method == http.MethodHead) && h.playActivity != nil {
+		h.playActivity.Activate(sk, songID)
 	}
 
 	targetFormat := r.URL.Query().Get("format")
@@ -3193,7 +3202,7 @@ func (h *SongHandler) BatchUpdateSongRating(w http.ResponseWriter, r *http.Reque
 
 // BatchUpdateRadioMode 批量设置电台播放模式。
 // @Summary 批量设置电台播放模式
-// @Description 按 ID 列表批量设置电台播放模式。radio_mode 支持空字符串（自动）、hls、flv、audio_only；is_video 省略时保留各电台原值，仅音频模式始终清除视频内容。不存在的 ID 静默跳过，非电台歌曲或无效模式会拒绝整批更新。
+// @Description 按 ID 列表批量设置电台播放模式。radio_mode 支持空字符串（自动）、hls、flv、audio_only。选择自动会尝试探测无已知后缀的源。is_video 省略时保留各电台原值，仅音频模式始终清除视频内容。不存在的 ID 静默跳过，非电台歌曲或无效模式会拒绝整批更新。
 // @Tags 歌曲管理
 // @Accept json
 // @Produce json

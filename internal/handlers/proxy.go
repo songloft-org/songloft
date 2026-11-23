@@ -30,7 +30,11 @@ type RemoteResourceOptions struct {
 	Timeout       time.Duration
 	ErrorStatus   int
 	ErrorMessage  string
+	RejectURL     func(*url.URL) bool // Optional policy for the initial URL and every redirect.
+	OnFailure     func(int)           // Reports upstream missing responses and transport failures on an active request.
 }
+
+var errRemoteResourceURLRejected = errors.New("remote resource URL rejected")
 
 // ProxyHandler 通用资源代理处理器
 // 用于代理外部资源（图片、音频、视频流等），解决浏览器 CORS 限制
@@ -355,6 +359,12 @@ func tryServeRemoteResource(w http.ResponseWriter, r *http.Request, resourceURL 
 		}
 		return false
 	}
+	if opts.RejectURL != nil && opts.RejectURL(upstreamReq.URL) {
+		if !opts.AllowFallback {
+			respondError(w, errorStatus, errorMessage, nil)
+		}
+		return false
+	}
 
 	// 处理 Basic Auth
 	if upstreamReq.URL.User != nil {
@@ -379,16 +389,35 @@ func tryServeRemoteResource(w http.ResponseWriter, r *http.Request, resourceURL 
 
 	// 发起请求（走全局 HTTP 代理）
 	client := httputil.NewClient(timeout)
+	if opts.RejectURL != nil {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			if opts.RejectURL(req.URL) {
+				return errRemoteResourceURLRejected
+			}
+			if len(via) >= 10 {
+				return errors.New("stopped after 10 redirects")
+			}
+			return nil
+		}
+	}
 
 	resp, err := client.Do(upstreamReq)
 	if err != nil {
+		if opts.OnFailure != nil && r.Context().Err() == nil && !errors.Is(err, errRemoteResourceURLRejected) {
+			opts.OnFailure(errorStatus)
+		}
 		if !opts.AllowFallback {
-			slog.Warn("remote resource fetch failed", "url", resourceURL, "error", err)
+			if !errors.Is(err, errRemoteResourceURLRejected) {
+				slog.Warn("remote resource fetch failed", "url", resourceURL, "error", err)
+			}
 			respondError(w, errorStatus, errorMessage, nil)
 		}
 		return false
 	}
 	defer resp.Body.Close()
+	if opts.OnFailure != nil && (resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone) {
+		opts.OnFailure(resp.StatusCode)
+	}
 	if opts.AllowFallback && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent && resp.StatusCode != http.StatusNotModified {
 		return false
 	}

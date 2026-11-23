@@ -136,12 +136,15 @@ func TestSongMetadataAndScanFormatsMigration(t *testing.T) {
 	if _, err := provider.UpTo(ctx, 46); err != nil {
 		t.Fatal(err)
 	}
-	song, err := db.SongRepository().GetByID(ctx, id)
-	if err != nil {
+	// This test stops at version 46, so read only fields present in that schema.
+	var title string
+	var mask, editedAt int64
+	if err := db.DB().QueryRowContext(ctx, "SELECT title, metadata_override_mask, metadata_edited_at FROM songs WHERE id = ?", id).
+		Scan(&title, &mask, &editedAt); err != nil {
 		t.Fatal(err)
 	}
-	if song.Title != "Existing title" || song.MetadataOverrideMask != 0 || song.MetadataEditedAt != 0 {
-		t.Fatalf("unexpected migrated song: title=%q, mask=%d, editedAt=%d", song.Title, song.MetadataOverrideMask, song.MetadataEditedAt)
+	if title != "Existing title" || mask != 0 || editedAt != 0 {
+		t.Fatalf("unexpected migrated song: title=%q, mask=%d, editedAt=%d", title, mask, editedAt)
 	}
 
 	migration, err := os.ReadFile("migrations/0046_song_metadata_and_scan_formats.sql")

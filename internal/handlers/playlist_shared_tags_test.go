@@ -130,7 +130,7 @@ func TestPlaylistCoverResolvesAuthenticatedPluginRelativeURL(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := NewPlaylistHandler(svc, nil)
-	h.SetURLResolver(services.NewInternalURLResolver(port, "fixture"))
+	h.SetURLResolver(services.NewInternalURLResolver(port, "fixture", ""))
 	w := httptest.NewRecorder()
 	h.GetPlaylistCover(w, newRouteRequest("GET", "/", nil, map[string]string{"id": strconv.FormatInt(p.ID, 10)}))
 	if w.Code != 200 || w.Body.String() != "plugin artwork" {

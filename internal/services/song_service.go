@@ -48,6 +48,7 @@ type SongRepository interface {
 	UpdateRating(ctx context.Context, id int64, rating int) error
 	UpdateRatingBatch(ctx context.Context, ids []int64, rating int) (int64, error)
 	UpdateRadioModeBatch(ctx context.Context, ids []int64, mode models.RadioMode, isVideo *bool) (int64, error)
+	UpdateRadioDetectedMode(ctx context.Context, id int64, source string, mode models.RadioMode) (bool, error)
 	ListLocalPaths(ctx context.Context) (map[string]database.LocalPathInfo, error)
 	ListLocalSongsWithRelativePaths(ctx context.Context) ([]database.RelativePathSong, error)
 	UpdateSongFilePath(ctx context.Context, id int64, newPath string) error
@@ -97,6 +98,7 @@ type SongService struct {
 	scanProgressManager *ScanProgressManager
 	configService       *ConfigService
 	playlistAutoCreator PlaylistAutoCreator
+	radioProbe          *RadioSourceProbe
 	// 以下可选依赖由 app.go 通过 Set* 注入，扫描/删除在 goroutine 中读取，用 atomic.Pointer 保证并发安全。
 	cacheService       atomic.Pointer[CacheService]       // 可选;Delete/BatchDelete 时清理 cache 残留
 	fingerprintService atomic.Pointer[FingerprintService] // 可选;扫描完成后自动计算指纹
@@ -221,6 +223,10 @@ func (s *SongService) Update(ctx context.Context, song *models.Song) error {
 		return fmt.Errorf("failed to update song: %w", err)
 	}
 	return nil
+}
+
+func (s *SongService) SetRadioSourceProbe(probe *RadioSourceProbe) {
+	s.radioProbe = probe
 }
 
 // SetSongArtists 全量替换一首歌的参与歌手，并同步刷新 songs.artist 显示串。
@@ -1437,6 +1443,7 @@ func (s *SongService) AddRadios(ctx context.Context, inputs []RadioInput) ([]*mo
 	if err := s.songs.BatchCreate(ctx, songs); err != nil {
 		return nil, fmt.Errorf("failed to batch add radios: %w", err)
 	}
+	s.RefreshRadioModes(ctx, songs)
 	return songs, nil
 }
 
@@ -1751,6 +1758,12 @@ func (s *SongService) UpdateRadioModeBatch(ctx context.Context, ids []int64, mod
 	updated, err := s.songs.UpdateRadioModeBatch(ctx, ids, mode, isVideo)
 	if err != nil {
 		return 0, fmt.Errorf("update radio mode batch: %w", err)
+	}
+	if mode == models.RadioModeAuto {
+		for _, song := range songs {
+			song.RadioMode = models.RadioModeAuto
+		}
+		s.RefreshRadioModes(ctx, songs)
 	}
 	return updated, nil
 }

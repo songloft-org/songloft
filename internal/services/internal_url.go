@@ -2,6 +2,9 @@ package services
 
 import (
 	"fmt"
+	"net"
+	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -15,14 +18,16 @@ type InternalURLResolver struct {
 	mu            sync.RWMutex
 	serverPort    int
 	internalToken string
+	basePath      string
 }
 
 // NewInternalURLResolver 创建解析器。
 // serverPort <= 0 或 internalToken 为空时,Resolve 对相对路径会原样返回(调用方需自行处理)。
-func NewInternalURLResolver(serverPort int, internalToken string) *InternalURLResolver {
+func NewInternalURLResolver(serverPort int, internalToken, basePath string) *InternalURLResolver {
 	return &InternalURLResolver{
 		serverPort:    serverPort,
 		internalToken: internalToken,
+		basePath:      basePath,
 	}
 }
 
@@ -36,6 +41,39 @@ func (r *InternalURLResolver) SetServerPort(serverPort int) {
 	r.mu.Lock()
 	r.serverPort = serverPort
 	r.mu.Unlock()
+}
+
+// TargetsInternalListener reports whether an absolute URL addresses this app's loopback listener.
+func (r *InternalURLResolver) TargetsInternalListener(target *url.URL) bool {
+	if r == nil || (target.Scheme != "http" && target.Scheme != "https") {
+		return false
+	}
+	host := strings.TrimSuffix(target.Hostname(), ".")
+	if !strings.EqualFold(host, "localhost") && !net.ParseIP(host).IsLoopback() {
+		return false
+	}
+	port := target.Port()
+	if port == "" {
+		port = "80"
+		if target.Scheme == "https" {
+			port = "443"
+		}
+	}
+	portNumber, err := strconv.Atoi(port)
+	if err != nil || portNumber <= 0 {
+		return false
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return portNumber == r.serverPort
+}
+
+// WithoutBasePath returns the router path for a URL using the configured mount prefix.
+func (r *InternalURLResolver) WithoutBasePath(requestPath string) string {
+	if r != nil && strings.HasPrefix(requestPath, r.basePath+"/") {
+		return requestPath[len(r.basePath):]
+	}
+	return requestPath
 }
 
 // Resolve 解析为可直接访问的绝对 URL。

@@ -119,7 +119,8 @@ type Song struct {
 	FileModifiedAt  *time.Time `json:"file_modified_at,omitempty"`                // 文件修改时间(mtime，本地歌曲扫描时记录；未知为 nil)
 	PlaylistAddedAt *time.Time `json:"playlist_added_at,omitempty"`               // 加入当前歌单的时间，仅歌单成员查询返回
 
-	RadioMode RadioMode `json:"radio_mode,omitempty"` // 电台播放模式，缺省按 URL 后缀识别
+	RadioMode         RadioMode `json:"radio_mode,omitempty"` // 电台手选模式，空值为自动
+	RadioDetectedMode RadioMode `json:"-"`                    // 自动探测结果，随源地址失效
 
 	MetadataOverrideMask SongMetadataMask `json:"-"`
 	MetadataEditedAt     int64            `json:"-"` // 最近一次手动编辑的 Unix 纳秒时间戳
@@ -179,30 +180,42 @@ func (m RadioMode) ValidForSource(rawURL string) bool {
 
 // IsHLSStream 判断电台是否向客户端提供 HLS 播放列表。
 func (s *Song) IsHLSStream() bool {
-	if s.Type != TypeRadio || s.URL == "" {
-		return false
-	}
-	if s.RadioMode != RadioModeAuto {
-		return s.RadioMode == RadioModeHLS
-	}
-	u, err := url.Parse(s.URL)
-	if err != nil {
-		return false
-	}
-	ext := strings.ToLower(path.Ext(u.Path))
-	return ext == ".m3u8" || ext == ".m3u"
+	return s.effectiveRadioMode() == RadioModeHLS
 }
 
 // IsFLVStream identifies an HTTP-FLV station by its saved mode or source path.
 func (s *Song) IsFLVStream() bool {
+	return s.effectiveRadioMode() == RadioModeFLV
+}
+
+func (s *Song) effectiveRadioMode() RadioMode {
 	if s.Type != TypeRadio || s.URL == "" {
-		return false
+		return RadioModeAuto
 	}
 	if s.RadioMode != RadioModeAuto {
-		return s.RadioMode == RadioModeFLV
+		return s.RadioMode
 	}
-	u, err := url.Parse(s.URL)
-	return err == nil && RadioModeFLV.ValidForSource(s.URL) && strings.EqualFold(path.Ext(u.Path), ".flv")
+	if s.RadioDetectedMode != RadioModeAuto {
+		return s.RadioDetectedMode
+	}
+	return RadioModeFromURL(s.URL)
+}
+
+// RadioModeFromURL identifies the containers with a conventional source suffix.
+func RadioModeFromURL(source string) RadioMode {
+	u, err := url.Parse(source)
+	if err != nil {
+		return RadioModeAuto
+	}
+	switch strings.ToLower(path.Ext(u.Path)) {
+	case ".m3u8", ".m3u":
+		return RadioModeHLS
+	case ".flv":
+		if RadioModeFLV.ValidForSource(source) {
+			return RadioModeFLV
+		}
+	}
+	return RadioModeAuto
 }
 
 // PlaybackURL 返回客户端用的统一播放 URL(所有 type 都用同一形态)。

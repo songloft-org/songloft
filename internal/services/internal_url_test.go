@@ -3,7 +3,7 @@ package services
 import "testing"
 
 func TestInternalURLResolverUpdatesBundlePort(t *testing.T) {
-	resolver := NewInternalURLResolver(0, "token")
+	resolver := NewInternalURLResolver(0, "token", "")
 	if got := resolver.Resolve("/api/v1/jsplugin/miot/player/status"); got != "/api/v1/jsplugin/miot/player/status" {
 		t.Fatalf("expected unresolved URL before listener starts, got %q", got)
 	}

@@ -171,6 +171,7 @@ type Song struct {
 	RadioMode              string
 	MetadataOverrideMask   int64
 	MetadataEditedAt       int64
+	RadioDetectedMode      string
 }
 
 type SongArtist struct {

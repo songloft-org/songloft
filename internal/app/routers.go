@@ -389,6 +389,7 @@ func (a *App) setupBaseRouter() {
 	))
 
 	// 基础中间件：access log 走 slog，受 /settings/log-level 控制
+	a.router.Use(chi_middleware.RequestID)
 	a.router.Use(chi_middleware.RequestLogger(slogLogFormatter{}))
 
 	// Tracely panic 捕获中间件（在 Recoverer 之前，确保 panic 能被上报）
@@ -413,7 +414,6 @@ func (a *App) setupBaseRouter() {
 	})
 
 	a.router.Use(chi_middleware.Recoverer)
-	a.router.Use(chi_middleware.RequestID)
 
 	// CORS 中间件配置
 	a.router.Use(cors.Handler(cors.Options{

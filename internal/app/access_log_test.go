@@ -10,8 +10,57 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	chi_middleware "github.com/go-chi/chi/v5/middleware"
+	"songloft/internal/config"
+	"songloft/internal/database/testutil"
+	"songloft/internal/handlers"
+	"songloft/internal/models"
+	"songloft/internal/services"
 )
+
+func TestRadioStartAndAccessLogsShareRequestID(t *testing.T) {
+	repo := testutil.OpenMemoryDB(t).SongRepository()
+	song := &models.Song{Title: "radio", Type: models.TypeRadio, RadioMode: models.RadioModeHLS, URL: "https://example.com/live.m3u8"}
+	if err := repo.Create(t.Context(), song); err != nil {
+		t.Fatal(err)
+	}
+	app := &App{router: chi.NewRouter(), config: &config.AppConfig{}}
+	app.setupBaseRouter()
+	h := handlers.NewSongHandler(services.NewSongService(repo, nil, nil, nil, nil, nil), nil, nil, nil, nil, nil)
+	app.router.Get("/api/v1/songs/{id}/play.m3u8", h.GetSongPlay)
+	app.router.Head("/api/v1/songs/{id}/play.m3u8", h.GetSongPlay)
+
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		w := httptest.NewRecorder()
+		app.router.ServeHTTP(w, httptest.NewRequest(method, song.PlaybackURL()+"?access_token=fixture-secret", nil))
+		if w.Code != http.StatusFound {
+			t.Fatalf("%s status = %d", method, w.Code)
+		}
+	}
+	if strings.Contains(logs.String(), "fixture-secret") {
+		t.Fatal("radio logging includes the query token")
+	}
+	var entries []map[string]any
+	decoder := json.NewDecoder(&logs)
+	for decoder.More() {
+		var entry map[string]any
+		if err := decoder.Decode(&entry); err != nil {
+			t.Fatal(err)
+		}
+		entries = append(entries, entry)
+	}
+	if len(entries) != 3 || entries[0]["msg"] != "radio stream requested" || entries[1]["msg"] != "access" || entries[2]["method"] != "HEAD" {
+		t.Fatalf("unexpected start and end logs: %+v", entries)
+	}
+	if id, ok := entries[0]["request_id"].(string); !ok || id == "" || id != entries[1]["request_id"] {
+		t.Fatalf("GET start and finish need the same request ID: %+v", entries)
+	}
+}
 
 func TestAccessLogRangeResponse(t *testing.T) {
 	for _, tt := range []struct {

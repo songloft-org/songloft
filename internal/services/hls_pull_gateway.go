@@ -67,6 +67,19 @@ func newHLSPullGateway(ctx context.Context, opts HLSTranscodeOptions, allowlist 
 	}
 	g := &hlsPullGateway{listener: listener, opts: opts, allowlist: allowlist,
 		base: "http://" + listener.Addr().String() + "/" + hex.EncodeToString(key[:]) + "/"}
+	if err := g.initSourceClient(); err != nil {
+		listener.Close()
+		return nil, err
+	}
+	g.ctx, g.cancel = context.WithCancel(ctx)
+	g.server = &http.Server{Handler: http.HandlerFunc(g.serve), ReadHeaderTimeout: 5 * time.Second,
+		BaseContext: func(net.Listener) context.Context { return g.ctx }}
+	go func() { _ = g.server.Serve(listener) }()
+	return g, nil
+}
+
+// initSourceClient also serves short radio probes, which do not need a gateway listener.
+func (g *hlsPullGateway) initSourceClient() error {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil // 不读取环境变量代理；仅使用 Songloft 明确配置的代理。
 	transport.ResponseHeaderTimeout = 15 * time.Second
@@ -77,8 +90,7 @@ func newHLSPullGateway(ctx context.Context, opts HLSTranscodeOptions, allowlist 
 	if proxyRaw := httputil.GetGlobalProxy(); proxyRaw != "" {
 		proxy, err := url.Parse(proxyRaw)
 		if err != nil || (proxy.Scheme != "http" && proxy.Scheme != "https") {
-			listener.Close()
-			return nil, hlsError(503, "直播转码仅支持 HTTP/HTTPS 上游代理")
+			return hlsError(503, "直播转码仅支持 HTTP/HTTPS 上游代理")
 		}
 		transport.Proxy = func(req *http.Request) (*url.URL, error) {
 			if net.ParseIP(req.URL.Hostname()) != nil && net.ParseIP(req.URL.Hostname()).IsLoopback() {
@@ -96,11 +108,7 @@ func newHLSPullGateway(ctx context.Context, opts HLSTranscodeOptions, allowlist 
 		}
 		return g.check(req.Context(), req.URL)
 	}}
-	g.ctx, g.cancel = context.WithCancel(ctx)
-	g.server = &http.Server{Handler: http.HandlerFunc(g.serve), ReadHeaderTimeout: 5 * time.Second,
-		BaseContext: func(net.Listener) context.Context { return g.ctx }}
-	go func() { _ = g.server.Serve(listener) }()
-	return g, nil
+	return nil
 }
 
 func (g *hlsPullGateway) URL(raw string) string {

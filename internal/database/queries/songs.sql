@@ -10,7 +10,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc, rating, radio_mode, metadata_override_mask, metadata_edited_at
+    fingerprint_error, disc, rating, radio_mode, metadata_override_mask, metadata_edited_at, radio_detected_mode
 FROM songs WHERE id = ?;
 
 -- name: CreateSong :execlastid
@@ -41,6 +41,10 @@ UPDATE songs SET
     file_modified_at = ?, is_video = ?,
     cue_start_seconds = ?, cue_end_seconds = ?, rating = ?, radio_mode = ?
 WHERE id = ?;
+
+-- name: UpdateRadioDetectedMode :execrows
+UPDATE songs SET radio_detected_mode = sqlc.arg(mode)
+WHERE id = sqlc.arg(id) AND type = 'radio' AND url = sqlc.arg(url) AND radio_mode = '';
 
 -- name: DeleteSong :execrows
 DELETE FROM songs WHERE id = ?;
@@ -175,7 +179,7 @@ SELECT id, type, title, artist, album, duration, file_path, url,
     cue_source_path, cue_track_index, cue_audio_path,
     file_modified_at, track, language, style, is_video,
     cue_start_seconds, cue_end_seconds, fingerprint_attempted_at,
-    fingerprint_error, disc, rating, radio_mode, metadata_override_mask, metadata_edited_at
+    fingerprint_error, disc, rating, radio_mode, metadata_override_mask, metadata_edited_at, radio_detected_mode
 FROM songs WHERE cache_path != '';
 
 -- name: ListSongsNeedingMetadata :many
