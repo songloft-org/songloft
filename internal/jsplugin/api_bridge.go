@@ -243,6 +243,24 @@ songloft.persistentStorage = {
 
 // === songloft.songs（async）===
 songloft.songs = {
+    localLibrary: async function(params) {
+        return JSON.parse(await __callBridge('songs.localLibrary', JSON.stringify(params || {})));
+    },
+    inspectLocalFile: async function(params) {
+        return JSON.parse(await __callBridge('songs.inspectLocalFile', JSON.stringify(params)));
+    },
+    ensureFingerprint: async function(params) {
+        return JSON.parse(await __callBridge('songs.ensureFingerprint', JSON.stringify(params)));
+    },
+    lookupMetadata: async function(params) {
+        return JSON.parse(await __callBridge('songs.lookupMetadata', JSON.stringify(params)));
+    },
+    writeLocalMetadata: async function(params) {
+        return JSON.parse(await __callBridge('songs.writeLocalMetadata', JSON.stringify(params)));
+    },
+    cancelLocalOperation: async function(operationId) {
+        await __callBridge('songs.cancelLocalOperation', JSON.stringify({operation_id: operationId}));
+    },
     list: async function(options) {
         var s = await __callBridge('songs.list', JSON.stringify(options || {}));
         return s ? JSON.parse(s) : [];
@@ -708,10 +726,15 @@ func GetBootstrapCode() string {
 type BridgeHandler struct {
 	service                         *JSService
 	permissions                     []string
-	dataDir                         string                      // data/jsplugins_data/
-	db                              database.DB                 // 数据库访问（用于 songs/playlists 查询）
-	songDownloader                  *services.SongDownloader    // 歌曲下载服务（songs.download bridge 调用）
-	songService                     *services.SongService       // 歌曲服务（songs.create/update/delete）
+	dataDir                         string                   // data/jsplugins_data/
+	db                              database.DB              // 数据库访问（用于 songs/playlists 查询）
+	songDownloader                  *services.SongDownloader // 歌曲下载服务（songs.download bridge 调用）
+	songService                     *services.SongService    // 歌曲服务（songs.create/update/delete）
+	localMu                         sync.Mutex
+	localOperations                 map[string]context.CancelFunc
+	localClosed                     bool
+	lookupLyrics                    func(context.Context, string, string, string, float64, string, string) (*models.LyricPayload, error)
+	lookupCover                     func(context.Context, string, string, string, string, string) (string, error)
 	playlistService                 *services.PlaylistService   // 歌单服务（playlists 写操作）
 	songTagService                  *services.SongTagService    // 标签服务（tags.* bridge 调用）
 	metadataRefresher               *services.MetadataRefresher // 元数据刷新服务（songs.refreshMetadata bridge 调用）
@@ -839,9 +862,11 @@ func extractPermFromAction(action string) string {
 
 	// 歌曲相关 action 映射到具体权限
 	switch action {
-	case "songs.list", "songs.getById", "songs.search", "songs.organizePreview":
+	case "songs.list", "songs.getById", "songs.search", "songs.organizePreview",
+		"songs.localLibrary", "songs.inspectLocalFile", "songs.lookupMetadata", "songs.cancelLocalOperation":
 		return PermSongsRead
-	case "songs.create", "songs.update", "songs.delete", "songs.download", "songs.setAutoDownload", "songs.organize", "songs.refreshMetadata":
+	case "songs.create", "songs.update", "songs.delete", "songs.download", "songs.setAutoDownload", "songs.organize", "songs.refreshMetadata",
+		"songs.ensureFingerprint", "songs.writeLocalMetadata":
 		return PermSongsWrite
 	}
 
@@ -1064,6 +1089,8 @@ func (h *BridgeHandler) handleSongs(action, data string) (string, error) {
 	ctx := context.Background()
 
 	switch action {
+	case "songs.localLibrary", "songs.inspectLocalFile", "songs.ensureFingerprint", "songs.lookupMetadata", "songs.writeLocalMetadata", "songs.cancelLocalOperation":
+		return h.handleLocalSongs(action, data)
 	case "songs.list":
 		var req struct {
 			PathPrefix string `json:"pathPrefix"`
@@ -1365,7 +1392,7 @@ func (h *BridgeHandler) handleSongs(action, data string) (string, error) {
 			song.Rating = *req.Rating
 		}
 		song.UpdatedAt = time.Now()
-		if err := h.songService.Update(ctx, song); err != nil {
+		if err := h.songService.UpdateUserSong(ctx, song); err != nil {
 			return "", fmt.Errorf("handleSongs: update: %w", err)
 		}
 		result, err := json.Marshal(song)

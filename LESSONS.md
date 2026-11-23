@@ -10,6 +10,19 @@
 
 ## 条目
 
+### 用实际宿主接口判断开发版插件兼容性
+
+- 曲库刮削插件此前探测单个写入方法，缺失时显示固定的最低版本。两个后端都可上报 `dev`，实际具备的接口取决于各自的构建源码。
+- 插件 `16807dd` 检查所需方法并报告缺失项。同一个 [CI 产物](https://github.com/songloft-org/songloft-plugin-music-scraper/actions/runs/45127785371) 在 `9812394` 和基于它且包含刮削接口的工作树上实测。两者均上报 `dev`，前者返回六个缺失方法，后者成功读取目录。
+- Seen 1× (2026-11-23)。
+
+### 通过实际插件路由验证 JSON 请求体
+
+- 范围是曲库刮削的 Lynx 插件 `onHTTPRequest`，主仓库工作树基于 `9812394`。
+- Linux Docker Chrome 在 Web 回退页成功读取目录，但点击「开始刮削」返回「无效的请求数据」。宿主桥传入 UTF-8 字符串，SDK 类型写的是 `Uint8Array | null`，直接使用 `TextDecoder` 导致解析失败。
+- 按运行时契约解析 `String(req.body ?? '')`。重新上传 ZIP 后，Chrome 320、600、960、1440 逻辑像素下的目录与预设交互通过。真实插件 POST 启动任务，刷新接回进度，确认一首歧义曲目后查询到两首已写入。
+- Seen 1× (2026-11-23)。
+
 ### SCAN-FORMAT-001：新增扫描格式要验证默认播放地址
 
 - 本地 DTS 支持的主仓库基线为 `01284955a6e1272b2dfb0fb03b2dcadca5f2c831`。[songloft-org/songloft#588](https://github.com/songloft-org/songloft/issues/588)

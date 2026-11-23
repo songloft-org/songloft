@@ -171,7 +171,8 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 | FLV | AMF0 `onMetaData` 的文本、年份、曲目号/碟号和歌词 | 在编码长度相同时替换已识别的字符串 | 全部可编辑字段。封面、缺失字段及变更长度的文本存数据库 |
 | RealMedia RM/RMVB | CONT 标题、作者、版权、备注 | 在原块空间内写回已有标题和作者 | 全部可编辑字段。其他字段存数据库 |
 | DTS/DTS-HD、MPEG-TS、MPEG-PS | DTS 技术参数，以及 MPEG 文件中的服务、流级描述 | 数据库存储 | 全部可编辑字段。服务名归属服务字段 |
-| MP3、FLAC、M4A/MP4/M4B/M4V/3GP、Ogg/Opus、APE、AIFF | 既有文本、歌词、封面映射 | 既有 ID3、Vorbis Comment、iTunes、APEv2 写入器 | 沿用现有编辑行为 |
+| MP3、FLAC、M4A/MP4/M4B/M4V/3GP | 文本、曲目号/碟号、歌词、封面 | 支持布局中的增量 ID3、Vorbis Comment 和 iTunes 标签 | 全部可编辑字段，包括显式清空 |
+| Ogg/Opus、APE、AIFF | 既有文本、歌词、封面映射 | 既有 Vorbis Comment、APEv2 和 AIFF 写入器 | 沿用现有编辑行为 |
 
 扩展格式的独立本地文件通过 `PUT /songs/{id}/tags` 在同一事务保存手动值、歌曲的字段位掩码和最近一次手动编辑时间。旧客户端可继续发送非空字段。使用 `clear_fields` 显式清空指定字段，使用 `clear_cover` 清空封面。增量扫描和普通重扫保留手动字段，包括已清空的值。可在「重新导入」下启用「重置手动编辑的元数据」。API 同时发送 `reset_metadata_overrides: true` 和 `reimport: true`，作用于选中的目录。未选择目录时作用于整个音乐根目录。成功读取文件后恢复扫描值并清除对应标记。读取失败或落库前取消时保留标记。扫描开始后编辑过的歌曲，在本轮保留全部手动字段。完整 SQLite 备份包含这些标记，歌单 JSON 沿用现有结构。
 

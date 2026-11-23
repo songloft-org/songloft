@@ -21,11 +21,52 @@ func SupportsMetadataOverrides(song *models.Song) bool {
 		return false
 	}
 	switch strings.ToLower(filepath.Ext(song.FilePath)) {
-	case ".dsf", ".wv", ".mov", ".wav", ".aac", ".dff", ".mka", ".mkv", ".webm",
+	case ".mp3", ".flac", ".m4a", ".m4b", ".mp4", ".m4v", ".3gp", ".dsf", ".wv", ".mov", ".wav", ".aac", ".dff", ".mka", ".mkv", ".webm",
 		".wma", ".wmv", ".avi", ".flv", ".rm", ".rmvb", ".dts", ".ts", ".mpg", ".mpeg":
 		return true
 	}
 	return false
+}
+
+// UpdateUserSong records metadata changes made through the song editor.
+func (s *SongService) UpdateUserSong(ctx context.Context, song *models.Song) error {
+	if song.Type != models.TypeLocal || song.CueSourcePath != "" || s.tx == nil {
+		return s.Update(ctx, song)
+	}
+	if err := song.Validate(); err != nil {
+		return err
+	}
+	lock := &s.metadataEditLocks[uint64(song.ID)%uint64(len(s.metadataEditLocks))]
+	lock.Lock()
+	defer lock.Unlock()
+	return s.tx.RunInTx(ctx, func(ctx context.Context, uow *database.UnitOfWork) error {
+		current, err := uow.Songs.GetByID(ctx, song.ID)
+		if err != nil {
+			return err
+		}
+		if current.FilePath != song.FilePath {
+			return fmt.Errorf("song path changed, reload before editing")
+		}
+		var mask models.SongMetadataMask
+		if current.Title != song.Title {
+			mask |= models.MetadataOverrideTitle
+		}
+		if current.Artist != song.Artist {
+			mask |= models.MetadataOverrideArtist
+		}
+		if current.Album != song.Album {
+			mask |= models.MetadataOverrideAlbum
+		}
+		if current.CoverURL != song.CoverURL || current.CoverPath != song.CoverPath {
+			mask |= models.MetadataOverridePicture
+		}
+		if mask != 0 {
+			if err := uow.Songs.MarkMetadataOverrides(ctx, song.ID, mask, time.Now().UnixNano()); err != nil {
+				return err
+			}
+		}
+		return uow.Songs.Update(ctx, song)
+	})
 }
 
 var metadataFieldBits = map[string]models.SongMetadataMask{
@@ -151,7 +192,7 @@ func (s *SongService) EditLocalMetadata(ctx context.Context, edits *models.Song,
 	if len(fields) == 0 {
 		fields = nonemptyLocalMetadataFields(song)
 	}
-	return song, writeEditedSongTags(song, fields), nil
+	return song, s.writeTrackedSongTags(ctx, song, fields), nil
 }
 
 func resetMetadataField(dst *models.Song, m *Metadata, field string) {

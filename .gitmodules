@@ -58,3 +58,6 @@
 [submodule "plugins/src/songloft-plugin-navidrome"]
 	path = plugins/src/songloft-plugin-navidrome
 	url = https://github.com/songloft-org/songloft-plugin-navidrome.git
+[submodule "plugins/src/songloft-plugin-music-scraper"]
+	path = plugins/src/songloft-plugin-music-scraper
+	url = https://github.com/songloft-org/songloft-plugin-music-scraper.git

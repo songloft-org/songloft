@@ -69,6 +69,14 @@ WHERE id = ?;
 -- name: ListLocalSongPaths :many
 SELECT id, file_path, duration, cue_source_path, lyric_source, file_modified_at FROM songs WHERE type = 'local';
 
+-- name: ListIndexedLocalTracks :many
+SELECT id, file_path, title, artist, album FROM songs
+WHERE type = 'local' AND file_path != ''
+ORDER BY file_path, id;
+
+-- name: UpdateSongFileObservation :exec
+UPDATE songs SET file_size = ?, file_modified_at = ? WHERE id = ? AND file_path = ?;
+
 -- name: CountPlaylistsContainingSong :one
 SELECT COUNT(*) FROM playlist_songs WHERE song_id = ?;
 

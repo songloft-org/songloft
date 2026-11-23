@@ -52,6 +52,7 @@ type SongRepository interface {
 	ListLocalPaths(ctx context.Context) (map[string]database.LocalPathInfo, error)
 	ListLocalSongsWithRelativePaths(ctx context.Context) ([]database.RelativePathSong, error)
 	UpdateSongFilePath(ctx context.Context, id int64, newPath string) error
+	UpdateFileObservation(ctx context.Context, id int64, path string, size int64, modified time.Time) error
 	ListTypesByIDs(ctx context.Context, ids []int64) (map[int64]string, error)
 	FilterOrphanSongIDs(ctx context.Context, ids []int64) ([]int64, error)
 	CountCoverPathReferences(ctx context.Context, coverPath string) (int, error)
@@ -91,6 +92,7 @@ type PlaylistAutoCreator interface {
 // SongService 歌曲服务
 type SongService struct {
 	metadataEditLocks   [64]sync.Mutex
+	localWriteMu        sync.Mutex // serializes local metadata writes with the start of a library scan
 	songs               SongRepository
 	tx                  Transactor
 	metadataExtractor   *MetadataExtractor
@@ -570,6 +572,8 @@ func (s *SongService) ScanAndImportWithMetadataReset(reimport bool, paths []stri
 		}
 		resetBefore = time.Now().UnixNano()
 	}
+	s.localWriteMu.Lock()
+	defer s.localWriteMu.Unlock()
 	if !s.scanProgressManager.Start() {
 		return fmt.Errorf("scan already in progress")
 	}
@@ -1583,7 +1587,7 @@ func (s *SongService) updateLyrics(ctx context.Context, id int64, lyric, lyricSo
 				return FileWriteUnchanged, nil
 			}
 			song.Lyric, song.LyricSource, song.LyricRemoteURL = lyric, lyricSource, lyricRemoteURL
-			return writeEditedSongTags(song, []string{tag.FieldLyrics}), nil
+			return s.writeTrackedSongTags(ctx, song, []string{tag.FieldLyrics}), nil
 		}
 	}
 
@@ -1679,7 +1683,7 @@ func (s *SongService) UpdateCoverURL(ctx context.Context, id int64, coverURL str
 			return uow.Songs.Update(ctx, current)
 		})
 		if err == nil && changed != nil {
-			writeEditedSongTags(changed, []string{tag.FieldPicture})
+			s.writeTrackedSongTags(ctx, changed, []string{tag.FieldPicture})
 		}
 		return err
 	}

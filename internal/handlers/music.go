@@ -1141,7 +1141,7 @@ func (h *SongHandler) UpdateSong(w http.ResponseWriter, r *http.Request) {
 		existingSong.RadioDetectedMode = models.RadioModeAuto
 	}
 
-	if err := h.songService.Update(ctx, existingSong); err != nil {
+	if err := h.songService.UpdateUserSong(ctx, existingSong); err != nil {
 		respondError(w, http.StatusInternalServerError, "更新歌曲失败", err)
 		return
 	}

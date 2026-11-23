@@ -51,6 +51,7 @@ func (h *BridgeHandler) pluginDataDir() string {
 
 // Cleanup 终止所有后台进程。由 JSService.Stop() 调用。
 func (h *BridgeHandler) Cleanup() {
+	h.cancelLocalOperations()
 	h.processes.Range(func(key, value any) bool {
 		mp := value.(*managedProcess)
 		mp.cancel()

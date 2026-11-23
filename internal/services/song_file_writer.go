@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"log/slog"
 	"os"
@@ -13,6 +14,18 @@ import (
 
 	"github.com/hanxi/tag"
 )
+
+func (s *SongService) writeTrackedSongTags(ctx context.Context, song *models.Song, fields []string) FileWriteStatus {
+	status := writeEditedSongTags(song, fields)
+	if status == FileWriteWritten {
+		if info, err := os.Stat(song.FilePath); err == nil {
+			if err := s.songs.UpdateFileObservation(context.WithoutCancel(ctx), song.ID, song.FilePath, info.Size(), info.ModTime()); err != nil {
+				slog.Warn("update song file observation", "songId", song.ID, "error", err)
+			}
+		}
+	}
+	return status
+}
 
 // FileWriteStatus 表示把 song 元数据回写到音频文件后的结果。
 //

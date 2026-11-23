@@ -1749,3 +1749,14 @@ func (r *SongRepository) ListDirectSongs(ctx context.Context, absPrefix, keyword
 	}
 	return songs, rows.Err()
 }
+
+// ListIndexedLocalTracks lists the paths and display fields of indexed local tracks.
+func (r *SongRepository) ListIndexedLocalTracks(ctx context.Context) ([]sqlc.ListIndexedLocalTracksRow, error) {
+	return r.queries.ListIndexedLocalTracks(ctx)
+}
+
+func (r *SongRepository) UpdateFileObservation(ctx context.Context, id int64, path string, size int64, modified time.Time) error {
+	return r.queries.UpdateSongFileObservation(ctx, sqlc.UpdateSongFileObservationParams{
+		ID: id, FilePath: path, FileSize: size, FileModifiedAt: nullTimeFromPtr(&modified),
+	})
+}

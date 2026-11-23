@@ -10,6 +10,19 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### Check host interfaces for plugin compatibility on development builds
+
+- The Music Scraper previously probed a single write method and showed a fixed minimum version when it was missing. Two servers can both report `dev` while exposing different interfaces based on their build sources.
+- Plugin commit `16807dd` checks the required methods and reports what is missing. The same [CI artifact](https://github.com/songloft-org/songloft-plugin-music-scraper/actions/runs/45127785371) was tested on servers built from `9812394` and a worktree based on it with the scraper interfaces. Both reported `dev`. The first listed six missing methods, and the second loaded the directory list.
+- Seen 1× (2026-11-23).
+
+### Verify JSON request bodies through the installed plugin route
+
+- Scope is the Lynx Music Scraper plugin's `onHTTPRequest`, on a server worktree based on `9812394`.
+- Docker Chrome loaded the directory list in the Web fallback. Clicking Start Scraping returned an invalid request body. The host bridge supplied a UTF-8 string while the SDK type declared `Uint8Array | null`. Passing the string to `TextDecoder` failed.
+- Parse `String(req.body ?? '')` according to the runtime contract. After reinstalling the ZIP, directory and preset controls worked at 320, 600, 960 and 1440 logical pixels in Chrome. The plugin POST started the job, reload reconnected to it, and confirmation left two tracks marked as written.
+- Seen 1× (2026-11-23).
+
 ### SCAN-FORMAT-001: Test the default playback URL when adding a scan format
 
 - The backend baseline for local DTS support was `01284955a6e1272b2dfb0fb03b2dcadca5f2c831`. [songloft-org/songloft#588](https://github.com/songloft-org/songloft/issues/588)

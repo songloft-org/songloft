@@ -43,3 +43,39 @@ func copyFileRaw(src, dst string) error {
 	}
 	return nil
 }
+
+// LinkOrCopyExclusive installs a copy at an unused path. Linking avoids copying
+// the payload when the source and target share a filesystem with hard links.
+func LinkOrCopyExclusive(src, dst string) error {
+	if err := os.Link(src, dst); err == nil || os.IsExist(err) {
+		return err
+	}
+	return CopyFileExclusive(src, dst)
+}
+
+// CopyFileExclusive creates an independent copy without replacing the destination.
+func CopyFileExclusive(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	info, err := in.Stat()
+	if err != nil {
+		return err
+	}
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode().Perm())
+	if err != nil {
+		return err
+	}
+	if _, err = io.Copy(out, in); err == nil {
+		err = out.Sync()
+	}
+	if closeErr := out.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		_ = os.Remove(dst)
+	}
+	return err
+}

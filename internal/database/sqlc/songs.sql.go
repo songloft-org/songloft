@@ -544,6 +544,49 @@ func (q *Queries) ListFailedFingerprints(ctx context.Context) ([]ListFailedFinge
 	return items, nil
 }
 
+const listIndexedLocalTracks = `-- name: ListIndexedLocalTracks :many
+SELECT id, file_path, title, artist, album FROM songs
+WHERE type = 'local' AND file_path != ''
+ORDER BY file_path, id
+`
+
+type ListIndexedLocalTracksRow struct {
+	ID       int64
+	FilePath string
+	Title    string
+	Artist   string
+	Album    string
+}
+
+func (q *Queries) ListIndexedLocalTracks(ctx context.Context) ([]ListIndexedLocalTracksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listIndexedLocalTracks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListIndexedLocalTracksRow{}
+	for rows.Next() {
+		var i ListIndexedLocalTracksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FilePath,
+			&i.Title,
+			&i.Artist,
+			&i.Album,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLocalSongPaths = `-- name: ListLocalSongPaths :many
 SELECT id, file_path, duration, cue_source_path, lyric_source, file_modified_at FROM songs WHERE type = 'local'
 `
@@ -1134,6 +1177,27 @@ type UpdateSongDurationParams struct {
 
 func (q *Queries) UpdateSongDuration(ctx context.Context, arg UpdateSongDurationParams) error {
 	_, err := q.db.ExecContext(ctx, updateSongDuration, arg.Duration, arg.ID)
+	return err
+}
+
+const updateSongFileObservation = `-- name: UpdateSongFileObservation :exec
+UPDATE songs SET file_size = ?, file_modified_at = ? WHERE id = ? AND file_path = ?
+`
+
+type UpdateSongFileObservationParams struct {
+	FileSize       int64
+	FileModifiedAt sql.NullTime
+	ID             int64
+	FilePath       string
+}
+
+func (q *Queries) UpdateSongFileObservation(ctx context.Context, arg UpdateSongFileObservationParams) error {
+	_, err := q.db.ExecContext(ctx, updateSongFileObservation,
+		arg.FileSize,
+		arg.FileModifiedAt,
+		arg.ID,
+		arg.FilePath,
+	)
 	return err
 }
 

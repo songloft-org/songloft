@@ -91,6 +91,7 @@ type Querier interface {
 	ListCueSources(ctx context.Context) ([]string, error)
 	ListDuplicateFingerprints(ctx context.Context) ([]ListDuplicateFingerprintsRow, error)
 	ListFailedFingerprints(ctx context.Context) ([]ListFailedFingerprintsRow, error)
+	ListIndexedLocalTracks(ctx context.Context) ([]ListIndexedLocalTracksRow, error)
 	ListJSPlugins(ctx context.Context) ([]JsPlugin, error)
 	ListLocalSongPaths(ctx context.Context) ([]ListLocalSongPathsRow, error)
 	ListLocalSongsWithRelativePaths(ctx context.Context) ([]ListLocalSongsWithRelativePathsRow, error)
@@ -135,6 +136,7 @@ type Querier interface {
 	UpdateSong(ctx context.Context, arg UpdateSongParams) (int64, error)
 	UpdateSongCoverURL(ctx context.Context, arg UpdateSongCoverURLParams) (int64, error)
 	UpdateSongDuration(ctx context.Context, arg UpdateSongDurationParams) error
+	UpdateSongFileObservation(ctx context.Context, arg UpdateSongFileObservationParams) error
 	UpdateSongFilePath(ctx context.Context, arg UpdateSongFilePathParams) (int64, error)
 	UpdateSongFingerprint(ctx context.Context, arg UpdateSongFingerprintParams) error
 	UpdateSongLyrics(ctx context.Context, arg UpdateSongLyricsParams) (int64, error)
