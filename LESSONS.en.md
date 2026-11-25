@@ -10,6 +10,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 
 ## Entries
 
+### Audit every entry point that writes tags to the same file
+
+- Scope: [songloft-org/songloft#596](https://github.com/songloft-org/songloft/issues/596), parent baseline `3b800e4`, tag library baseline `146a98e`.
+- Evidence: Title, lyrics and artwork used full rebuilds for formats omitted from the incremental path. Custom label sync bypassed incremental writers even for MP3, FLAC and M4A. The song details action separately used an empty object for explicit sync.
+- Rule and verification: Send the intended fields at each entry point and let the container writer determine whether a safe write is available. The HTTP regression gives the database different artist and year values from the file, verifies title, lyric and custom label updates, and covers explicit sync and protection for shared CUE audio.
+- Seen 1× (2026-11-25).
+
 ### Check host interfaces for plugin compatibility on development builds
 
 - The Music Scraper previously probed a single write method and showed a fixed minimum version when it was missing. Two servers can both report `dev` while exposing different interfaces based on their build sources.

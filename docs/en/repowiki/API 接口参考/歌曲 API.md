@@ -371,7 +371,7 @@ Updates the lyric content and source. The input shape is determined by `lyric_so
 
 **Success response (200):** `{"message": "歌词已更新", "file_write_status": "written"}`
 
-`file_write_status`: `written` / `unchanged` / `skipped` / `failed`
+`file_write_status`: `written` / `unchanged` / `failed`
 
 **Errors:** `400` Invalid ID / invalid request | `404` Song does not exist | `500` Update failed
 
@@ -419,7 +419,7 @@ Writes metadata to the database and the local audio file tags (local songs only)
 
 **Success response (200):** `{"song": Song, "file_write": "written"}`
 
-`file_write`: `written` / `unchanged` / `skipped` / `failed` / `unsupported`
+`file_write`: `written` / `unchanged` / `failed`
 
 **Errors:** `400` Invalid ID / non-local song / invalid base64 | `404` Does not exist | `500` Update failed
 

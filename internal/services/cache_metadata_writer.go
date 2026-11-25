@@ -22,9 +22,8 @@ const (
 	maxCoverSize         = 10 << 20 // 10MB
 )
 
-// WriteCacheSongTags 把歌曲元数据写入缓存音频文件标签。
-// 与 WriteSongTags 不同：CoverPath 为空时尝试下载 CoverURL；
-// 不做 tagsUnchanged 检查（新缓存文件一定无标签）。
+// WriteCacheSongTags 把明确提供的歌曲元数据写入下载文件，保留已有的其他标签。
+// CoverPath 为空时尝试下载 CoverURL。
 func WriteCacheSongTags(filePath string, song *models.Song, httpClient *http.Client) FileWriteStatus {
 	if filePath == "" || song == nil {
 		return FileWriteUnchanged
@@ -36,9 +35,9 @@ func WriteCacheSongTags(filePath string, song *models.Song, httpClient *http.Cli
 	}
 
 	opts := tag.WriteOptions{
+		Incremental: true,
 		Title:       song.Title,
 		Artist:      song.Artist,
-		AlbumArtist: song.Artist,
 		Album:       song.Album,
 		Lyrics:      mainLyric,
 		Genre:       song.Genre,

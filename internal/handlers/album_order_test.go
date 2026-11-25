@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,9 +17,109 @@ import (
 	"github.com/hanxi/tag"
 
 	"songloft/internal/database"
+	"songloft/internal/database/testutil"
 	"songloft/internal/models"
 	"songloft/internal/services"
 )
+
+func TestSongTagAndLyricEditsPreserveFileTags(t *testing.T) {
+	db := testutil.OpenMemoryDB(t)
+	repo := db.SongRepository()
+	service := services.NewSongService(repo, db, nil, nil, nil, nil)
+	tagService := services.NewSongTagService(db.SongTagRepository(), db)
+	service.SetSongTagService(tagService)
+	h := NewSongHandler(service, nil, nil, nil, nil, nil)
+	router := chi.NewRouter()
+	router.Put("/songs/{id}/tags", h.WriteTags)
+	router.Put("/songs/{id}/lyrics", h.UpdateSongLyrics)
+	fixture, err := os.ReadFile("../../pkg/tag/testdata/without_tags/sample.ogg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "song.ogg")
+	if err := os.WriteFile(path, fixture, 0600); err != nil {
+		t.Fatal(err)
+	}
+	err = tag.WriteTag(path, tag.WriteOptions{
+		Title: "File title", Artist: "File artist", AlbumArtist: "Various Artists", Track: "6/20", Disc: "2/3",
+		CustomTags: map[string]string{"KEEP_ME": "custom value", "SONGLOFT_TAGS": "old label"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	song := &models.Song{Type: models.TypeLocal, FilePath: path, Title: "DB title", Artist: "DB artist", Year: 2026}
+	seedSong(t, repo, song)
+	put := func(route, body, statusKey, want string) {
+		t.Helper()
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest(http.MethodPut, fmt.Sprintf("/songs/%d/%s", song.ID, route), strings.NewReader(body)))
+		var response map[string]json.RawMessage
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil || w.Code != http.StatusOK || string(response[statusKey]) != fmt.Sprintf("%q", want) {
+			t.Fatalf("%s: %d %s", route, w.Code, w.Body.String())
+		}
+	}
+	original, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	put("tags", `{"title":""}`, "file_write", "unchanged")
+	afterNoop, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(original, afterNoop) {
+		t.Fatalf("empty edit changed the file: %v", err)
+	}
+	put("tags", `{"title":"Edited title"}`, "file_write", "written")
+	put("lyrics", `{"lyric_source":"manual","lyric":"[00:01]Line"}`, "file_write_status", "written")
+	ctx := context.Background()
+	if err := tagService.BindByNames(ctx, song.ID, []string{"new label"}); err != nil {
+		t.Fatal(err)
+	}
+	service.SyncSongTagsToFile(ctx, song.ID)
+	checkFile := func(label string) {
+		t.Helper()
+		f, err := os.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		m, err := tag.ReadFrom(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n, total := m.Track()
+		d, discs := m.Disc()
+		labelValue, _ := m.Raw()["songloft_tags"].(string)
+		if m.Title() != "Edited title" || m.Artist() != "File artist" || m.AlbumArtist() != "Various Artists" ||
+			m.Year() != 0 || m.Lyrics() != "[00:01]Line" || n != 6 || total != 20 || d != 2 || discs != 3 ||
+			m.Raw()["keep_me"] != "custom value" || labelValue != label {
+			t.Fatalf("unexpected file tags: %+v", m.Raw())
+		}
+	}
+	checkFile("new label")
+	if err := tagService.SetSongTags(ctx, song.ID, nil); err != nil {
+		t.Fatal(err)
+	}
+	service.SyncSongTagsToFile(ctx, song.ID)
+	checkFile("")
+	stored, err := repo.GetByID(ctx, song.ID)
+	const wantOverrides = models.MetadataOverrideTitle | models.MetadataOverrideLyrics
+	if err != nil || stored.Title != "Edited title" || stored.MetadataOverrideMask&wantOverrides != wantOverrides {
+		t.Fatalf("missing persistent edits: %+v %v", stored, err)
+	}
+	put("tags", "{ }", "file_write", "written")
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	m, err := tag.ReadFrom(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Artist() != "DB artist" || m.Year() != 2026 || m.AlbumArtist() != "Various Artists" ||
+		m.Raw()["keep_me"] != "custom value" {
+		t.Fatalf("unexpected synced tags: %+v", m.Raw())
+	}
+}
 
 func TestAlbumOrder(t *testing.T) {
 	repo := newTestSongRepo(t)

@@ -481,7 +481,7 @@
 
 **成功响应 (200):** `{"message": "歌词已更新", "file_write_status": "written"}`
 
-`file_write_status`: `written` / `unchanged` / `skipped` / `failed`
+`file_write_status`: `written` / `unchanged` / `failed`
 
 **错误:** `400` 无效 ID / 请求无效 | `404` 歌曲不存在 | `500` 更新失败
 
@@ -529,7 +529,7 @@
 
 **成功响应 (200):** `{"song": Song, "file_write": "written"}`
 
-`file_write`: `written` / `unchanged` / `skipped` / `failed` / `unsupported`
+`file_write`: `written` / `unchanged` / `failed`
 
 **错误:** `400` 无效 ID / 非本地歌曲 / 无效 base64 | `404` 不存在 | `500` 更新失败
 

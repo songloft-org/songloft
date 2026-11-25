@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -15,8 +13,6 @@ import (
 	"songloft/internal/database"
 	"songloft/internal/models"
 	"songloft/internal/services"
-
-	"github.com/hanxi/tag"
 )
 
 // SongTagHandler 自定义标签处理器
@@ -411,37 +407,7 @@ func (h *SongTagHandler) syncTagsToFile(songID int64) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	song, err := h.songService.GetByID(ctx, songID)
-	if err != nil || song.FilePath == "" {
-		return
-	}
-	tags, err := h.tagService.GetSongTags(ctx, songID)
-	if err != nil {
-		return
-	}
-	var names []string
-	for _, t := range tags {
-		names = append(names, t.Name)
-	}
-	tagsValue := strings.Join(names, ",")
-
-	opts := tag.WriteOptions{
-		Title:      song.Title,
-		Artist:     song.Artist,
-		Album:      song.Album,
-		Genre:      song.Genre,
-		Language:   song.Language,
-		Style:      song.Style,
-		Track:      song.Track,
-		Disc:       song.Disc,
-		CustomTags: map[string]string{"SONGLOFT_TAGS": tagsValue},
-	}
-	if song.Year > 0 {
-		opts.Year = song.Year
-	}
-	if err := tag.WriteTag(song.FilePath, opts); err != nil {
-		slog.Debug("sync tags to file failed", "songID", songID, "error", err)
-	}
+	h.songService.SyncSongTagsToFile(ctx, songID)
 }
 
 // BatchBind 批量绑定歌曲到标签

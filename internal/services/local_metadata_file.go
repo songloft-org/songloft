@@ -76,7 +76,8 @@ func checkLocalContainer(path string) *LocalFileFailure {
 	}
 	switch m.FileType() {
 	case tag.MP3, tag.FLAC, tag.M4A, tag.M4B, tag.MOV, tag.ALAC,
-		tag.AAC, tag.ASF, tag.AVI, tag.DSF, tag.DFF, tag.FLV, tag.MKA, tag.RM, tag.WAV, tag.WEBM, tag.WV:
+		tag.AAC, tag.ASF, tag.AVI, tag.DSF, tag.DFF, tag.FLV, tag.MKA, tag.RM, tag.WAV, tag.WEBM, tag.WV,
+		tag.OGG, tag.APE, tag.AIFF:
 		return nil
 	default:
 		return &LocalFileFailure{"unsupported", errors.New("incremental tags are unavailable for this format")}

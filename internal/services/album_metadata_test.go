@@ -50,9 +50,10 @@ func TestAlbumMetadataScanAndRescan(t *testing.T) {
 	if song.Track != "1/12" || song.Disc != "1/2" {
 		t.Fatalf("rescanned: %+v", song)
 	}
-	// Other edits must retain the fields when rewriting the complete tag.
-	if status := WriteSongTags(path, song); status != FileWriteWritten && status != FileWriteSkipped {
-		t.Fatalf("write: %s", status)
+	// Other edits must retain the on-disk track and disc fields.
+	song.Title = "Edited"
+	if _, status, err := svc.EditLocalMetadata(ctx, song, []string{tag.FieldTitle}, false); err != nil || status != FileWriteWritten {
+		t.Fatalf("write: %s %v", status, err)
 	}
 	got, err := extractor.Extract(ctx, path)
 	if err != nil || got.Track != "1/12" || got.Disc != "1/2" {

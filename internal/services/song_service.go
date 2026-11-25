@@ -1529,9 +1529,7 @@ func (s *SongService) CleanInvalidSongs(ctx context.Context) (*CleanResult, erro
 //
 // 行为：
 //  1. 把新歌词内容更新进 DB（lyric 列、lyric_source 列、lyric_remote_url 列）
-//  2. 若 song.Type==local 且 song.FilePath 存在、且 lyricSource 不是 url，
-//     重新读取 song 后调用 WriteSongTags 把元数据完整回写到音频文件。
-//     回写传完整 song（pkg/tag.WriteTag 是重建模式，避免清空 Title/Artist 等其它字段）。
+//  2. 独立本地歌曲在歌词来源不是 URL 时只写回主歌词字段。
 //
 // 返回值：
 //   - status 表示文件回写结果（written/unchanged/failed）；DB 已写入成功才会有值
@@ -1607,16 +1605,15 @@ func (s *SongService) updateLyrics(ctx context.Context, id int64, lyric, lyricSo
 		slog.Warn("UpdateLyrics: refetch song after lyric update failed", "songId", id, "err", err)
 		return FileWriteUnchanged, nil
 	}
-	if song.Type != models.TypeLocal || song.FilePath == "" {
+	if !SupportsMetadataOverrides(song) {
 		return FileWriteUnchanged, nil
 	}
 
-	return WriteSongTags(song.FilePath, song), nil
+	return s.writeTrackedSongTags(ctx, song, []string{tag.FieldLyrics}), nil
 }
 
 // SyncSidecarLyric writes sidecar .lrc content into DB without rewriting audio file tags.
-// Unlike UpdateLyrics, it does NOT call WriteSongTags — the .lrc file IS the persistent copy;
-// embedding it into the audio tag would leave a stale copy if the user later deletes the .lrc.
+// The .lrc file is the persistent copy, so this path only updates the database.
 // Idempotent: skips DB write if content and source already match.
 func (s *SongService) SyncSidecarLyric(ctx context.Context, id int64, lyricPayloadJSON string) error {
 	song, err := s.songs.GetByID(ctx, id)
@@ -1700,7 +1697,9 @@ func (s *SongService) UpdateCoverURL(ctx context.Context, id int64, coverURL str
 		if err := s.songs.Update(ctx, song); err != nil {
 			return err
 		}
-		WriteSongTags(song.FilePath, song)
+		if SupportsMetadataOverrides(song) {
+			s.writeTrackedSongTags(ctx, song, []string{tag.FieldPicture})
+		}
 		return nil
 	}
 

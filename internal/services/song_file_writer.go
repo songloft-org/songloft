@@ -17,6 +17,35 @@ import (
 
 func (s *SongService) writeTrackedSongTags(ctx context.Context, song *models.Song, fields []string) FileWriteStatus {
 	status := writeEditedSongTags(song, fields)
+	return s.trackSongTagWrite(ctx, song, status)
+}
+
+// SyncSongTagsToFile writes the current custom label list without changing other metadata.
+func (s *SongService) SyncSongTagsToFile(ctx context.Context, id int64) {
+	tags := s.songTagService.Load()
+	if tags == nil {
+		return
+	}
+	lock := &s.metadataEditLocks[uint64(id)%uint64(len(s.metadataEditLocks))]
+	lock.Lock()
+	defer lock.Unlock()
+	song, err := s.songs.GetByID(ctx, id)
+	if err != nil || !SupportsMetadataOverrides(song) {
+		return
+	}
+	bound, err := tags.GetSongTags(ctx, id)
+	if err != nil {
+		return
+	}
+	names := make([]string, 0, len(bound))
+	for _, label := range bound {
+		names = append(names, label.Name)
+	}
+	opts := tag.WriteOptions{CustomTags: map[string]string{"SONGLOFT_TAGS": strings.Join(names, ",")}}
+	s.trackSongTagWrite(ctx, song, writeIncrementalSongTags(song.FilePath, opts))
+}
+
+func (s *SongService) trackSongTagWrite(ctx context.Context, song *models.Song, status FileWriteStatus) FileWriteStatus {
 	if status == FileWriteWritten {
 		if info, err := os.Stat(song.FilePath); err == nil {
 			if err := s.songs.UpdateFileObservation(context.WithoutCancel(ctx), song.ID, song.FilePath, info.Size(), info.ModTime()); err != nil {
@@ -42,126 +71,9 @@ const (
 	//   - lyric_source = url（运行时拉取，不缓存到本地文件）
 	//   - 文件扩展名不在 pkg/tag 支持的写入清单（pkg/tag 返回 ErrUnsupportedWrite）
 	FileWriteUnchanged FileWriteStatus = "unchanged"
-	// FileWriteSkipped 文件标签与待写入内容一致，跳过写入。
-	FileWriteSkipped FileWriteStatus = "skipped"
 	// FileWriteFailed 实际写入时报错（IO / 解析失败等）。
 	FileWriteFailed FileWriteStatus = "failed"
 )
-
-// WriteSongTags 把 song 的元数据完整回写到 song.FilePath。
-//
-// 关键约束：pkg/tag.WriteTag 是「重建标签块」模式，未填充的字段会被清空。
-// 因此本函数要求传入完整的 *models.Song，把 Title/Artist/Album/Lyrics/Picture
-// 等所有想保留的字段一次性写回；不要在调用前只填一两个字段。
-//
-// Lyrics 字段：song.Lyric 在 DB 里是 LyricPayload JSON，本函数只取主歌词
-// （tag 库只能写一段 LRC 文本，tlyric/rlyric/lxlyric 不会写入音频文件）。
-//
-// 失败处理：仅返回状态码，不返回 error。失败/跳过都会打 log。
-func WriteSongTags(filePath string, song *models.Song) FileWriteStatus {
-	if filePath == "" || song == nil {
-		return FileWriteUnchanged
-	}
-
-	// song.Lyric 是 LyricPayload JSON；tag 只能写纯 LRC 文本，取主歌词字段
-	mainLyric := models.UnmarshalLyric(song.Lyric).Lyric
-
-	opts := tag.WriteOptions{
-		Title:       song.Title,
-		Artist:      song.Artist,
-		AlbumArtist: song.Artist, // 大多数情况下专辑艺术家与艺术家一致
-		Album:       song.Album,
-		Lyrics:      mainLyric,
-		Track:       song.Track,
-		Disc:        song.Disc,
-	}
-
-	if song.Year > 0 {
-		opts.Year = song.Year
-	} else if !song.AddedAt.IsZero() {
-		opts.Year = song.AddedAt.Year()
-	}
-	opts.Genre = song.Genre
-	opts.Language = song.Language
-	opts.Style = song.Style
-
-	// 防御性处理：lyric_source=url 不应该被回写到文件
-	if song.LyricSource == models.LyricSourceURL {
-		opts.Lyrics = ""
-	}
-
-	// 读取封面（优先 cover_path 本地文件）
-	if song.CoverPath != "" {
-		if data, err := os.ReadFile(song.CoverPath); err == nil {
-			opts.Picture = &tag.Picture{
-				MIMEType:    tag.MIMETypeFromExt(filepath.Ext(song.CoverPath)),
-				Data:        data,
-				Description: "",
-			}
-		} else {
-			slog.Debug("read cover failed, skip embedding",
-				"coverPath", song.CoverPath, "error", err)
-		}
-	}
-
-	if tagsUnchanged(filePath, opts) {
-		slog.Debug("tag unchanged, skip write", "path", filePath)
-		return FileWriteSkipped
-	}
-
-	if err := tag.WriteTag(filePath, opts); err != nil {
-		if errors.Is(err, tag.ErrUnsupportedWrite) {
-			slog.Debug("tag write skipped for unsupported format",
-				"path", filePath, "error", err)
-			return FileWriteUnchanged
-		}
-		slog.Warn("write tag failed", "path", filePath, "error", err)
-		return FileWriteFailed
-	}
-
-	slog.Debug("tag written", "path", filePath,
-		"title", opts.Title, "artist", opts.Artist,
-		"hasPicture", opts.Picture != nil,
-		"lyricsLen", len(opts.Lyrics))
-	return FileWriteWritten
-}
-
-// tagsUnchanged 读取文件现有标签，与待写入的 opts 逐字段比较。
-// 全部一致返回 true；任何字段不同、或读取失败则返回 false（继续写入）。
-func tagsUnchanged(filePath string, opts tag.WriteOptions) bool {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return false
-	}
-	defer f.Close()
-
-	m, err := tag.ReadFrom(f)
-	if err != nil {
-		return false
-	}
-
-	if m.Title() != opts.Title ||
-		m.Artist() != opts.Artist ||
-		m.AlbumArtist() != opts.AlbumArtist ||
-		m.Album() != opts.Album ||
-		m.Genre() != opts.Genre ||
-		m.Language() != opts.Language ||
-		m.Style() != opts.Style ||
-		m.Lyrics() != opts.Lyrics ||
-		m.Year() != opts.Year {
-		return false
-	}
-
-	if opts.Disc != "" && canonicalTrack(m.Disc()) != normalizeTrack(opts.Disc) {
-		return false
-	}
-	fileTrackNum, fileTrackTotal := m.Track()
-	if canonicalTrack(fileTrackNum, fileTrackTotal) != normalizeTrack(opts.Track) {
-		return false
-	}
-
-	return pictureEqual(m.Picture(), opts.Picture)
-}
 
 // canonicalTrack 把 (number, total) 规范化为 "3"/"3/12"/"" 形态。
 func canonicalTrack(number, total int) string {
@@ -201,7 +113,7 @@ func writeEditedSongTags(song *models.Song, fields []string) FileWriteStatus {
 	if len(fields) == 0 || song.FilePath == "" {
 		return FileWriteUnchanged
 	}
-	opts := tag.WriteOptions{Incremental: true}
+	var opts tag.WriteOptions
 	for _, field := range fields {
 		var empty bool
 		switch field {
@@ -253,12 +165,17 @@ func writeEditedSongTags(song *models.Song, fields []string) FileWriteStatus {
 			opts.ClearFields = append(opts.ClearFields, field)
 		}
 	}
-	err := tag.WriteTag(song.FilePath, opts)
+	return writeIncrementalSongTags(song.FilePath, opts)
+}
+
+func writeIncrementalSongTags(path string, opts tag.WriteOptions) FileWriteStatus {
+	opts.Incremental = true
+	err := tag.WriteTag(path, opts)
 	if errors.Is(err, tag.ErrUnsupportedWrite) {
 		return FileWriteUnchanged
 	}
 	if err != nil {
-		slog.Warn("write edited tags", "path", song.FilePath, "error", err)
+		slog.Warn("write edited tags", "path", path, "error", err)
 		return FileWriteFailed
 	}
 	return FileWriteWritten

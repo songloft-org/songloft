@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -15,17 +14,10 @@ import (
 	"songloft/internal/models"
 )
 
-// SupportsMetadataOverrides identifies the local formats covered by the metadata editor.
+// SupportsMetadataOverrides identifies standalone local songs. The tag writer
+// determines file write support independently from database overrides.
 func SupportsMetadataOverrides(song *models.Song) bool {
-	if song == nil || song.Type != models.TypeLocal || song.CueSourcePath != "" {
-		return false
-	}
-	switch strings.ToLower(filepath.Ext(song.FilePath)) {
-	case ".mp3", ".flac", ".m4a", ".m4b", ".mp4", ".m4v", ".3gp", ".dsf", ".wv", ".mov", ".wav", ".aac", ".dff", ".mka", ".mkv", ".webm",
-		".wma", ".wmv", ".avi", ".flv", ".rm", ".rmvb", ".dts", ".ts", ".mpg", ".mpeg":
-		return true
-	}
-	return false
+	return song != nil && song.Type == models.TypeLocal && song.FilePath != "" && song.CueSourcePath == ""
 }
 
 // UpdateUserSong records metadata changes made through the song editor.
@@ -114,6 +106,33 @@ func copyMetadataOverride(dst, src *models.Song, field string) {
 	}
 }
 
+// SyncLocalMetadataToFile writes the stored metadata for the explicit sync action.
+func (s *SongService) SyncLocalMetadataToFile(ctx context.Context, id int64) (*models.Song, FileWriteStatus, error) {
+	lock := &s.metadataEditLocks[uint64(id)%uint64(len(s.metadataEditLocks))]
+	lock.Lock()
+	defer lock.Unlock()
+	song, err := s.songs.GetByID(ctx, id)
+	if err != nil || !SupportsMetadataOverrides(song) {
+		return song, FileWriteUnchanged, err
+	}
+	var fields []string
+	for _, field := range []struct {
+		name    string
+		present bool
+	}{
+		{tag.FieldTitle, song.Title != ""}, {tag.FieldArtist, song.Artist != ""}, {tag.FieldAlbum, song.Album != ""},
+		{tag.FieldYear, song.Year > 0}, {tag.FieldGenre, song.Genre != ""}, {tag.FieldLanguage, song.Language != ""},
+		{tag.FieldStyle, song.Style != ""}, {tag.FieldTrack, song.Track != ""}, {tag.FieldDisc, song.Disc != ""},
+		{tag.FieldLyrics, song.Lyric != "" && song.LyricSource != models.LyricSourceURL},
+		{tag.FieldPicture, song.CoverPath != ""},
+	} {
+		if field.present {
+			fields = append(fields, field.name)
+		}
+	}
+	return song, s.writeTrackedSongTags(ctx, song, fields), nil
+}
+
 // EditLocalMetadata saves the edit and its markers together. The file write
 // follows the commit and reports its result independently.
 func (s *SongService) EditLocalMetadata(ctx context.Context, edits *models.Song, fields []string, rename bool) (*models.Song, FileWriteStatus, error) {
@@ -129,10 +148,10 @@ func (s *SongService) EditLocalMetadata(ctx context.Context, edits *models.Song,
 		} else if err := s.Update(ctx, edits); err != nil {
 			return nil, "", err
 		}
-		if edits.CueSourcePath != "" {
+		if !SupportsMetadataOverrides(edits) {
 			return edits, FileWriteUnchanged, nil
 		}
-		return edits, WriteSongTags(edits.FilePath, edits), nil
+		return edits, s.writeTrackedSongTags(ctx, edits, fields), nil
 	}
 
 	var song *models.Song
@@ -189,9 +208,6 @@ func (s *SongService) EditLocalMetadata(ctx context.Context, edits *models.Song,
 		}
 		return nil, "", err
 	}
-	if len(fields) == 0 {
-		fields = nonemptyLocalMetadataFields(song)
-	}
 	return song, s.writeTrackedSongTags(ctx, song, fields), nil
 }
 
@@ -207,23 +223,4 @@ func resetMetadataField(dst *models.Song, m *Metadata, field string) {
 	case tag.FieldPicture:
 		dst.CoverPath, dst.CoverURL = m.CoverPath, ""
 	}
-}
-
-func nonemptyLocalMetadataFields(s *models.Song) []string {
-	var fields []string
-	for _, entry := range []struct {
-		field   string
-		present bool
-	}{
-		{tag.FieldTitle, s.Title != ""}, {tag.FieldArtist, s.Artist != ""}, {tag.FieldAlbum, s.Album != ""},
-		{tag.FieldYear, s.Year > 0}, {tag.FieldGenre, s.Genre != ""}, {tag.FieldLanguage, s.Language != ""},
-		{tag.FieldStyle, s.Style != ""}, {tag.FieldTrack, s.Track != ""}, {tag.FieldDisc, s.Disc != ""},
-		{tag.FieldLyrics, s.Lyric != "" && s.LyricSource != models.LyricSourceURL},
-		{tag.FieldPicture, s.CoverPath != ""},
-	} {
-		if entry.present {
-			fields = append(fields, entry.field)
-		}
-	}
-	return fields
 }

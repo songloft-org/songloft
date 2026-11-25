@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -652,8 +653,7 @@ func TestCleanInvalidSongsWithoutScanner(t *testing.T) {
 // TestUpdateLyrics_LocalSong_WritesFile 验证 type=local 的歌曲 UpdateLyrics 后：
 //  1. DB 的 lyric 列被更新成 LyricPayload JSON
 //  2. 音频文件的 USLT 已被改写
-//  3. 其它 ID3 字段（Title/Artist）未被清空（pkg/tag.WriteTag 是重建模式，
-//     必须传完整 song 才能保留它们 —— WriteSongTags 的关键约束）
+//  3. 其它 ID3 字段保留文件里的原值
 //  4. 返回 status=written
 func TestUpdateLyrics_LocalSong_WritesFile(t *testing.T) {
 	repo := newTestSongRepo(t)
@@ -661,11 +661,14 @@ func TestUpdateLyrics_LocalSong_WritesFile(t *testing.T) {
 	ctx := context.Background()
 
 	mp3Path := copyTestMP3(t)
+	if err := tag.WriteTag(mp3Path, tag.WriteOptions{Title: "原标题", Artist: "原艺术家"}); err != nil {
+		t.Fatal(err)
+	}
 
 	song := &models.Song{
 		Type:        models.TypeLocal,
-		Title:       "原标题",
-		Artist:      "原艺术家",
+		Title:       "数据库标题",
+		Artist:      "数据库艺术家",
 		Album:       "原专辑",
 		FilePath:    mp3Path,
 		Lyric:       "",
@@ -707,6 +710,34 @@ func TestUpdateLyrics_LocalSong_WritesFile(t *testing.T) {
 	}
 	if fileArtist != "原艺术家" {
 		t.Errorf("file artist = %q, want %q (must not be wiped)", fileArtist, "原艺术家")
+	}
+}
+
+func TestUpdateLyricsSharedCueKeepsFile(t *testing.T) {
+	db := testutil.OpenMemoryDB(t)
+	repo := db.SongRepository()
+	service := NewSongService(repo, db, nil, nil, nil, nil)
+	ctx := context.Background()
+	path := copyTestMP3(t)
+	song := &models.Song{Type: models.TypeLocal, Title: "CUE track", FilePath: path, CueSourcePath: path + ".cue"}
+	if err := repo.Create(ctx, song); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lyric := models.LyricPayload{Lyric: "[00:01]CUE track lyric"}.MarshalString()
+	if status, err := service.UpdateLyrics(ctx, song.ID, lyric, models.LyricSourceManual, ""); err != nil || status != FileWriteUnchanged {
+		t.Fatalf("shared file write: %s %v", status, err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("shared file was modified: %v", err)
+	}
+	stored, err := repo.GetByID(ctx, song.ID)
+	if err != nil || stored.Lyric != lyric {
+		t.Fatalf("CUE lyric was not saved: %+v %v", stored, err)
 	}
 }
 

@@ -183,8 +183,7 @@ and only symlinks and unknown types fall back to `os.Stat` (following symlinks, 
   sidecar .lrc > DB url > DB payload > lyric search plugin. `manual` is not overridden by sidecar
   (`SidecarLyricForSong` excludes it).
 - **`SyncSidecarLyric` does not write back to audio tags**: the .lrc file IS the persistent copy; embedding
-  it into tags would leave a stale copy if the user deletes the .lrc. Also `WriteSongTags` is a full
-  rebuild mode that reads/writes cover binary — heavy for a GET request.
+  it into tags would leave a stale copy if the user deletes the .lrc.
 - **`shouldApplyScanLyric` guard**: `manual` is never overwritten; empty new lyric does not wipe existing
   DB lyric/remote URL. This is a behavior change (previously re-import could clear lyrics), documented in CHANGELOG.
 - **Sidecar hit replaces plugin translations** (`tlyric`/`rlyric`/`lxlyric`) entirely — no "main lyric from
@@ -211,9 +210,12 @@ and only symlinks and unknown types fall back to `os.Stat` (following symlinks, 
 | RealMedia RM/RMVB | CONT title, author, copyright and comment | Existing title and author within the original content block | All editable fields. Other fields use database storage |
 | DTS/DTS-HD, MPEG-TS, MPEG-PS | DTS technical parameters. MPEG service and stream descriptions where present | Database storage | All editable fields. Service names stay scoped to their services |
 | MP3, FLAC, M4A/MP4/M4B/M4V/3GP | Text, track/disc, lyrics and artwork | Incremental ID3, Vorbis Comment and iTunes tags in supported layouts | All editable fields, including explicit clears |
-| Ogg/Opus, APE, AIFF | Existing text, lyrics and artwork mappings | Existing Vorbis Comment, APEv2 and AIFF writers | Existing editing behavior |
+| Ogg Vorbis, Opus | Vorbis Comment text, track/disc, lyrics and artwork | Incremental writes for a single logical stream preserve untouched comments and audio packets | All editable fields, including explicit clears |
+| APE, AIFF/AIFF-C | APEv2 or ID3 text, track/disc, lyrics and artwork. Native AIFF title and artist | Incremental updates to APEv2 items or AIFF tag chunks | All editable fields, including explicit clears |
 
-For independent local files in the expanded formats, `PUT /songs/{id}/tags` saves manual values, a per-song field bitmask, and the last manual edit time in one transaction. Existing clients can continue sending nonempty fields. Use `clear_fields` for explicit clears and `clear_cover` to clear artwork. Ordinary and incremental scans preserve marked fields, including empty values. In **Reimport**, optionally enable **Reset manual metadata edits**. The API sends `reset_metadata_overrides: true` with `reimport: true`; the reset applies to selected directories, or to the music root when none are selected. A successful file read restores existing scan values and clears the corresponding marks. Failed reads and cancellation before the transaction completes retain the marks. A song edited after the scan began keeps all its manual fields for that run. Full SQLite backups include these markers. Playlist JSON uses its existing schema.
+For independent local files, `PUT /songs/{id}/tags` saves manual values, a per-song field bitmask, and the last manual edit time in one transaction. Existing clients can continue sending nonempty fields. Use `clear_fields` for explicit clears and `clear_cover` to clear artwork. Ordinary and incremental scans preserve marked fields, including empty values. In **Reimport**, optionally enable **Reset manual metadata edits**. The API sends `reset_metadata_overrides: true` with `reimport: true`; the reset applies to selected directories, or to the music root when none are selected. A successful file read restores existing scan values and clears the corresponding marks. Failed reads and cancellation before the transaction completes retain the marks. A song edited after the scan began keeps all its manual fields for that run. Full SQLite backups include these markers. Playlist JSON uses its existing schema.
+
+Title, lyrics, artwork and custom label updates submit only the corresponding fields to the file writer. When a safe write is unavailable, Songloft keeps the database result and the original file. Edits to tracks that share CUE audio stay in the database. The song details action sends an empty JSON object to explicitly sync nonempty stored fields.
 
 New installs and upgrades include AAC, DFF and WavPack in the supported scan formats. Their default local audio playback uses MP3 with Range support. Clients can specify an output format explicitly.
 

@@ -144,8 +144,7 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
   收敛性：命中后 `lyric_source=file` → 下一轮走 ① 短路。
 - **运行时优先级链**（`GetSongLyric` handler）：
   sidecar .lrc > DB url > DB payload > 歌词搜索插件。`manual` 不被旁挂覆盖（`SidecarLyricForSong` 排除）。
-- **`SyncSidecarLyric` 不回写音频标签**：.lrc 本身就是持久化载体，嵌入标签后用户删 lrc 会留下删不掉的过期副本；
-  且 `WriteSongTags` 是重建模式会读写封面二进制，性能代价大。
+- **`SyncSidecarLyric` 不回写音频标签**：.lrc 本身就是持久化载体，嵌入标签后用户删 lrc 会留下过期副本。
 - **`shouldApplyScanLyric` 护栏**：`manual` 不覆盖；新歌词为空时不抹掉库中已有歌词/远程URL。
   这是行为变更（以往重新导入可清空歌词），已写入 CHANGELOG。
 - **旁挂命中会整体替换**插件带来的翻译/罗马音（`tlyric`/`rlyric`/`lxlyric`），不做"主歌词用文件+翻译沿用插件"的合并——
@@ -172,9 +171,12 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 | RealMedia RM/RMVB | CONT 标题、作者、版权、备注 | 在原块空间内写回已有标题和作者 | 全部可编辑字段。其他字段存数据库 |
 | DTS/DTS-HD、MPEG-TS、MPEG-PS | DTS 技术参数，以及 MPEG 文件中的服务、流级描述 | 数据库存储 | 全部可编辑字段。服务名归属服务字段 |
 | MP3、FLAC、M4A/MP4/M4B/M4V/3GP | 文本、曲目号/碟号、歌词、封面 | 支持布局中的增量 ID3、Vorbis Comment 和 iTunes 标签 | 全部可编辑字段，包括显式清空 |
-| Ogg/Opus、APE、AIFF | 既有文本、歌词、封面映射 | 既有 Vorbis Comment、APEv2 和 AIFF 写入器 | 沿用现有编辑行为 |
+| Ogg Vorbis、Opus | Vorbis Comment 文本、曲目号/碟号、歌词、封面 | 单逻辑流增量写回，保留未编辑的注释和音频包 | 全部可编辑字段，包括显式清空 |
+| APE、AIFF/AIFF-C | APEv2 或 ID3 文本、曲目号/碟号、歌词、封面；AIFF 原生标题和艺术家 | 增量写回 APEv2 项或 AIFF 标签块 | 全部可编辑字段，包括显式清空 |
 
-扩展格式的独立本地文件通过 `PUT /songs/{id}/tags` 在同一事务保存手动值、歌曲的字段位掩码和最近一次手动编辑时间。旧客户端可继续发送非空字段。使用 `clear_fields` 显式清空指定字段，使用 `clear_cover` 清空封面。增量扫描和普通重扫保留手动字段，包括已清空的值。可在「重新导入」下启用「重置手动编辑的元数据」。API 同时发送 `reset_metadata_overrides: true` 和 `reimport: true`，作用于选中的目录。未选择目录时作用于整个音乐根目录。成功读取文件后恢复扫描值并清除对应标记。读取失败或落库前取消时保留标记。扫描开始后编辑过的歌曲，在本轮保留全部手动字段。完整 SQLite 备份包含这些标记，歌单 JSON 沿用现有结构。
+独立本地文件通过 `PUT /songs/{id}/tags` 在同一事务保存手动值、歌曲的字段位掩码和最近一次手动编辑时间。旧客户端可继续发送非空字段。使用 `clear_fields` 显式清空指定字段，使用 `clear_cover` 清空封面。增量扫描和普通重扫保留手动字段，包括已清空的值。可在「重新导入」下启用「重置手动编辑的元数据」。API 同时发送 `reset_metadata_overrides: true` 和 `reimport: true`，作用于选中的目录。未选择目录时作用于整个音乐根目录。成功读取文件后恢复扫描值并清除对应标记。读取失败或落库前取消时保留标记。扫描开始后编辑过的歌曲，在本轮保留全部手动字段。完整 SQLite 备份包含这些标记，歌单 JSON 沿用现有结构。
+
+编辑标题、歌词、封面或同步自定义标签时，文件写回只提交对应字段。无法安全写回时保留数据库结果和原文件。共享 CUE 音频的单轨编辑只保存到数据库。歌曲详情的「写入标签到文件」发送空 JSON 对象，主动同步数据库中已保存的非空字段。
 
 新安装和升级均将 AAC、DFF、WavPack 加入扫描格式。默认点播返回兼容的 MP3 并支持 Range，客户端仍可显式选择输出格式。
 

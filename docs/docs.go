@@ -9924,7 +9924,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "更新指定歌曲的歌词内容和来源。url 来源传 lyric_remote_url,其它来源传 lyric/tlyric/rlyric/lxlyric 四字段。响应里的 file_write_status 表示是否把元数据回写到本地音频文件:written=已写入,unchanged=未变更(非本地歌曲/无文件路径/不支持的扩展名/url 来源),skipped=标签已一致无需写入,failed=尝试写入但失败(DB 已成功)。lyric_source=manual 用于标记用户手动调整,scanner 重扫时不会覆盖",
+                "description": "更新指定歌曲的歌词内容和来源。url 来源传 lyric_remote_url,其它来源传 lyric/tlyric/rlyric/lxlyric 四字段。对可安全回写的独立本地文件只更新主歌词标签。响应里的 file_write_status 表示文件回写结果：written=已写入，unchanged=未变更（含 URL 来源、共享 CUE 音频或不支持的文件格式和布局），failed=尝试写入但失败（DB 已成功）。lyric_source=manual 用于标记用户手动调整,scanner 重扫时不会覆盖",
                 "consumes": [
                     "application/json"
                 ],
@@ -10905,7 +10905,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "将元数据写入数据库和本地音频文件标签（仅本地歌曲）。cover_data(base64) 优先于 cover_url。非空字段覆盖，空值保留原值。设置 clear_cover=true 可显式清空封面。clear_fields 可显式清空指定字段。rename_file=true 时按 \"{artist} - {title}\" 重命名本地音频文件（保留原目录与扩展名，artist 为空则回退为仅 title，多歌手由 artist 中的 \" \u0026 \" 分隔符体现；仅本地非 CUE 歌曲生效）；标题清理后为空或目标文件名已存在时返回 400，与原文件同名则不移动仅写库。",
+                "description": "将提交的元数据字段写入数据库和可安全回写的本地音频文件标签。未提交的文件标签原样保留。空 JSON 对象用于将数据库中已保存的非空字段同步到文件。cover_data(base64) 优先于 cover_url。非空字段覆盖，空值保留原值。设置 clear_cover=true 可显式清空封面。clear_fields 可显式清空指定字段。rename_file=true 时按 \"{artist} - {title}\" 重命名本地音频文件（保留原目录与扩展名，artist 为空则回退为仅 title，多歌手由 artist 中的 \" \u0026 \" 分隔符体现；仅本地非 CUE 歌曲生效）；标题清理后为空或目标文件名已存在时返回 400，与原文件同名则不移动仅写库。",
                 "consumes": [
                     "application/json"
                 ],
