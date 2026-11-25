@@ -2,8 +2,10 @@ package services
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -11,39 +13,90 @@ import (
 	"songloft/internal/models"
 )
 
-// TestAsyncDownloadAndCache_DedupsBySongID 验证流式代理触发的后台全量下载按 song.ID 去重：
-// 客户端重试 / 并发 206 分片会多次进入此路径，若不去重会在慢网下发起多个互相抢带宽的
-// 下载而全败（songloft-org/songloft#286）。这里预置 inflight 标记模拟「已有下载在跑」，
-// 断言第二次同 ID 调用立即短路、不再发起 HTTP 请求。
-func TestAsyncDownloadAndCache_DedupsBySongID(t *testing.T) {
-	var reqCount atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reqCount.Add(1)
-		w.Header().Set("Content-Type", "audio/mpeg")
-		_, _ = w.Write([]byte("audio-bytes"))
-	}))
-	defer srv.Close()
+func TestAsyncDownloadAndCacheSharesFullDownloads(t *testing.T) {
+	for _, playbackFirst := range []bool{false, true} {
+		name := "prefetch first"
+		if playbackFirst {
+			name = "supplement first"
+		}
+		t.Run(name, func(t *testing.T) {
+			cache, repo := newValidationCache(t)
+			data := validationWAV(40, 8000)
+			started := make(chan struct{})
+			release := make(chan struct{})
+			var releaseOnce sync.Once
+			releaseOrigin := func() { releaseOnce.Do(func() { close(release) }) }
+			var requests atomic.Int32
+			origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if requests.Add(1) == 1 {
+					close(started)
+					<-release
+				}
+				w.Header().Set("Content-Type", "audio/wav")
+				_, _ = w.Write(data)
+			}))
+			defer origin.Close()
+			defer releaseOrigin()
+			cache.downloadClient = origin.Client()
+			song := &models.Song{Type: models.TypeRemote, URL: origin.URL, Duration: 40}
+			if err := repo.Create(t.Context(), song); err != nil {
+				t.Fatal(err)
+			}
 
-	cs := newTestCacheService(t.TempDir(), "", "")
-	cs.downloadClient = srv.Client()
-	song := &models.Song{ID: 4242, Type: "remote", PluginEntryPath: "ytdlp", DedupKey: "vid_p1"}
+			finished := make(chan error, 1)
+			go func() {
+				if playbackFirst {
+					cache.AsyncDownloadAndCache(t.Context(), song, origin.URL, nil)
+					finished <- nil
+					return
+				}
+				_, err := cache.Get(t.Context(), song)
+				finished <- err
+			}()
+			select {
+			case <-started:
+			case <-time.After(5 * time.Second):
+				t.Fatal("the first download did not reach the origin")
+			}
 
-	// 模拟该歌的后台下载已在进行中：预置 inflight 标记
-	cs.asyncCacheInflight.Store(song.ID, struct{}{})
+			if playbackFirst {
+				ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+				defer cancel()
+				if _, err := cache.Get(ctx, song); !errors.Is(err, context.DeadlineExceeded) {
+					t.Errorf("Get should wait for the supplemental download and honor cancellation, got %v", err)
+				}
+			}
 
-	done := make(chan struct{})
-	go func() {
-		cs.AsyncDownloadAndCache(context.Background(), song, srv.URL, nil)
-		close(done)
-	}()
+			supplementDone := make(chan struct{})
+			go func() {
+				cache.AsyncDownloadAndCache(t.Context(), song, origin.URL, nil)
+				close(supplementDone)
+			}()
+			select {
+			case <-supplementDone:
+			case <-time.After(5 * time.Second):
+				t.Error("redundant supplemental download should return without waiting")
+			}
+			if got := requests.Load(); got != 1 {
+				t.Errorf("requests while first download is in progress: %d, want 1", got)
+			}
 
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("已有 inflight 时 AsyncDownloadAndCache 未立即短路返回")
-	}
-
-	if got := reqCount.Load(); got != 0 {
-		t.Fatalf("已有 inflight 时应短路、不发起下载；却发起了 %d 次请求", got)
+			releaseOrigin()
+			select {
+			case err := <-finished:
+				if err != nil {
+					t.Fatal(err)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("the first download did not finish")
+			}
+			if _, ok := cache.FindCachedFileBySong(song); !ok {
+				t.Fatal("expected a valid full-song cache entry")
+			}
+			cache.AsyncDownloadAndCache(t.Context(), song, origin.URL, nil)
+			if got := requests.Load(); got != 1 {
+				t.Errorf("a late 206 should reuse the completed cache, got %d origin requests", got)
+			}
+		})
 	}
 }

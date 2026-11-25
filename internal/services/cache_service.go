@@ -84,10 +84,8 @@ type CacheService struct {
 	// NewCacheService/UpdateCacheConfig 时同步。cacheTranscodeFormat 为空表示不转码。
 	cacheTranscodeFormat  atomic.Value // string
 	cacheTranscodeBitrate atomic.Int64
-	// asyncCacheInflight 按 song.ID 去重流式代理触发的后台全量下载（AsyncDownloadAndCache）。
-	// 流式播放路径不走 CacheService.Get 的 inflight，重试/并发 206 会各自触发一次全量下载，
-	// 在慢网下互相抢带宽全败——这里去重，同一首同时只跑一个后台下载（songloft-org/songloft#286）。
-	asyncCacheInflight sync.Map // songID(int64) -> struct{}
+	// 预取、显式下载的缓存读取及流式播放触发的全量补缓存共用同曲下载任务。
+	songDownloads sync.Map // songID(int64) -> *songCacheDownload
 	// 回调：由 app.go 注入,连接 SongRepository
 	updateCachePath    func(ctx context.Context, songID int64, cachePath string) error
 	clearCachePath     func(ctx context.Context, songID int64) error

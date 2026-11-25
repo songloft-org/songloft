@@ -3,11 +3,42 @@ package services
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"songloft/internal/models"
 )
+
+func TestFindCachedFileBySongSkipsTranscodedVariants(t *testing.T) {
+	cache, _ := newValidationCache(t)
+	song := &models.Song{ID: 2587, Type: models.TypeRemote, URL: "https://example.invalid/song.wav", Duration: 40}
+	dir, base := cache.getCachePath(song.ID, cacheKeyOf(song))
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	original := filepath.Join(dir, base+".wav")
+	variant := filepath.Join(dir, cache.transcodedFileName(song, "mp3", 128, -1, false))
+	for _, path := range []string{original, variant} {
+		if err := os.WriteFile(path, validationWAV(40, 8000), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if got, ok := cache.FindCachedFileBySong(song); !ok || got != original {
+		t.Errorf("base cache lookup returned %q, want %q", got, original)
+	}
+	if err := os.Remove(original); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := cache.FindCachedFileBySong(song); ok {
+		t.Errorf("only a variant remains, base cache lookup returned %q", got)
+	}
+	if got, ok := cache.FindTranscodedFile(song, "mp3", 128, -1, false); !ok || got != variant {
+		t.Errorf("128 kbps lookup returned %q, want %q", got, variant)
+	}
+}
 
 // TestCacheGet_InflightWaiterCanceledByOwnCtx 验证：当首请求 inflight 还没完成时，
 // 第二个等待者被自己的 ctx 取消（如用户切歌）应**立即返回**，而不是死等首请求。
@@ -19,18 +50,7 @@ func TestCacheGet_InflightWaiterCanceledByOwnCtx(t *testing.T) {
 	song := &models.Song{ID: 9001, Type: "remote", URL: "http://example.invalid/song.mp3"}
 
 	// 模拟首请求已经在 inflight，dl.done 永不关闭
-	state := getSongState()
-	state.inflightMu.Lock()
-	dl := &inflightDownload{done: make(chan struct{})}
-	state.inflight[song.ID] = dl
-	state.inflightMu.Unlock()
-	t.Cleanup(func() {
-		state.inflightMu.Lock()
-		if state.inflight[song.ID] == dl {
-			delete(state.inflight, song.ID)
-		}
-		state.inflightMu.Unlock()
-	})
+	cs.startSongDownload(song.ID, false)
 
 	// 第二个等待者：ctx 短时间内取消
 	ctx, cancel := context.WithCancel(context.Background())

@@ -330,13 +330,13 @@ manager/scheduler 的内存 map 键，以及 `plugin_storage.plugin_entry_path` 
 
 - 播放远程歌曲时流式代理上游音频到客户端（不阻塞），同时后台异步写入缓存；后续播放缓存命中后直接从本地返回
 - 流式代理 `ServeRemoteResourceWithCache`：200 OK 时 TeeReader 同时代理+写临时文件，206 Partial 时正常代理并触发异步全量下载
-- 缓存路径持久化在 `songs.cache_path` 字段（DB 级别），查找时优先 `cache_path`，fallback 到旧格式哈希分桶目录
+- 缓存路径持久化在 `songs.cache_path` 字段（DB 级别）。查找时优先 `cache_path`，再去哈希分桶目录找基础缓存。`.tc.` 派生文件按请求的转码参数单独匹配。
 - 缓存目录默认 `{data_dir}/music_cache/`，可通过 `PUT /api/v1/cache-manage/config` 的 `cache_dir` 字段自定义为绝对路径
 - 启动时从 `music_cache_config` 配置读取自定义目录；运行时切换目录会自动重建 LRU 索引，不迁移旧文件
 - LRU 淘汰：超出 `max_size`（默认 1GB）时按最后访问时间淘汰，`max_size=0` 表示不限制
 - **缓存落盘转码**（`transcode_format` / `transcode_quality`，`PUT /api/v1/cache-manage/config`，songloft-org/songloft#300）：默认 `""` 按上游原码落盘（YouTube .mkv/.webm、B站 .mov）；设为 `mp3/m4a/ogg/flac/wav` 后，缓存网络歌曲落盘时统一转码为该格式（适配不支持 MKV 的音频客户端）。由 `EnsureCachedFormat` 在两个播放侧产出点执行——`FinalizeCache`（流式播放 + 206 异步全量）与 `prepareSongPlayback` 的 prefetch 预热（`Get` 之后）；复用 `runFFmpeg`，转码后删原码、`cache_path` 指向新格式。缺 ffmpeg 或转码失败时**优雅降级保留原格式**。**不影响** `songs.download` 的显式格式处理（下载路径复用 `Get` 但自带 `opts.Format`，故转码逻辑只挂在播放侧，不动 `moveToCache`/`Get`）。**取舍**：`ffmpeg -vn` 会丢视频轨，故对 `is_video` 的远程歌开启后 `media=video` 投屏只得纯音频（属预期，满足 YouTube MKV→mp3 主诉求）；`EnsureCachedFormat` 内含 `cacheTranscodeTimeout`（15min）兜底，防坏源卡死永久占用 `transcodeSem`
 - `POST /api/v1/cache-manage/validate-dir` 可预先验证目录（自动创建 + 可写性检查 + 返回磁盘空间）
-- inflight 去重：同 `song.ID` 的并发请求只下载一次；首请求被 `ctx.Canceled` 时后续等待者自动重试
+- 同一 `CacheService` 按 `song.ID` 合并预取、显式下载的缓存读取和流式播放触发的全量补缓存。补缓存遇到进行中的任务直接返回，任务结束后先检查完整缓存。等待者可以取消，原下载取消后仍可重试。未命中的正式播放继续流式回源。
 
 <a id="normalization"></a>
 

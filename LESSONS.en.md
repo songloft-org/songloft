@@ -203,6 +203,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 - Boundary: background whole-file validation cannot retract an already-streamed initial prompt. Plain URLs have no cross-plugin alternatives; player retries after all sources fail remain separate. macOS/OrbStack arm64, live NetEase sources and Xiaomi speaker: Not run.
 - Seen 1× (2026-11-15). Status: local implementation and validation complete; commit, CI and version availability follow the delivery reply on #570.
 
+### CACHE-002 Share full downloads per song and look up transcode variants by bitrate
+
+- This covers remote-song prefetch, Range playback, and the transcode cache. [songloft-org/songloft#587](https://github.com/songloft-org/songloft/issues/587), baseline `2587f78`.
+- In controlled HTTP tests, the old code issued a second full request when prefetch and a streaming cache fill overlapped. After a 128 kbps variant was generated, the directory fallback could also select it for playback at original quality.
+- Full cache fills and prefetch share one download per song. A cache fill checks for an existing cached file before downloading. Playback retains origin streaming and Range handling. Base cache lookups select the base file, while transcode lookups match format, bitrate, and the other requested transcode options.
+- Seen 1× (2026-11-25). Local verification covers disconnect and retry, two concurrent Range requests, and bitrate checks with real FFmpeg. The reporter's Filen and L06A remain unverified.
+
 ### HLS-001: Cross-origin CDN resources need verifiable proxy authorization
 
 - Scope: HLS radio playlists, child playlists, segments/keys/init resources, and redirects; songloft-org/songloft#567, baseline `6115afb969ff1f4b7ced0fbe39d223350adb9e5c`.

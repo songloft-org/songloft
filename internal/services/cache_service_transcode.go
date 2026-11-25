@@ -359,19 +359,18 @@ func (c *CacheService) runFFmpeg(ctx context.Context, srcPath, dstPath string, s
 	return nil
 }
 
+const transcodeCacheMarker = ".tc."
+
 // transcodedFileName 生成转码缓存文件名。
 // bitrate > 0 时文件名含码率标记，如 "42.tc.128k.mp3"。
 // trackIndex >= 0 时文件名含抽轨标记，如 "42.tc.a1.m4a"（songloft-org/songloft#298），
 // 保证不同音轨的缓存互不覆盖。
 func (c *CacheService) transcodedFileName(song *models.Song, targetFormat string, bitrate, trackIndex int, normalize bool) string {
-	idStr := strconv.FormatInt(song.ID, 10)
-	key := cacheKeyOf(song)
-	var base string
-	if key != "" {
-		base = idStr + "." + key + ".tc."
-	} else {
-		base = idStr + ".tc."
+	base := strconv.FormatInt(song.ID, 10)
+	if key := cacheKeyOf(song); key != "" {
+		base += "." + key
 	}
+	base += transcodeCacheMarker
 	if normalize {
 		base += c.normalizeLoudnessTag() + "."
 	}

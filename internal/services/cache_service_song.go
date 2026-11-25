@@ -29,11 +29,14 @@ type CacheSongFetcher interface {
 	ResolveURL(ctx context.Context, song *source.SongInfo) (*source.ResolvedURL, error)
 }
 
-// 全局唯一(per process)的 song-id-indexed 状态。
-// 与原 hash-indexed inflight 共存,不冲突。
+// songCacheDownload 标识全量下载是否复用了播放请求已解析的 URL。
+type songCacheDownload struct {
+	inflightDownload
+	supplemental bool
+}
+
+// 全局唯一(per process)的转码状态。
 type songCacheState struct {
-	inflightMu          sync.Mutex
-	inflight            map[int64]*inflightDownload // songID → 同步等待 channel
 	transcodeInflightMu sync.Mutex
 	transcodeInflight   map[string]*inflightDownload // "tc_{songID}_{format}" → 同步等待 channel
 }
@@ -46,7 +49,6 @@ var (
 func getSongState() *songCacheState {
 	songStateOnce.Do(func() {
 		songState = &songCacheState{
-			inflight:          make(map[int64]*inflightDownload),
 			transcodeInflight: make(map[string]*inflightDownload),
 		}
 	})
@@ -171,6 +173,10 @@ func (c *CacheService) findCachedFileBySong(song *models.Song) (string, bool) {
 		if !strings.HasPrefix(name, base) || strings.HasSuffix(name, ".tmp") {
 			continue
 		}
+		// 派生文件必须通过指定格式、码率等参数的转码缓存查找来匹配。
+		if strings.HasPrefix(name, base+transcodeCacheMarker) {
+			continue
+		}
 		if name == base || (len(name) > len(base) && name[len(base)] == '.') {
 			p := filepath.Join(dir, name)
 			return p, true
@@ -233,34 +239,28 @@ func (c *CacheService) Get(ctx context.Context, song *models.Song) (string, erro
 		return "", errors.New("song is nil")
 	}
 
-	// 1. 命中本地缓存
-	if p, ok := c.findValidatedCache(ctx, song); ok {
-		return p, nil
-	}
-
-	// 2. inflight 去重(同 song.ID 的并发请求只下载一次)
-	// 注意：若首个请求被 ctx.Canceled（用户切歌触发 abort），不能把这个错误传染给
-	// 后到的等待者——他们的 ctx 是新的、未取消，必须重新尝试下载。否则"切走又切回"
-	// 同一首歌时会立刻 502（issue #79 的二次原因）。
-	state := getSongState()
 	for {
-		state.inflightMu.Lock()
-		dl, ok := state.inflight[song.ID]
-		if !ok {
-			// 没有 inflight，自己来下载
-			dl = &inflightDownload{done: make(chan struct{})}
-			state.inflight[song.ID] = dl
-			state.inflightMu.Unlock()
-			break
+		if err := ctx.Err(); err != nil {
+			return "", err
 		}
-		state.inflightMu.Unlock()
+		dl, started := c.startSongDownload(song.ID, false)
+		if started {
+			defer c.finishSongDownload(song.ID, dl)
+			path, err := c.getOrDownloadSong(ctx, song)
+			dl.err = err
+			return path, err
+		}
 
-		// 等待已存在的 inflight 完成；同时监听本等待者自己的 ctx，
-		// 防止首请求卡住时把第二、三个等待者也一起拖死（issue #79 残留点）。
 		select {
 		case <-dl.done:
 		case <-ctx.Done():
 			return "", ctx.Err()
+		}
+
+		// 补缓存沿用音箱请求已解析的 URL，可能已经过期。重新进入 Get 的缓存
+		// 检查，仍未命中时用常规流程解析音源，保留获取新地址和重试的机会。
+		if dl.supplemental {
+			continue
 		}
 		if dl.err != nil {
 			if errors.Is(dl.err, context.Canceled) || errors.Is(dl.err, context.DeadlineExceeded) {
@@ -275,56 +275,61 @@ func (c *CacheService) Get(ctx context.Context, song *models.Song) (string, erro
 		if p, ok := c.findValidatedCache(ctx, song); ok {
 			return p, nil
 		}
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		return "", fmt.Errorf("cache file not found after wait")
 	}
-	dl := state.inflight[song.ID]
-	defer func() {
-		state.inflightMu.Lock()
-		// 仅在 map 里的还是自己时删除，防止其它代码路径替换后误删
-		if state.inflight[song.ID] == dl {
-			delete(state.inflight, song.ID)
-		}
-		state.inflightMu.Unlock()
-		close(dl.done)
-	}()
+}
 
-	// 3. 实际拉取
-	var (
-		tmpPath  string
-		ext      string
-		fetchErr error
-	)
+func (c *CacheService) startSongDownload(songID int64, supplemental bool) (*songCacheDownload, bool) {
+	task := &songCacheDownload{
+		inflightDownload: inflightDownload{done: make(chan struct{})},
+		supplemental:     supplemental,
+	}
+	current, loaded := c.songDownloads.LoadOrStore(songID, task)
+	return current.(*songCacheDownload), !loaded
+}
 
+func (c *CacheService) finishSongDownload(songID int64, task *songCacheDownload) {
+	c.songDownloads.Delete(songID)
+	close(task.done)
+}
+
+func (c *CacheService) getOrDownloadSong(ctx context.Context, song *models.Song) (string, error) {
+	if path, ok := c.findValidatedCache(ctx, song); ok {
+		return path, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+
+	var tmpPath, ext string
 	switch {
 	case song.IsPluginSourced():
 		if c.orchestrator == nil {
-			dl.err = ErrNoOrchestrator
 			return "", ErrNoOrchestrator
 		}
 		res, err := c.orchestrator.Fetch(ctx, songInfoOf(song), source.ModeStrict)
 		if err != nil {
-			dl.err = err
 			return "", err
 		}
 		tmpPath = res.TempPath
 		ext = extensionFromFormat(res.Info)
 	case song.URL != "":
 		// 纯外链:简化下载,无 fallback
-		tmpPath, ext, fetchErr = c.downloadExternalToTemp(ctx, song.URL, nil)
-		if fetchErr != nil {
-			dl.err = fetchErr
-			return "", fetchErr
+		var err error
+		tmpPath, ext, err = c.downloadExternalToTemp(ctx, song.URL, nil)
+		if err != nil {
+			return "", err
 		}
 	default:
-		dl.err = errors.New("song has no playable source")
-		return "", dl.err
+		return "", errors.New("song has no playable source")
 	}
 
-	// 4. 移入 cache 目录
 	finalPath, err := c.moveToCache(ctx, song, tmpPath, ext)
 	if err != nil {
 		_ = os.Remove(tmpPath)
-		dl.err = err
 		return "", err
 	}
 	// 触发 LRU 淘汰
@@ -457,20 +462,20 @@ func (c *CacheService) FinalizeCache(ctx context.Context, song *models.Song, tmp
 	return nil
 }
 
-// AsyncDownloadAndCache 在后台全量下载远程歌曲并缓存。
-// 用于 206 场景：客户端已在接收代理流，此方法独立发起全量 GET。
-//
-// 按 song.ID 去重：客户端重试或并发 206 分片会多次进入此路径，若不去重会在慢网下
-// 发起多个互相抢带宽的全量下载而全部失败。同一首歌同时只保留一个后台下载在跑
-// （songloft-org/songloft#286）。
+// AsyncDownloadAndCache 在流式播放后补齐缓存。预取或另一条流已经在下载时直接返回。
 func (c *CacheService) AsyncDownloadAndCache(ctx context.Context, song *models.Song, url string, headers map[string]string) {
 	if song == nil {
 		return
 	}
-	if _, loaded := c.asyncCacheInflight.LoadOrStore(song.ID, struct{}{}); loaded {
+	task, started := c.startSongDownload(song.ID, true)
+	if !started {
 		return
 	}
-	defer c.asyncCacheInflight.Delete(song.ID)
+	defer c.finishSongDownload(song.ID, task)
+	// 206 请求可能在预取完成前启动、完成后才尝试补缓存。
+	if _, ok := c.findValidatedCache(ctx, song); ok || ctx.Err() != nil {
+		return
+	}
 
 	tmpPath, ext, err := c.downloadExternalToTemp(ctx, url, headers)
 	if err != nil {
