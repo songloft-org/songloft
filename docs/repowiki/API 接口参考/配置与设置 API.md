@@ -235,12 +235,13 @@ Songloft 有两类配置接口，用户可见的功能开关一律走业务端�
 
 ### 3.10 底部导航栏 Tab 配置
 
-**`GET /api/v1/settings/tab-config`** -- 获取 Tab 配置（未配置时返回默认值：4 Tab）。
+**`GET /api/v1/settings/tab-config`** -- 获取 Tab 配置（未配置时显示首页、曲库和设置）。
 
 **`PUT /api/v1/settings/tab-config`** -- 保存 Tab 配置。
 
 ```json
 {
+  "show_home": true,
   "show_library": true,
   "show_playlists": true,
   "plugin_tabs": [
@@ -251,14 +252,15 @@ Songloft 有两类配置接口，用户可见的功能开关一律走业务端�
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
+| `show_home` | bool | `true` | 是否显示首页。PUT 省略此字段会保留已保存的值。 |
 | `show_library` | bool | `true` | 是否显示歌曲库 Tab |
-| `show_playlists` | bool | `true` | 是否显示歌单 Tab |
+| `show_playlists` | bool | `true` | 旧版客户端兼容字段 |
 | `plugin_tabs` | array | `[]` | 插件 Tab 列表 |
 
-首页和设置固定显示（不在配置中），可选项为歌曲库、歌单和插件 Tab。
+设置固定显示。隐藏首页后，客户端进入第一个可见标签。
 
 **PUT 校验规则**:
-- 可选项总数（`show_library` + `show_playlists` 各算 1 + 插件 Tab 数量）不超过 3，加上固定的首页和设置共 5 个
+- 曲库与已启用的插件 Tab 合计最多 10 个
 - 每个插件 Tab 的 `entry_path` 和 `name` 不能为空
 - `entry_path` 不能重复
 - **400**: 校验失败 | **500**: 保存失败

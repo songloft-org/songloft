@@ -52,12 +52,49 @@ func TestTabConfigSetting_Default(t *testing.T) {
 	if !resp.ShowLibrary {
 		t.Error("default show_library should be true")
 	}
+	if !resp.ShowHome {
+		t.Error("default show_home should be true")
+	}
 	if !resp.ShowPlaylists {
 		t.Error("default show_playlists should be true")
 	}
 	if len(resp.PluginTabs) != 0 {
 		t.Errorf("default plugin_tabs should be empty, got %d", len(resp.PluginTabs))
 	}
+}
+
+func TestTabConfigSetting_ShowHomeLegacyCompatibility(t *testing.T) {
+	h := newTestConfigHandler(t)
+	const path = "/api/v1/settings/tab-config"
+	const legacy = `{"show_library":false,"plugin_tabs":[]}`
+	if err := h.configService.SetJSON(tabConfigKey, json.RawMessage(legacy)); err != nil {
+		t.Fatal(err)
+	}
+
+	check := func(wantHome bool, body string) {
+		t.Helper()
+		if body != "" {
+			rr := httptest.NewRecorder()
+			h.UpdateTabConfigSetting(rr, httptest.NewRequest("PUT", path, strings.NewReader(body)))
+			if rr.Code != http.StatusOK {
+				t.Fatalf("PUT: %d %s", rr.Code, rr.Body)
+			}
+		}
+
+		rr := httptest.NewRecorder()
+		h.GetTabConfigSetting(rr, httptest.NewRequest("GET", path, nil))
+		var cfg tabConfigSetting
+		if err := json.Unmarshal(rr.Body.Bytes(), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if cfg.ShowHome != wantHome || cfg.ShowLibrary {
+			t.Fatalf("GET: got %s, want show_home=%t and show_library=false", rr.Body, wantHome)
+		}
+	}
+	check(true, "")
+	check(false, `{"show_home":false,"show_library":false,"plugin_tabs":[]}`)
+	check(false, legacy)
+	check(true, `{"show_home":true,"show_library":false,"plugin_tabs":[]}`)
 }
 
 func TestTabConfigSetting_UpdateThenRead(t *testing.T) {

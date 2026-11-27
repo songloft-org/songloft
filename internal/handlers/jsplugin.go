@@ -410,7 +410,7 @@ func (h *JSPluginHandler) handleDelete(w http.ResponseWriter, r *http.Request) {
 // 插件卸载后其 Tab 条目成为孤儿：首页不渲染却永久占用可选名额，
 // 导致计数与可见 Tab 数不符（songloft-org/songloft#416）。
 func (h *JSPluginHandler) removeTabConfigEntry(entryPath string) {
-	var cfg tabConfigSetting
+	cfg := tabConfigSetting{ShowHome: true}
 	if err := h.configService.GetJSON(tabConfigKey, &cfg); err != nil {
 		return // 配置不存在或无效，无需清理
 	}

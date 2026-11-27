@@ -11,11 +11,12 @@ import (
 const tabConfigKey = "tab_config"
 
 // maxOptionalTabs 可选项（曲库 + 已启用插件 Tab）的数量上限。
-// 首页与设置固定显示，不计入该上限；前端 _maxTabs(12) = 2 固定 + 10 可选。
+// 首页与设置不计入该上限。
 const maxOptionalTabs = 10
 
 // tabConfigSetting 底部导航栏 Tab 配置
 type tabConfigSetting struct {
+	ShowHome      bool             `json:"show_home"`
 	ShowLibrary   bool             `json:"show_library"`
 	ShowPlaylists bool             `json:"show_playlists"`
 	PluginTabs    []pluginTabEntry `json:"plugin_tabs"`
@@ -34,34 +35,38 @@ type tabConfigPluginSource interface {
 }
 
 var defaultTabConfig = tabConfigSetting{
+	ShowHome:      true,
 	ShowLibrary:   true,
 	ShowPlaylists: true,
 	PluginTabs:    []pluginTabEntry{},
 }
 
+func (h *ConfigHandler) readTabConfig() tabConfigSetting {
+	cfg := tabConfigSetting{ShowHome: true}
+	if err := h.configService.GetJSON(tabConfigKey, &cfg); err != nil {
+		return defaultTabConfig
+	}
+	if cfg.PluginTabs == nil {
+		cfg.PluginTabs = []pluginTabEntry{}
+	}
+	return cfg
+}
+
 // GetTabConfigSetting 获取底部导航栏 Tab 配置
 // @Summary 获取底部导航栏 Tab 配置
-// @Description 获取用户自定义的底部导航栏 Tab 配置。首页和设置固定显示，曲库可关闭，可选项（曲库 + 已启用插件 Tab）总数不超过 10 个。未配置时返回默认值（首页、曲库、设置）。移动端超过 5 个时自动折叠到「更多」菜单，桌面端侧边栏可全部展示。show_playlists 字段仅为兼容旧配置保留（歌单已并入曲库），不参与任何展示与计数。
+// @Description 获取用户自定义的底部导航栏 Tab 配置。设置固定显示，首页（show_home）和曲库可关闭。首页默认显示，隐藏时客户端进入第一个可见标签。可选项（曲库 + 已启用插件 Tab）总数不超过 10 个。未配置时返回默认值（首页、曲库、设置）。移动端超过 5 个时自动折叠到「更多」菜单，桌面端侧边栏可全部展示。show_playlists 字段仅为兼容旧配置保留（歌单已并入曲库），不参与任何展示与计数。
 // @Tags 设置
 // @Produce json
 // @Success 200 {object} tabConfigSetting "Tab 配置"
 // @Security BearerAuth
 // @Router /settings/tab-config [get]
 func (h *ConfigHandler) GetTabConfigSetting(w http.ResponseWriter, r *http.Request) {
-	var cfg tabConfigSetting
-	if err := h.configService.GetJSON(tabConfigKey, &cfg); err != nil {
-		respondJSON(w, http.StatusOK, defaultTabConfig)
-		return
-	}
-	if cfg.PluginTabs == nil {
-		cfg.PluginTabs = []pluginTabEntry{}
-	}
-	respondJSON(w, http.StatusOK, cfg)
+	respondJSON(w, http.StatusOK, h.readTabConfig())
 }
 
 // UpdateTabConfigSetting 保存底部导航栏 Tab 配置
 // @Summary 保存底部导航栏 Tab 配置
-// @Description 保存用户自定义的底部导航栏 Tab 配置。首页和设置固定显示（不在配置中），可选项为曲库和已启用（active）插件 Tab，总数不超过 10 个。插件已不存在的孤儿条目会在保存时被静默清理（保存即自愈）；禁用插件的条目保留但不占名额，重新启用后自动恢复。每个插件 Tab 的 entry_path 和 name 不能为空，且不能重复。show_playlists 字段仅为兼容旧配置保留（歌单已并入曲库），不参与任何展示与计数。移动端超过 5 个时自动折叠到「更多」菜单。
+// @Description 保存用户自定义的底部导航栏 Tab 配置。设置固定显示，首页可通过 show_home 关闭，缺省时保留当前首页设置。可选项为曲库和已启用（active）插件 Tab，总数不超过 10 个。插件已不存在的孤儿条目会在保存时被静默清理（保存即自愈）；禁用插件的条目保留但不占名额，重新启用后自动恢复。每个插件 Tab 的 entry_path 和 name 不能为空，且不能重复。show_playlists 字段仅为兼容旧配置保留（歌单已并入曲库），不参与任何展示与计数。移动端超过 5 个时自动折叠到「更多」菜单。
 // @Tags 设置
 // @Accept json
 // @Produce json
@@ -72,7 +77,7 @@ func (h *ConfigHandler) GetTabConfigSetting(w http.ResponseWriter, r *http.Reque
 // @Security BearerAuth
 // @Router /settings/tab-config [put]
 func (h *ConfigHandler) UpdateTabConfigSetting(w http.ResponseWriter, r *http.Request) {
-	var req tabConfigSetting
+	req := tabConfigSetting{ShowHome: h.readTabConfig().ShowHome}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "请求格式错误", err)
 		return

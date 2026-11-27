@@ -235,12 +235,13 @@ The default empty string means there is no saved proxy address. Plugin backend `
 
 ### 3.10 Bottom Navigation Tab Configuration
 
-**`GET /api/v1/settings/tab-config`** -- Gets the tab configuration (returns the default value when not configured: 4 tabs).
+**`GET /api/v1/settings/tab-config`** -- Gets the tab configuration (defaults to Home, Library, and Settings).
 
 **`PUT /api/v1/settings/tab-config`** -- Saves the tab configuration.
 
 ```json
 {
+  "show_home": true,
   "show_library": true,
   "show_playlists": true,
   "plugin_tabs": [
@@ -251,14 +252,15 @@ The default empty string means there is no saved proxy address. Plugin backend `
 
 | Field | Type | Default | Description |
 |------|------|--------|------|
+| `show_home` | bool | `true` | Whether to show Home. A PUT that omits this field keeps the saved value. |
 | `show_library` | bool | `true` | Whether to show the library tab |
-| `show_playlists` | bool | `true` | Whether to show the playlists tab |
+| `show_playlists` | bool | `true` | Compatibility field for older clients |
 | `plugin_tabs` | array | `[]` | Plugin tab list |
 
-The home and settings tabs are always shown (not in the configuration); the optional items are the library, playlists, and plugin tabs.
+Settings is always visible. When Home is hidden, the client opens the first visible tab.
 
 **PUT validation rules**:
-- The total number of optional items (`show_library` + `show_playlists` count as 1 each + the number of plugin tabs) must not exceed 3, plus the fixed home and settings for a total of 5
+- Library and enabled plugin tabs share a combined limit of 10
 - The `entry_path` and `name` of each plugin tab cannot be empty
 - `entry_path` cannot be duplicated
 - **400**: Validation failed | **500**: Save failed

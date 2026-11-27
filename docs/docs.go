@@ -6823,7 +6823,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取用户自定义的底部导航栏 Tab 配置。首页和设置固定显示，曲库可关闭，可选项（曲库 + 已启用插件 Tab）总数不超过 10 个。未配置时返回默认值（首页、曲库、设置）。移动端超过 5 个时自动折叠到「更多」菜单，桌面端侧边栏可全部展示。show_playlists 字段仅为兼容旧配置保留（歌单已并入曲库），不参与任何展示与计数。",
+                "description": "获取用户自定义的底部导航栏 Tab 配置。设置固定显示，首页（show_home）和曲库可关闭。首页默认显示，隐藏时客户端进入第一个可见标签。可选项（曲库 + 已启用插件 Tab）总数不超过 10 个。未配置时返回默认值（首页、曲库、设置）。移动端超过 5 个时自动折叠到「更多」菜单，桌面端侧边栏可全部展示。show_playlists 字段仅为兼容旧配置保留（歌单已并入曲库），不参与任何展示与计数。",
                 "produces": [
                     "application/json"
                 ],
@@ -6846,7 +6846,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "保存用户自定义的底部导航栏 Tab 配置。首页和设置固定显示（不在配置中），可选项为曲库和已启用（active）插件 Tab，总数不超过 10 个。插件已不存在的孤儿条目会在保存时被静默清理（保存即自愈）；禁用插件的条目保留但不占名额，重新启用后自动恢复。每个插件 Tab 的 entry_path 和 name 不能为空，且不能重复。show_playlists 字段仅为兼容旧配置保留（歌单已并入曲库），不参与任何展示与计数。移动端超过 5 个时自动折叠到「更多」菜单。",
+                "description": "保存用户自定义的底部导航栏 Tab 配置。设置固定显示，首页可通过 show_home 关闭，缺省时保留当前首页设置。可选项为曲库和已启用（active）插件 Tab，总数不超过 10 个。插件已不存在的孤儿条目会在保存时被静默清理（保存即自愈）；禁用插件的条目保留但不占名额，重新启用后自动恢复。每个插件 Tab 的 entry_path 和 name 不能为空，且不能重复。show_playlists 字段仅为兼容旧配置保留（歌单已并入曲库），不参与任何展示与计数。移动端超过 5 个时自动折叠到「更多」菜单。",
                 "consumes": [
                     "application/json"
                 ],
@@ -12546,6 +12546,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/handlers.pluginTabEntry"
                     }
+                },
+                "show_home": {
+                    "type": "boolean"
                 },
                 "show_library": {
                     "type": "boolean"
