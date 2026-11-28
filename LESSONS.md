@@ -338,6 +338,13 @@
 - Done right：本次经用户确认，在两客户端新增独立、按服务器与账号保存在本机的首页显示开关；按内置 ID 与 `built_in` 识别，不改收藏成员或标签。测试、实际浏览器及未跑项分别记录在 [Flutter](clients/player-flutter/docs/cn/issue-532.md) 与 [Lynx](clients/player-lynx/docs/project/issue-532.md)，最终结果绑定各自工作树，不外推为原生设备或已发布版本。
 - Seen 1× (2026-10-21)。状态：经验；实现与验证完成，提交、CI 与版本状态以 #532 后续回复及交付验证记录为准。
 
+### 宿主新方法需要覆盖插件 SDK 的公开入口
+
+- 范围为 [songloft-org/songloft#599](https://github.com/songloft-org/songloft/issues/599)，主仓库基线 `2b7fa6d`，工具链基线 `841bf8e`。
+- 双端已支持通用桥接调用，但直接使用注入的 `player.openPlayer()` 或 `player.openQueue()` 会找不到方法。运行实际 `common.js` 的新增回归在补接口前以 `is not a function` 失败。
+- 宿主分发、公共脚本和两个 SDK 的公开导出都要核对。修正后验证 WebView 与 iframe 请求回执、Lynx 回复确认、宿主错误传递，以及构建后的 ESM、CommonJS 和原生 Lynx 导入。
+- Seen 1× (2026-11-28)。
+
 ### JSPLUG-002：客户端 SDK 的方法存在不等于宿主传输可用
 
 - 范围：公共资源 `internal/jsplugin/assets/common.js` 的 Flutter / Lynx / iframe 宿主桥；无关联 Issue，基线 `32ca05ccab18a68133ab1ccb776460610c835726`。

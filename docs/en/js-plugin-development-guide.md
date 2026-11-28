@@ -1217,6 +1217,14 @@ Build-free vanilla static pages need no install — just use the injected `windo
 
 Check `host.getInfo().capabilities` for `plugin.openUrl` or `player.openVideo`. WebView plugins use `host.openExternalUrl(url)` and `player.openVideo({ id })`. Native Lynx plugins use `invokeHost('plugin', 'openUrl', { url })` and `invokeHost('player', 'openVideo', { id })`. External links accept absolute HTTP(S) URLs. Fullscreen video accepts a library entry ID. See the [Lynx platform support table](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/en/reference/plugin-client-sdk.md#lynx-platform-support) for support and verification by platform.
 
+### Reuse the host player bar, fullscreen player, and queue
+
+Lynx and Flutter hosts report `player.playerBar`, `player.openPlayer`, and `player.openQueue` through `host.getInfo`. Add `static/songloft-ui.json` to the plugin package with `{"ui":{"playerBar":"host"}}` to reserve space for the host mini player when a song is loaded. The bar is hidden by default.
+
+Use the capability list to decide which controls to show. WebView plugins use `player` from `@songloft/client-sdk`, and native Lynx plugins use `player` from `@songloft/lynx-plugin-sdk`. Both npm packages provide `player.openPlayer()` and `player.openQueue()` as parameterless `Promise<void>` methods starting in `2.26.0`. Fullscreen playback needs a current song. Queue access is available independently of the bar declaration.
+
+HTML plugins without a build step can use the updated `window.SongloftPlugin.player`. With an earlier script that supports `invokeHost` and reply acknowledgements, check the host capability and call `window.SongloftPlugin.invokeHost('player', 'openPlayer')` or `window.SongloftPlugin.invokeHost('player', 'openQueue')`.
+
 ### Plugin audio effects
 
 Check `host.getInfo().capabilities` for `player.audioEffects`. Compatible hosts provide `player.getAudioEffects()`, `player.applyAudioEffects({ playbackId, effects })`, and `player.clearAudioEffects({ playbackId })`. Start host playback with a song or playlist, then use `supported` to display the effects available for the current output. Clearing effects restores user settings and playback continues. Lynx provides EQ presets on supported Android, iOS, macOS, Windows, and Web outputs. Native Lynx plugins use the same contract through `invokeHost('player', method, params)`. See the [Lynx plugin client SDK](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/en/reference/plugin-client-sdk.md#plugin-audio-effects).

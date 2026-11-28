@@ -63,6 +63,38 @@ test('Flutter callHandler transport continues to unwrap the existing envelope', 
   assert.equal(p.sent[0].ns, 'player');
 });
 
+test('player UI wrappers send parameterless calls through Flutter and acknowledge Lynx replies', async () => {
+  const flutter = page('flutter');
+  const lynx = page('iframe');
+
+  for (const method of ['openPlayer', 'openQueue']) {
+    assert.equal(await flutter.api.player[method](), undefined);
+    const request = flutter.sent.at(-1);
+    assert.equal(request.ns, 'player');
+    assert.equal(request.method, method);
+    assert.equal(request.params, null);
+
+    const opened = lynx.api.player[method]();
+    const pending = lynx.sent.at(-1);
+    assert.equal(pending.ns, 'player');
+    assert.equal(pending.method, method);
+    assert.equal(pending.params, null);
+    lynx.reply({ type: 'songloft-host-reply', id: pending.id, ok: true, data: null, acknowledge: true });
+    assert.equal(await opened, undefined);
+    const confirmation = lynx.sent.at(-1);
+    assert.equal(confirmation.id, pending.id);
+    assert.equal(confirmation.ns, 'lifecycle');
+    assert.equal(confirmation.method, 'hostReplyReceived');
+  }
+
+  const rejected = assert.rejects(lynx.api.player.openPlayer(), /no current song/);
+  const pending = lynx.sent.at(-1);
+  lynx.reply({ type: 'songloft-host-reply', id: pending.id, ok: false, error: 'no current song' });
+  await rejected;
+  assert.equal(lynx.sent.at(-1), pending);
+  assert.equal(lynx.timers.size, 0);
+});
+
 test('missing native transport rejects immediately and releases pending timers', async () => {
   const p = page('missing');
   await assert.rejects(p.api.host.getInfo(), /Lynx WebView bridge unavailable/);

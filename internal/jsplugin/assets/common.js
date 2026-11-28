@@ -723,6 +723,12 @@
 
     var player = {
         getState: function() { return invokeHost('player', 'getState'); },
+        openPlayer: function() {
+            return invokeHost('player', 'openPlayer').then(function() {});
+        },
+        openQueue: function() {
+            return invokeHost('player', 'openQueue').then(function() {});
+        },
         openVideo: function(options) {
             return invokeHost('player', 'openVideo', options).then(function() {});
         },

@@ -338,6 +338,13 @@ Evidence-backed lessons for the parent and public host contracts; see the [AI wo
 - Done right: after user approval, both clients gained independent home display switches stored locally per server and account. Identification uses built-in IDs plus `built_in`; membership and labels do not change. Tests, actual browser checks and Not run items are recorded in [Flutter](clients/player-flutter/docs/en/issue-532.md) and [Lynx](clients/player-lynx/docs/en/project/issue-532.md), bound to their worktrees without claiming native-device or released-version validation.
 - Seen 1× (2026-10-21). Status: lesson; implementation and validation complete. Commit, CI and version status follow the #532 reply and delivery validation record.
 
+### Cover the public plugin SDK entry points for new host methods
+
+- Scope is [songloft-org/songloft#599](https://github.com/songloft-org/songloft/issues/599), with parent baseline `2b7fa6d` and toolchain baseline `841bf8e`.
+- Both clients supported generic bridge calls. Direct calls to the injected `player.openPlayer()` and `player.openQueue()` failed because the methods were missing. The new regression ran the actual `common.js` and failed with `is not a function` before the wrappers were added.
+- Check host dispatch, the injected script, and both SDKs’ public exports. Verification covered WebView and iframe responses, Lynx reply acknowledgements, host error propagation, and imports from the built ESM, CommonJS, and native Lynx entry points.
+- Seen 1× (2026-11-28).
+
 ### JSPLUG-002: SDK methods can exist while the host transport remains unavailable
 
 - Scope: Flutter / Lynx / iframe host bridges in shared `internal/jsplugin/assets/common.js`; no linked Issue, baseline `32ca05ccab18a68133ab1ccb776460610c835726`.

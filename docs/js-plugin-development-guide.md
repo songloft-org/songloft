@@ -1215,6 +1215,14 @@ if (isClient()) {
 
 通过 `host.getInfo().capabilities` 检查 `plugin.openUrl` 或 `player.openVideo`。WebView 分别调用 `host.openExternalUrl(url)` 和 `player.openVideo({ id })`，原生 Lynx 使用 `invokeHost('plugin', 'openUrl', { url })` 和 `invokeHost('player', 'openVideo', { id })`。外链接收绝对 HTTP(S) 地址，曲库全屏视频接收条目 ID。各端的支持和验收状态见 [Lynx 平台支持表](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/reference/plugin-client-sdk.md#lynx-平台支持)。
 
+### 复用宿主播放栏、播放器和队列
+
+Lynx 和 Flutter 宿主在 `host.getInfo` 中公布 `player.playerBar`、`player.openPlayer` 和 `player.openQueue`。插件可在包内放置 `static/songloft-ui.json`，内容为 `{"ui":{"playerBar":"host"}}`。声明后，宿主在有当前歌曲时为迷你播放栏预留空间。默认隐藏。
+
+通过能力列表决定是否显示相应入口。WebView 插件可用 `@songloft/client-sdk` 的 `player`，原生 Lynx 插件可用 `@songloft/lynx-plugin-sdk` 的 `player`。两个 npm 包从 `2.26.0` 起提供无参数的 `player.openPlayer()` 和 `player.openQueue()`，返回 `Promise<void>`。全屏播放器需要当前歌曲，队列入口独立于播放栏声明。
+
+免构建的 HTML 插件可用更新后的 `window.SongloftPlugin.player`。较早的公共脚本如果已提供 `invokeHost` 和回复确认，可以在宿主公布对应能力后，通过 `window.SongloftPlugin.invokeHost('player', 'openPlayer')` 或 `window.SongloftPlugin.invokeHost('player', 'openQueue')` 调用。
+
 ### 插件播放音效
 
 通过 `host.getInfo().capabilities` 检查 `player.audioEffects`。支持该能力的宿主提供 `player.getAudioEffects()`、`player.applyAudioEffects({ playbackId, effects })` 和 `player.clearAudioEffects({ playbackId })`。插件先用歌曲 ID 或歌单启动宿主播放，再按 `supported` 显示该输出可用的音效。清除音效会恢复用户设置并继续播放。Lynx 的 Android、iOS、macOS、Windows 和 Web 在可用输出上支持 EQ 预设。原生 Lynx 插件通过 `invokeHost('player', method, params)` 使用相同契约。详见 [Lynx 插件客户端 SDK](https://github.com/songloft-org/songloft-player-lynx/blob/main/docs/reference/plugin-client-sdk.md#插件播放音效)。
